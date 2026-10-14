@@ -1,0 +1,11 @@
+node_modules/
+.next/
+out/
+.tools/
+.taste-skill/
+.env*
+!.env.example
+*.tsbuildinfo
+next-env.d.ts
+*.log
+.DS_Store
