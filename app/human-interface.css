@@ -326,3 +326,32 @@ button:disabled { opacity:.42; }
   .library-tabs { width:100%; }
   .library-tabs button { padding:10px 8px; }
 }
+
+/* Compact scale across the four working steps. */
+.shell,.header-inner { max-width:1160px; }
+.shell { padding-left:30px; padding-right:30px; }
+.intro h1,.my-heading h1,.ai-studio-heading h1,.quote-complete h1 { font-size:28px; }
+.prompt-welcome h2 { font-size:23px; }
+.ai-studio-heading { margin-bottom:20px; }
+.flow-steps,.ai-studio>.flow-steps { margin-bottom:20px; }
+.ai-stage,.creation-chat,.supplier-card,.quote-form,.quote-side,.production-document,.library-card,.flow-next { border-radius:26px; }
+.creation-chat { padding:22px; }
+.garment-viewport { height:320px; }
+.document-shirt .garment-viewport { height:300px; }
+.ai-stage .stage-head { height:54px; }
+.ai-stage-actions { min-height:70px; padding:14px 22px; }
+.primary,.outline { border-radius:999px; }
+.garment-picker { border-radius:16px; }.garment-picker button { border-radius:12px; }
+.ai-composer { border-radius:20px; }
+.prompt-examples button,.supplier-requirements { border-radius:15px; }
+.document-heading h2,.empty-state h2 { font-size:22px; }
+.quote-complete { padding:36px 28px; }
+.library-thumbnail { height:165px; }
+@media(max-width:900px) { .intro h1,.my-heading h1,.ai-studio-heading h1 { font-size:26px; }.garment-viewport { height:300px; } }
+@media(max-width:640px) {
+ .shell { padding-left:20px; padding-right:20px; }
+ .intro h1,.my-heading h1,.ai-studio-heading h1,.quote-complete h1 { font-size:24px; }
+ .prompt-welcome h2 { font-size:22px; }
+ .garment-viewport { height:270px; }.document-shirt .garment-viewport { height:260px; }
+ .creation-chat { padding:20px; }.library-thumbnail { height:150px; }
+}

@@ -3,6 +3,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { isDesign, STORAGE_KEY, type Design } from "./design";
 import type { OrderDraft } from "./quote";
+import { initializeBackendSession } from "./backend-client";
 
 export type LibraryKind = "design" | "artwork" | "document";
 export type LibraryAttachment = { file: Blob; fileName: string; label: string };
@@ -82,7 +83,10 @@ async function migrate(db: IDBDatabase) {
 async function refresh() {
   const db = await database();
   const values = await request(db.transaction("items", "readonly").objectStore("items").getAll());
-  publish({ items: values.filter(valid).sort((a, b) => b.createdAt.localeCompare(a.createdAt)), status: "ready", error: "" });
+  const response = await fetch("/api/designs", { cache: "no-store" });
+  const result = await response.json();
+  const cloud: LibraryItem[] = Array.isArray(result.items) ? result.items.filter(valid) : [];
+  publish({ items: [...cloud, ...values.filter(valid)].sort((a, b) => b.createdAt.localeCompare(a.createdAt)), status: "ready", error: !response.ok && response.status !== 401 ? result.error || "서버 디자인을 불러오지 못했어요." : "" });
 }
 export function initializeLibrary() {
   if (!loading) loading = (async () => {
@@ -92,7 +96,8 @@ export function initializeLibrary() {
         channel = new BroadcastChannel("seongbuk-fit-library");
         channel.onmessage = () => { void refresh().catch(() => publish({ ...state, status: "error", error: "보관함을 새로 불러오지 못했어요." })); };
       }
-    } catch (cause) { loading = null; publish({ ...state, status: "error", error: cause instanceof Error ? cause.message : "보관함을 열지 못했어요." }); }
+    } catch (cause) { publish({ ...state, status: "error", error: cause instanceof Error ? cause.message : "보관함을 열지 못했어요." }); }
+    finally { loading = null; }
   })();
   return loading;
 }
@@ -103,6 +108,13 @@ export function useLibrary() {
   return current;
 }
 export async function saveLibraryItem(input: NewItem): Promise<LibraryItem> {
+  if (input.kind === "design") {
+    await initializeBackendSession();
+    const response = await fetch("/api/designs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ design: input.design, prompt: input.prompt, filename: input.filename, title: (input.title || input.filename || input.design.text || "우리 반티").slice(0, 100), preview: input.preview || null }) });
+    const result = await response.json();
+    if (!response.ok || !valid(result.item)) throw new Error(result.error || "디자인을 저장하지 못했어요.");
+    await refresh(); channel?.postMessage("changed"); return result.item;
+  }
   await initializeLibrary();
   const db = await database();
   const now = new Date().toISOString();
@@ -112,6 +124,12 @@ export async function saveLibraryItem(input: NewItem): Promise<LibraryItem> {
   await refresh(); channel?.postMessage("changed"); return item;
 }
 export async function updateLibraryItem(id: string, patch: Pick<Partial<LibraryItem>, "title" | "favorite" | "trashedAt">) {
+  if (id.startsWith("cloud_")) {
+    const response = await fetch(`/api/designs/${id.slice(6)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "디자인을 수정하지 못했어요.");
+    await refresh(); channel?.postMessage("changed"); return;
+  }
   const db = await database();
   const transaction = db.transaction("items", "readwrite"); const done = committed(transaction);
   const get = transaction.objectStore("items").get(id);
@@ -121,8 +139,7 @@ export async function updateLibraryItem(id: string, patch: Pick<Partial<LibraryI
   await done; await refresh(); channel?.postMessage("changed");
 }
 export async function removeLibraryItem(id: string) {
-  const db = await database(); const transaction = db.transaction("items", "readwrite"); const done = committed(transaction);
-  transaction.objectStore("items").delete(id); await done; await refresh(); channel?.postMessage("changed");
+  await updateLibraryItem(id, { trashedAt: new Date().toISOString() });
 }
 export function dataURLBlob(url: string) {
   const [header, encoded] = url.split(",", 2);

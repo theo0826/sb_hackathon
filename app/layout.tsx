@@ -5,6 +5,10 @@ import "./globals.css";
 import "./polish.css";
 import "./workspace.css";
 import "./human-interface.css";
+import "./minimal.css";
+import "./patterns.css";
+import "./motion-home.css";
+import "./glass.css";
 
 export const metadata: Metadata = {
   title: { default: "성북핏 — 우리다운 반티의 시작", template: "%s | 성북핏" },
@@ -13,7 +17,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ko">
+    <html lang="ko" data-scroll-behavior="smooth">
       <body>
         <a className="skip-link" href="#main-content">본문 바로가기</a>
         <Header />

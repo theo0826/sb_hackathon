@@ -3,9 +3,9 @@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { Stage, Layer, Group, Path, Circle, Text, Rect, Line, Image as KonvaImage, Ellipse, Star } from "react-konva";
 import type Konva from "konva";
-import { LONG_SLEEVE_PATH, SHIRT_PATH, type Design } from "@/lib/design";
+import { LONG_SLEEVE_PATH, SHIRT_PATH, placementDesign, type Design, type Side } from "@/lib/design";
 
-export type CanvasHandle = { previewPNG: () => string | undefined };
+export type CanvasHandle = { previewPNG: (side?:Side) => string | undefined };
 type Props = { design: Design; onChange: (patch: Partial<Design>) => void; exportRef: Ref<CanvasHandle>; editable?: boolean; maxHeight?: number; showArtwork?: boolean };
 
 export default function DesignCanvas({ design, onChange, exportRef, editable = true, maxHeight = 470, showArtwork = true }: Props) {
@@ -32,12 +32,12 @@ export default function DesignCanvas({ design, onChange, exportRef, editable = t
   const height = Math.min(width, maxHeight);
   const ratio = height / 520;
   const horizontalOffset = (width - height) / 2;
-  const artworkScale = .68 * design.scale / 100;
-  const activeImage = image && image.src === design.image ? image : null;
+  const layers = design.placements ? design.placements.filter(p=>p.side===design.side).map(p=>({design:placementDesign(design,p),content:p.content,text:p.text,ink:p.ink})) : [{design,content:"artwork",text:design.text,ink:design.ink}];
+  const activeImage = image && image.src === (design.image ? new URL(design.image, window.location.href).href : null) ? image : null;
   const imageRatio = activeImage ? Math.min(180 / activeImage.width, 160 / activeImage.height) : 1;
   useImperativeHandle(exportRef, () => ({
-    previewPNG: () => design.image && !activeImage ? undefined : stage.current?.toDataURL({ x: horizontalOffset, y: 0, width: height, height, pixelRatio: 1040 / height }),
-  }), [height, horizontalOffset, design.image, activeImage]);
+    previewPNG: (side) => (side && side!==design.side) || (design.image && !activeImage) ? undefined : stage.current?.toDataURL({ x: horizontalOffset, y: 0, width: height, height, pixelRatio: 1040 / height }),
+  }), [height, horizontalOffset, design.side, design.image, activeImage]);
 
   return (
     <div ref={host} className="canvas-host" role="group" tabIndex={editable ? 0 : -1}
@@ -63,11 +63,11 @@ export default function DesignCanvas({ design, onChange, exportRef, editable = t
             <Path data="M107 153 Q118 285 108 407 M293 153 Q282 285 292 407" stroke="#000" opacity={.05} strokeWidth={7} />
           </Group>
           {showArtwork && <Group clipX={168} clipY={155} clipWidth={184} clipHeight={265}>
-            <Group x={design.x} y={design.y} scaleX={artworkScale} scaleY={artworkScale} rotation={design.rotation}
+            {layers.map(({design,content,text,ink},index)=><Group key={index} x={design.x} y={design.y} scaleX={.68*design.scale/100} scaleY={.68*design.scale/100} rotation={design.rotation}
               draggable={editable} listening={editable} onDragEnd={(event) => onChange({ x: event.target.x(), y: event.target.y() })}
               dragBoundFunc={(position) => ({ x: Math.max(horizontalOffset + 160 * ratio, Math.min(horizontalOffset + 360 * ratio, position.x)), y: Math.max(165 * ratio, Math.min(375 * ratio, position.y)) })}>
               <Rect x={-100} y={-92} width={200} height={184} fill="transparent" />
-              {activeImage ? <KonvaImage image={activeImage} x={-activeImage.width * imageRatio / 2} y={-activeImage.height * imageRatio / 2} width={activeImage.width * imageRatio} height={activeImage.height * imageRatio} /> : <>
+              {content==="text" ? <Text x={-100} y={-22} width={200} text={text || design.text} align="center" fontStyle="bold" fontSize={24} fill={ink || design.ink}/> : activeImage ? <KonvaImage image={activeImage} x={-activeImage.width * imageRatio / 2} y={-activeImage.height * imageRatio / 2} width={activeImage.width * imageRatio} height={activeImage.height * imageRatio} /> : <>
                 {design.style === "campus" && <>
                   <Circle radius={83} stroke={design.ink} strokeWidth={2.5} />
                   <Circle radius={74} stroke={design.ink} strokeWidth={1} opacity={.65} />
@@ -86,7 +86,7 @@ export default function DesignCanvas({ design, onChange, exportRef, editable = t
                   <Text x={-100} y={55} width={200} align="center" text={design.text || "OUR CLUB"} fontSize={design.text.length > 16 ? 14 : 20} fontStyle="bold" fill={design.ink} />
                 </>}
               </>}
-            </Group>
+            </Group>)}
           </Group>}
         </Layer>
       </Stage>

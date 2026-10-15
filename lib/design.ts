@@ -1,12 +1,12 @@
 export type ArtStyle = "campus" | "type" | "wave";
 export type Side = "front" | "back";
 export type Garment = "tee" | "hoodie" | "varsity";
+export type PrintPlacement = { id: string; side: Side; x: number; y: number; widthCm: number; heightCm: number; rotation: number; content?: "artwork"|"text"; text?: string; ink?: string };
+export type FabricStyle = { pattern: "solid"|"stripes"|"hoops"|"diagonal"|"checker"|"gradient"|"custom"; secondaryColor: string; trimColor: string; density: number; sleeveColor?: string|null };
 export const GARMENTS: { id: Garment; label: string; name: string }[] = [
   { id: "tee", label: "반팔티", name: "스탠다드 반팔" },
-  { id: "hoodie", label: "후드티", name: "오버핏 후드티" },
-  { id: "varsity", label: "과잠", name: "캠퍼스 바시티 재킷" },
 ];
-export function garmentName(design: Design) { return GARMENTS.find((item) => item.id === (design.garment || "tee"))!.name; }
+export function garmentName(design: Design) { return GARMENTS.find(item=>item.id===design.garment)?.name || "스탠다드 반팔"; }
 export type Design = {
   garment?: Garment;
   color: string;
@@ -19,7 +19,36 @@ export type Design = {
   scale: number;
   rotation: number;
   image: string | null;
+  placements?: PrintPlacement[];
+  fabric?: FabricStyle;
+  fabricImage?: string | null;
 };
+
+// Keep historical payloads readable; all active edits use a plain tee and logo only.
+export function simpleDesign(design:Design):Design {
+  const result:Design={...design,garment:"tee"};
+  delete result.fabric;delete result.fabricImage;
+  if(result.placements){const logos=result.placements.filter(p=>p.id!=="back-number").slice(0,2).map(p=>({...p,content:"artwork" as const,text:""}));if(logos.length)result.placements=logos;else delete result.placements;}
+  return result;
+}
+
+export function bodyPanelSize(garment: Garment = "tee") {
+  return { widthMm: garment === "hoodie" ? 580 : garment === "varsity" ? 560 : 520, heightMm: garment === "hoodie" ? 740 : garment === "varsity" ? 680 : 700 };
+}
+export function placementDesign(design: Design, placement: PrintPlacement): Design {
+  return { ...design, placements: undefined, side: placement.side, x: placement.x, y: placement.y, rotation: placement.rotation,
+    scale: placement.widthCm * 10 / bodyPanelSize(design.garment).widthMm * 1.22 / .94 * 100 };
+}
+export function placementLabel(placement: PrintPlacement) {
+  return `${placement.side === "front" ? "앞면" : "등판"} ${placement.side === "front" && placement.x > 285 ? "왼쪽 가슴" : placement.x < 235 ? "오른쪽" : "중앙"}`;
+}
+export function printSummary(design:Design) {
+  return design.placements?`${[...new Set(design.placements.map(p=>p.side==="front"?"앞면":"등판"))].join(" + ")} · ${design.placements.length}개 배치`:`${design.side==="front"?"앞면":"등판"} · ${design.scale}% · ${design.rotation}°`;
+}
+export function defaultClubPlacements(): PrintPlacement[] {
+  return [{ id: "front-chest", side: "front", x: 302, y: 210, widthCm: 8, heightCm: 8, rotation: 0 },
+    { id: "back-main", side: "back", x: 260, y: 248, widthCm: 26, heightCm: 26, rotation: 0 }];
+}
 
 export const COLORS = [
   { hex: "#253952", name: "네이비" },
@@ -40,25 +69,16 @@ export const LONG_SLEEVE_PATH = "M132 48 Q150 65 200 66 Q250 65 268 48 L319 72 L
 export const STORAGE_KEY = "seongbuk-fit:design:v1";
 
 export function mockDesign(prompt: string, current: Design = DEFAULT_DESIGN): Partial<Design> {
-  const textMatch = prompt.match(/문구(?:는|를|[:：])?\s*(?:["“']([^"”']{1,36})["”']|([^\n.,。]{1,36}))/);
-  const color = /블랙|검정/.test(prompt) ? "#262b34" : /그린|녹색|초록/.test(prompt) ? "#236b60" : /하늘|소프트 블루/.test(prompt) ? "#b5cede" : /크림(?:색)?\s*(?:반팔|티셔츠|후드)|흰색\s*(?:반팔|티셔츠|후드)/.test(prompt) ? "#e8e5dd" : /네이비|남색/.test(prompt) ? "#253952" : current.color;
-  const scale = /더\s*작|줄여|축소/.test(prompt) ? Math.max(50, current.scale - 20) : /더\s*크|키워|확대/.test(prompt) ? Math.min(150, current.scale + 20) : /가슴|작게/.test(prompt) ? 65 : current.scale;
-  const rotationMatch = prompt.match(/(-?\d{1,3})\s*도/);
-  return {
-    garment: /과잠|바시티/.test(prompt) ? "varsity" : /후드/.test(prompt) ? "hoodie" : /반팔|티셔츠/.test(prompt) ? "tee" : current.garment || "tee",
-    color,
-    ink: /(?:문구|인쇄|글자).*(?:빨강|빨간)/.test(prompt) ? "#eb5757" : /(?:문구|인쇄|글자).*(?:파랑|파란)/.test(prompt) ? "#3182f6" : /크림색|흰색|화이트/.test(prompt) && !["#e8e5dd", "#b5cede"].includes(color) ? "#e9dec2" : color !== current.color ? (["#e8e5dd", "#b5cede"].includes(color) ? "#253952" : "#e9dec2") : current.ink,
-    style: /웨이브|파도|물결/.test(prompt) ? "wave" : /미니멀|타이포/.test(prompt) ? "type" : /캠퍼스|배지|빈티지/.test(prompt) ? "campus" : current.style,
-    side: /등판|뒷면/.test(prompt) ? "back" : /앞면/.test(prompt) ? "front" : current.side,
-    text: textMatch?.[1]?.trim() || textMatch?.[2]?.trim() || current.text,
-    x: /중앙/.test(prompt) ? 260 : /가슴|작게/.test(prompt) ? 302 : current.x,
-    y: /중앙/.test(prompt) ? 248 : /가슴|작게/.test(prompt) ? 210 : /아래로/.test(prompt) ? Math.min(375, current.y + 20) : /위로/.test(prompt) ? Math.max(165, current.y - 20) : current.y,
-    scale,
-    rotation: rotationMatch ? Math.max(-180, Math.min(180, Number(rotationMatch[1]))) : current.rotation,
-    image: /로고\s*없이|이미지\s*없이/.test(prompt) ? null : current.image,
-  };
+  const base=simpleDesign(current);
+  const name=prompt.match(/(?:동아리명|문구)(?:은|는|를|[:：])?\s*["“']([^"”']{1,36})["”']/)?.[1];
+  const both=/앞뒤|(?:가슴|앞면).*(?:등판|뒷면)|(?:등판|뒷면).*(?:가슴|앞면)/.test(prompt);
+  const side:Side=both?"front":/등판|뒷면/.test(prompt)?"back":/가슴|앞면/.test(prompt)?"front":base.side;
+  const chest=/가슴/.test(prompt),center=/중앙/.test(prompt);
+  let placements=both?defaultClubPlacements():base.placements;
+  if(!both&&(chest||center||/등판|뒷면/.test(prompt))&&!/더\s*크|더\s*작|줄여|키워/.test(prompt))placements=[{id:side==="back"?"back-main":chest?"front-chest":"front-main",side,x:chest?302:260,y:chest?210:248,widthCm:chest?8:26,heightCm:chest?8:26,rotation:0,content:"artwork"}];
+  placements=placements?.map(p=>p.side===side?{...p,widthCm:/더\s*크|키워|확대/.test(prompt)?Math.min(30,p.widthCm+2):/더\s*작|줄여|축소/.test(prompt)?Math.max(2,p.widthCm-2):p.widthCm,heightCm:/더\s*크|키워|확대/.test(prompt)?Math.min(30,p.heightCm+2):/더\s*작|줄여|축소/.test(prompt)?Math.max(2,p.heightCm-2):p.heightCm}:p);
+  return simpleDesign({...base,garment:"tee",side,text:name||base.text,color:/검정|블랙/.test(prompt)?"#262b34":/흰색|화이트/.test(prompt)?"#e8e5dd":/그린|초록|녹색/.test(prompt)?"#236b60":/네이비|남색/.test(prompt)?"#253952":base.color,...(placements?{placements}:{}),image:/로고\s*없이|이미지\s*없이/.test(prompt)?null:base.image});
 }
-
 export function isDesign(value: unknown): value is Design {
   if (!value || typeof value !== "object") return false;
   const d = value as Record<string, unknown>;
@@ -70,7 +90,26 @@ export function isDesign(value: unknown): value is Design {
     && ["front", "back"].includes(d.side as string)
     && typeof d.x === "number" && d.x >= 160 && d.x <= 360
     && typeof d.y === "number" && d.y >= 165 && d.y <= 375
-    && typeof d.scale === "number" && d.scale >= 50 && d.scale <= 150
+    && typeof d.scale === "number" && d.scale >= 1 && d.scale <= 150
     && typeof d.rotation === "number" && d.rotation >= -180 && d.rotation <= 180
-    && (d.image === null || (typeof d.image === "string" && /^data:image\/(png|jpeg|webp);base64,/.test(d.image) && d.image.length <= 3_000_000));
+    && (d.image === null || (typeof d.image === "string" && ((/^data:image\/(png|jpeg|webp);base64,/.test(d.image) && d.image.length <= 3_000_000) || /^\/api\/assets\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(d.image))))
+    && (d.placements === undefined || (Array.isArray(d.placements) && d.placements.length >= 1 && d.placements.length <= 4 && d.placements.every(isPrintPlacement) && new Set(d.placements.map(p=>p.id)).size === d.placements.length))
+    && (d.fabric === undefined || isFabricStyle(d.fabric)) && (d.fabricImage === undefined || isImageSource(d.fabricImage));
+}
+export function isPrintPlacement(value: unknown): value is PrintPlacement {
+  if (!value || typeof value !== "object") return false;
+  const p = value as PrintPlacement;
+  return typeof p.id === "string" && /^[a-z][a-z0-9-]{0,39}$/.test(p.id) && ["front","back"].includes(p.side)
+    && [p.x,p.y,p.widthCm,p.heightCm,p.rotation].every(Number.isFinite) && p.x>=160 && p.x<=360 && p.y>=165 && p.y<=375
+    && p.widthCm>=1 && p.widthCm<=35 && p.heightCm>=1 && p.heightCm<=40 && p.rotation>=-180 && p.rotation<=180
+    && (p.content===undefined || ["artwork","text"].includes(p.content)) && (p.text===undefined || (typeof p.text==="string" && p.text.length<=60)) && (p.ink===undefined || /^#[a-f0-9]{6}$/i.test(p.ink))
+    && (p.content!=="text" || !!p.text?.trim());
+}
+export function isFabricStyle(value: unknown): value is FabricStyle {
+  if(!value || typeof value!=="object")return false;
+  const f=value as FabricStyle;
+  return ["solid","stripes","hoops","diagonal","checker","gradient","custom"].includes(f.pattern) && /^#[a-f0-9]{6}$/i.test(f.secondaryColor) && /^#[a-f0-9]{6}$/i.test(f.trimColor) && Number.isFinite(f.density) && f.density>=2 && f.density<=24 && (f.sleeveColor==null || /^#[a-f0-9]{6}$/i.test(f.sleeveColor));
+}
+export function isImageSource(value: unknown): value is string|null {
+  return value===null || (typeof value==="string" && ((/^data:image\/(png|jpeg|webp);base64,/.test(value)&&value.length<=3_000_000)||/^\/api\/assets\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value)));
 }

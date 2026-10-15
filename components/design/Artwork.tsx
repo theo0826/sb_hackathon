@@ -2,6 +2,10 @@ import type { Ref } from "react";
 import type { Design } from "@/lib/design";
 
 export default function Artwork({ design, exportRef }: { design: Design; exportRef?: Ref<SVGSVGElement> }) {
+  if(design.placements?.every(p=>p.content==="text")){
+    const p=design.placements[0],text=p.text||design.text;
+    return <svg ref={exportRef} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 220" role="img" aria-label={`${text} 문구 원본`} fontFamily="Arial, Malgun Gothic, sans-serif"><text x="120" y="110" textAnchor="middle" dominantBaseline="middle" fontSize={Math.min(30,200/Math.max(1,Array.from(text).length)*1.3)} fontWeight="700" fill={p.ink||design.ink}>{text}</text></svg>;
+  }
   return (
     <svg ref={exportRef} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 220" role="img" aria-label={`${design.text || "OUR CLUB"} ${design.style} 도안`} fontFamily="Arial, Malgun Gothic, sans-serif">
       <g transform="translate(120 105)" fill={design.ink} stroke={design.ink}>

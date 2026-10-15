@@ -1,2 +1,3 @@
-import { redirect } from "next/navigation";
-export default function Home() { redirect("/design"); }
+import MotionHome from "@/components/home/MotionHome";
+
+export default function Home() { return <MotionHome />; }

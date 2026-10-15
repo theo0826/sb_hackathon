@@ -1,5 +1,6 @@
-import { COLORS, garmentName, isDesign, type Design } from "./design";
+import { COLORS, garmentName, isDesign, placementLabel, type Design } from "./design";
 import { getSupplier, type Supplier } from "./suppliers";
+import type { ProductionPacket } from "./production-mapping";
 
 export const SIZES = ["S", "M", "L", "XL"] as const;
 export type OrderDraft = {
@@ -13,7 +14,8 @@ export type OrderDraft = {
   memo: string;
 };
 export const DEFAULT_ORDER: OrderDraft = { group: "", contactEmail: "", sizes: { S: 5, M: 12, L: 8, XL: 0 }, desiredDeliveryDate: "", method: "DTF", printWidthCm: 18, printHeightCm: 18, memo: "" };
-export type QuoteRecord = { id: string; mode: "mock"; status: "prepared"; createdAt: string; supplierId: string; design: Design; filename: string; order: OrderDraft; quantity: number; format: "pdf" | "email" };
+export type QuoteDocument = { title: string; templateVersion: string; generatedAt: string; summary: string; productionNotes: string[]; checks: string[]; emailSubject: string; emailBody: string; verifiedRows: string[][]; production?: ProductionPacket };
+export type QuoteRecord = { id: string; mode: "mock" | "live"; status: "prepared"; createdAt: string; supplierId: string; design: Design; filename: string; order: OrderDraft; quantity: number; format: "pdf" | "email"; document?: QuoteDocument; trashedAt?: string | null };
 
 export function todayKST(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
@@ -53,7 +55,7 @@ export function isQuoteRecord(value: unknown): value is QuoteRecord {
   const record = value as QuoteRecord;
   const supplier = getSupplier(record.supplierId);
   return !!supplier && typeof record.id === "string" && /^quote_[a-z0-9-]{36}$/i.test(record.id)
-    && record.mode === "mock" && record.status === "prepared" && record.format === supplier.format
+    && ["mock", "live"].includes(record.mode) && record.status === "prepared" && record.format === supplier.format
     && typeof record.createdAt === "string" && Number.isFinite(Date.parse(record.createdAt))
     && typeof record.filename === "string" && isDesign(record.design) && isOrderDraft(record.order)
     && record.quantity === totalQuantity(record.order);
@@ -63,13 +65,17 @@ export function orderRows(supplier: Supplier, design: Design, order: OrderDraft)
   return [
     ["받는 업체", supplier.name], ["단체 이름", order.group.trim() || "미입력"], ["연락 이메일", order.contactEmail || "미입력"],
     ["의류 / 원단 색상", `${garmentName(design)} / ${COLORS.find((color) => color.hex === design.color)?.name || design.color}`],
-    ["인쇄 면 / 제작 방식", `${design.side === "front" ? "앞면" : "뒷면"} / ${order.method}`],
-    ["인쇄 크기", `${order.printWidthCm} × ${order.printHeightCm} cm`],
-    ["배치 참고", `미리보기 기준 / 크기 ${design.scale}% / 회전 ${design.rotation}°`],
+    ["인쇄 면 / 제작 방식", `${design.placements ? [...new Set(design.placements.map(p=>p.side==="front"?"앞면":"뒷면"))].join(" + ") : design.side === "front" ? "앞면" : "뒷면"} / ${order.method}`],
+    ["인쇄 크기", design.placements ? design.placements.map(p=>`${placementLabel(p)} ${p.widthCm} × ${p.heightCm} cm`).join(" / ") : `${order.printWidthCm} × ${order.printHeightCm} cm`],
+    ["배치 참고", design.placements ? design.placements.map(p=>`${p.id}: X ${p.x}, Y ${p.y}, 회전 ${p.rotation}°`).join(" / ") : `미리보기 기준 / 크기 ${design.scale}% / 회전 ${design.rotation}°`],
     ["인쇄 색상", design.image ? "첨부 이미지 색상" : design.ink.toUpperCase()],
     ["사이즈별 수량", SIZES.map((size) => `${size} ${order.sizes[size]}벌`).join(" · ")],
     ["총 주문 수량", `${totalQuantity(order)}벌`], ["희망 수령일", order.desiredDeliveryDate || "미입력"],
   ];
+}
+export function validateDesignForSupplier(design: Design, supplier: Supplier) {
+  if (design.placements?.some(p=>p.widthCm>supplier.maxPrintWidthCm || p.heightCm>supplier.maxPrintHeightCm)) return `이 업체의 인쇄 한도는 배치별 ${supplier.maxPrintWidthCm} × ${supplier.maxPrintHeightCm}cm예요. 디자인에서 배치 크기를 줄여주세요.`;
+  return null;
 }
 
 export function emailTemplate(supplier: Supplier, design: Design, order: OrderDraft, filename: string) {

@@ -4,16 +4,22 @@ import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref
 import dynamic from "next/dynamic";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { RotateCcw, Minus, Plus, Rotate3D } from "lucide-react";
-import { createGarment, disposeGarment } from "@/lib/garment-model";
-import type { Design, Side } from "@/lib/design";
+import { createGarment, disposeGarment, loadGarmentMaster } from "@/lib/garment-model";
+import { simpleDesign, type Design, type Side } from "@/lib/design";
 import type { CanvasHandle } from "./DesignCanvas";
 import Artwork from "./Artwork";
+import type { UVSnapshot } from "@/lib/production-mapping";
+
+import { textArtworkSVG } from "@/lib/print-artwork";
 
 const Fallback = dynamic(() => import("./DesignCanvas"), { ssr: false });
 type Viewer = { renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; controls: OrbitControls; model: THREE.Group | null; draw: () => void; frame: (side: Side, angled?: boolean) => void; ready: boolean; unavailable: boolean; dispose: () => void };
+function printCanvas(width:number,height:number){const canvas=document.createElement("canvas"),ratio=width/height;canvas.width=ratio>=1?1024:Math.max(1,Math.round(1024*ratio));canvas.height=ratio>=1?Math.max(1,Math.round(1024/ratio)):1024;return canvas;}
 
-export default function GarmentPreview3D({ design, exportRef, showArtwork = true }: { design: Design; exportRef: Ref<CanvasHandle>; showArtwork?: boolean }) {
+export default function GarmentPreview3D({ design: inputDesign, exportRef, showArtwork = true, uv }: { design: Design; exportRef: Ref<CanvasHandle>; showArtwork?: boolean; uv?: UVSnapshot }) {
+  const design=simpleDesign(inputDesign);
   const host = useRef<HTMLDivElement>(null), svg = useRef<SVGSVGElement>(null), viewer = useRef<Viewer | null>(null);
   const fallback = useRef<CanvasHandle>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "fallback">("loading");
@@ -23,15 +29,16 @@ export default function GarmentPreview3D({ design, exportRef, showArtwork = true
   const facing = orientation.modelSide === design.side ? orientation.side : design.side;
   const setFacing = useCallback((side: Side | "free") => setOrientation({ side, modelSide: designRef.current.side }), []);
   const designSnapshot = JSON.stringify(design);
+  const uvSnapshot = JSON.stringify(uv);
 
-  useImperativeHandle(exportRef, () => ({ previewPNG: () => {
-    if (status === "fallback") return fallback.current?.previewPNG();
+  useImperativeHandle(exportRef, () => ({ previewPNG: (side) => {
+    if (status === "fallback") return fallback.current?.previewPNG(side);
     const v = viewer.current; if (!v?.ready) return undefined;
     const savedPosition = v.camera.position.clone(), savedTarget = v.controls.target.clone();
     const size = v.renderer.getSize(new THREE.Vector2()), ratio = v.renderer.getPixelRatio();
     try {
       v.renderer.setPixelRatio(1); v.renderer.setSize(1040, 1040, false); v.camera.aspect = 1;
-      v.frame(designRef.current.side); v.camera.updateProjectionMatrix(); v.draw();
+      v.frame(side || designRef.current.side); v.camera.updateProjectionMatrix(); v.draw();
       return v.renderer.domElement.toDataURL("image/png");
     } finally {
       v.renderer.setPixelRatio(ratio); v.renderer.setSize(size.x, size.y, false); v.camera.aspect = size.x / size.y;
@@ -45,10 +52,13 @@ export default function GarmentPreview3D({ design, exportRef, showArtwork = true
     try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true }); }
     catch { const frame = requestAnimationFrame(() => setStatus("fallback")); return () => cancelAnimationFrame(frame); }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.25;
+    renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.08;
     renderer.domElement.setAttribute("aria-label", "3D 의류. 드래그 또는 방향키로 회전할 수 있어요.");
     element.appendChild(renderer.domElement);
-    const scene = new THREE.Scene(); scene.background = new THREE.Color("#f5f5f7");
+    const scene = new THREE.Scene(); scene.background = new THREE.Color("#f1f2f3");
+    const studio = new RoomEnvironment(), pmrem = new THREE.PMREMGenerator(renderer);
+    const environment = pmrem.fromScene(studio, .04); scene.environment = environment.texture; scene.environmentIntensity = .5;
+    studio.dispose(); pmrem.dispose();
     const camera = new THREE.PerspectiveCamera(37, 1, .1, 30);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enablePan = false; controls.enableDamping = false; controls.enableZoom = false;
@@ -60,10 +70,10 @@ export default function GarmentPreview3D({ design, exportRef, showArtwork = true
       camera.position.set(angled ? .65 : 0, centerY + .17, side === "front" ? distance : -distance);
       controls.target.set(0, centerY, 0); controls.update(); draw();
     };
-    scene.add(new THREE.HemisphereLight("#ffffff", "#a5aaba", 2.2));
-    const key = new THREE.DirectionalLight("#fffaf3", 3.8); key.position.set(-3, 4, 5); scene.add(key);
-    const fill = new THREE.DirectionalLight("#dce6ff", 1.7); fill.position.set(4, 1, -3); scene.add(fill);
-    const rim = new THREE.DirectionalLight("#ffffff", 1.8); rim.position.set(-2, 3, -4); scene.add(rim);
+    scene.add(new THREE.HemisphereLight("#ffffff", "#9ba5b5", 1.3));
+    const key = new THREE.DirectionalLight("#fffaf3", 2.7); key.position.set(-3, 4, 5); scene.add(key);
+    const fill = new THREE.DirectionalLight("#dce6ff", .9); fill.position.set(4, 1, 3); scene.add(fill);
+    const rim = new THREE.DirectionalLight("#ffffff", 1.6); rim.position.set(-2, 3, -4); scene.add(rim);
     controls.addEventListener("change", draw);
     const free = () => setFacing("free"); controls.addEventListener("start", free);
     const contextLost = (event: Event) => { event.preventDefault(); if (viewer.current) { viewer.current.ready = false; viewer.current.unavailable = true; } setStatus("fallback"); };
@@ -73,7 +83,7 @@ export default function GarmentPreview3D({ design, exportRef, showArtwork = true
       if (!width || !height) return;
       renderer.setSize(width, height); camera.aspect = width / height; camera.updateProjectionMatrix(); draw();
     }); observer.observe(element);
-    const dispose = () => { observer.disconnect(); controls.removeEventListener("change", draw); controls.removeEventListener("start", free); controls.dispose(); renderer.domElement.removeEventListener("webglcontextlost", contextLost); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); };
+    const dispose = () => { observer.disconnect(); controls.removeEventListener("change", draw); controls.removeEventListener("start", free); controls.dispose(); renderer.domElement.removeEventListener("webglcontextlost", contextLost); environment.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); };
     viewer.current = { renderer, scene, camera, controls, model: null, ready: false, unavailable: false, draw, frame, dispose };
     frame(designRef.current.side, true);
     return () => { const v = viewer.current; if (v?.model) disposeGarment(v.model); dispose(); viewer.current = null; };
@@ -85,27 +95,49 @@ export default function GarmentPreview3D({ design, exportRef, showArtwork = true
     let cancelled = false; v.ready = false;
     async function update() {
       let texture: THREE.CanvasTexture | null = null;
-      if (showArtwork) {
+      let artworkBitmap:HTMLImageElement|null=null;
+      if (showArtwork && !currentDesign.placements?.every(p=>p.content==="text")) {
         const source = currentDesign.image || (svg.current ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg.current))}` : null);
         if (source) {
           const bitmap = new Image();
           try {
             await new Promise<void>((resolve, reject) => { bitmap.onload = () => resolve(); bitmap.onerror = () => reject(new Error("도안 이미지")); bitmap.src = source; });
             if (cancelled) return;
-            const canvas = document.createElement("canvas"); canvas.width = 1024; canvas.height = 940;
+            artworkBitmap=bitmap;
+            const canvas = document.createElement("canvas");
+            const printUV: UVSnapshot | undefined = uvSnapshot ? JSON.parse(uvSnapshot) : undefined;
+            const ratioUV = printUV ? printUV.placement.widthMm / printUV.placement.heightMm : 1024 / 940;
+            canvas.width = ratioUV >= 1 ? 1024 : Math.max(1,Math.round(1024*ratioUV));
+            canvas.height = ratioUV >= 1 ? Math.max(1,Math.round(1024/ratioUV)) : 1024;
             const context = canvas.getContext("2d"); if (!context) throw new Error("도안 캔버스");
-            const ratio = Math.min(1024 / bitmap.width, 940 / bitmap.height);
-            context.drawImage(bitmap, (1024 - bitmap.width * ratio) / 2, (940 - bitmap.height * ratio) / 2, bitmap.width * ratio, bitmap.height * ratio);
+            const ratio = Math.min(canvas.width / bitmap.width, canvas.height / bitmap.height);
+            context.drawImage(bitmap, (canvas.width - bitmap.width * ratio) / 2, (canvas.height - bitmap.height * ratio) / 2, bitmap.width * ratio, bitmap.height * ratio);
             texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = Math.min(8, v!.renderer.capabilities.getMaxAnisotropy());
           } catch { if (!cancelled) setStatus("fallback"); return; }
         }
       }
-      if (cancelled) { texture?.dispose(); return; }
+      const printTextures = new Map<string,THREE.Texture>();
+      if(showArtwork&&artworkBitmap)for(const p of currentDesign.placements||[])if(p.content!=="text"){
+        const canvas=printCanvas(p.widthCm,p.heightCm),context=canvas.getContext("2d")!,ratio=Math.min(canvas.width/artworkBitmap.width,canvas.height/artworkBitmap.height);
+        context.drawImage(artworkBitmap,(canvas.width-artworkBitmap.width*ratio)/2,(canvas.height-artworkBitmap.height*ratio)/2,artworkBitmap.width*ratio,artworkBitmap.height*ratio);
+        const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;printTextures.set(p.id,map);
+      }
+      if(showArtwork)for(const p of currentDesign.placements || [])if(p.content==="text"){
+        const canvas=printCanvas(p.widthCm,p.heightCm);
+        const context=canvas.getContext("2d")!, bitmap=new Image();
+        try { await new Promise<void>((resolve,reject)=>{bitmap.onload=()=>resolve();bitmap.onerror=()=>reject(new Error("문구를 준비하지 못했어요."));bitmap.src=`data:image/svg+xml;charset=utf-8,${encodeURIComponent(textArtworkSVG(p.text||currentDesign.text,p.ink||currentDesign.ink,canvas.width,canvas.height))}`;}); }
+        catch { texture?.dispose();printTextures.forEach(t=>t.dispose());if(!cancelled)setStatus("fallback");return; }
+        context.drawImage(bitmap,0,0,canvas.width,canvas.height);
+        const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;printTextures.set(p.id,map);
+      }
+      if(currentDesign.placements?.every(p=>printTextures.has(p.id))){texture?.dispose();texture=null;}
+      const master = await loadGarmentMaster().catch(() => undefined);
+      if (cancelled) { texture?.dispose();printTextures.forEach(t=>t.dispose()); return; }
       if (v!.model) { v!.scene.remove(v!.model); disposeGarment(v!.model); }
-      v!.model = createGarment(currentDesign, texture); v!.scene.add(v!.model); v!.ready = true; v!.draw(); setStatus("ready");
+      v!.model = createGarment(currentDesign, texture, uvSnapshot ? JSON.parse(uvSnapshot) : undefined, master,{prints:printTextures}); v!.scene.add(v!.model); v!.ready = true; if(host.current) host.current.dataset.modelSource=master ? "makehuman-cc0" : "procedural"; v!.draw(); setStatus("ready");
     }
     void update(); return () => { cancelled = true; };
-  }, [designSnapshot, showArtwork]);
+  }, [designSnapshot, showArtwork, uvSnapshot]);
 
   useEffect(() => { viewer.current?.frame(design.side, true); }, [design.side, design.garment]);
   function face(side: Side) { viewer.current?.frame(side); setFacing(side); }
