@@ -1,0 +1,43 @@
+import { inverseConversion, panelPath, physicalPlacement, snapshotPlacements, placementSnapshot, packetConversions, type MockPanel, type ProductionPacket, type UVSnapshot } from "./production-mapping";
+import { fabricURL } from "./fabric";
+import { textArtworkSVG } from "./print-artwork";
+const xml = (value: string) => value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+function panelPaint(snapshot:UVSnapshot,panel:MockPanel,id:string,fabricSource?:string){
+  if(panel.id==="sleeve" && snapshot.originalDesign.fabric?.sleeveColor)return {defs:"",fill:snapshot.originalDesign.fabric.sleeveColor};
+  if(!snapshot.originalDesign.fabric || snapshot.originalDesign.fabric.pattern==="solid")return {defs:"",fill:snapshot.color};
+  const source=snapshot.originalDesign.fabric.pattern==="custom"?fabricSource:fabricURL(snapshot.originalDesign);
+  return source?{defs:`<defs><pattern id="${id}" patternUnits="userSpaceOnUse" width="${panel.widthMm}" height="${panel.heightMm}"><rect width="${panel.widthMm}" height="${panel.heightMm}" fill="${snapshot.color}"/><image href="${xml(source)}" width="${panel.widthMm}" height="${panel.heightMm}" preserveAspectRatio="none"/></pattern></defs>`,fill:`url(#${id})`}:{defs:"",fill:snapshot.color};
+}
+function print(snapshot: UVSnapshot, panel: MockPanel, source: string, prefix: string, placements = snapshotPlacements(snapshot).map(p=>({...p,...physicalPlacement(placementSnapshot(snapshot,p))}))) {
+  return placements.filter(p=>p.panel===panel.id).map((placement,i)=>{
+    const clip = `${prefix}-${panel.id}-${i}`;
+    const content=placement.content==="text"?`<image href="${xml(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(textArtworkSVG(placement.text||snapshot.artwork.text,placement.ink||snapshot.artwork.ink,1024,1024*placement.height/placement.width))}`)}" x="${-placement.width/2}" y="${-placement.height/2}" width="${placement.width}" height="${placement.height}"/>`:`<image href="${xml(source)}" x="${-placement.width/2}" y="${-placement.height/2}" width="${placement.width}" height="${placement.height}" preserveAspectRatio="xMidYMid meet"/>`;
+    return `<defs><clipPath id="${clip}"><path d="${panelPath(panel.shape,panel.widthMm,panel.heightMm)}"/></clipPath></defs><g data-print-panel="${panel.id}" clip-path="url(#${clip})"><g transform="translate(${placement.x} ${placement.y}) rotate(${placement.rotation})">${content}</g></g>`;
+  }).join("");
+}
+export function renderCustomerUV(snapshot: UVSnapshot, artworkSource: string, fabricSource?:string) {
+  const front = snapshot.panels[0], back = snapshot.panels[1];
+  const scale = .64;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="810" viewBox="0 0 1000 810" role="img" aria-label="고객 확인용 UV 전개도"><rect width="1000" height="810" fill="#ffffff"/><g font-family="Malgun Gothic, Arial, sans-serif" fill="#172b40"><text x="48" y="52" font-size="28" font-weight="700">고객 확인용 UV 전개도</text><text x="48" y="86" font-size="17">주문 인쇄 치수 적용 · 앞뒤 배치 확인 · 봉제 패턴과 별도</text>${[front,back].map((panel,index)=>{const paint=panelPaint(snapshot,panel,`uv-fabric-${panel.id}`,fabricSource);return `<g transform="translate(${index?545:70} 170) scale(${scale})"><text x="0" y="-35" font-size="30">${panel.id==="front"?"앞면":"뒷면"}</text>${paint.defs}<path d="${panelPath(panel.shape,panel.widthMm,panel.heightMm)}" fill="${paint.fill}"/>${print(snapshot,panel,artworkSource,"uv")}</g>`;}).join("")}<text x="48" y="724" font-size="18">동일 원본 · ${snapshotPlacements(snapshot).map(p=>`${p.panel==="front"?"앞면":"등판"} ${p.widthMm/10} × ${p.heightMm/10} cm / ${p.rotationDeg}°`).join(" · ")}</text><text x="48" y="758" font-size="16" fill="#58677a">M 가상 의류 치수 기준 · 패널 배치 확인용 · 실물 봉제/재단 승인 자료 아님</text></g></svg>`;
+}
+export function renderFactoryPattern(packet: ProductionPacket, artworkSource: string, fabricSource?:string) {
+  const c = packet.conversion;
+  const placements = snapshotPlacements(packet.source).map(p=>({...p,...inverseConversion(placementSnapshot(packet.source,p),packet.template,packetConversions(packet).find(item=>item.placementId===p.id)!)}));
+  const positions = [{x:55,y:180,scale:1},{x:710,y:180,scale:1},{x:1450,y:180,scale:1},{x:1450,y:packet.source.garment==="tee"?590:950,scale:1},{x:1450,y:1480,scale:1}];
+  const shapes = packet.sewing.panels.map((panel,index)=>{
+    const pos = positions[index], a = packet.sewing.seamAllowanceMm, w=panel.widthMm,h=panel.heightMm;
+    const datumX = packet.template.origin==="panel-top-left"?0:w/2;
+    const datumY = packet.template.origin==="panel-top-left"?0:packet.template.origin==="neck-center"?h*.1:h/2;
+    const selected = placements.some(p=>p.panel===panel.id), p = placements.find(p=>p.panel===panel.id) || placements[0];
+    const paint=panelPaint(packet.source,panel,`factory-fabric-${panel.id}`,fabricSource);
+    return `<g transform="translate(${pos.x} ${pos.y}) scale(${pos.scale})"><text x="0" y="-45" font-size="25" font-weight="700">${xml(panel.label)} · ${panel.count}장</text><path d="${panelPath(panel.shape,w,h)}" transform="translate(${-a} ${-a}) scale(${(w+2*a)/w} ${(h+2*a)/h})" fill="none" stroke="#2868d9" stroke-width="2.2" stroke-dasharray="8 5"/>${paint.defs}<path d="${panelPath(panel.shape,w,h)}" fill="${paint.fill}" stroke="#172b40" stroke-width="2"/>${print(packet.source,panel,artworkSource,"factory",placements)}<path d="M ${w*.16} ${h*.43} V ${h*.79} m -8 -12 l 8 12 l 8 -12" fill="none" stroke="${selected?"#ffffff":"#58677a"}" stroke-width="2"/><text x="${w*.16+12}" y="${h*.62}" fill="${selected?"#ffffff":"#58677a"}" font-size="18">결 방향</text>${selected?`<circle cx="${datumX}" cy="${datumY}" r="7" fill="#2868d9"/><path d="M ${datumX} ${datumY} H ${p.x} V ${p.y}" fill="none" stroke="#2868d9" stroke-width="2" stroke-dasharray="6 5"/><circle cx="${p.x}" cy="${p.y}" r="5" fill="#2868d9"/>`:""}<text x="0" y="${h+45}" font-size="22">${w} × ${h} mm · 시접 참고 ${a} mm</text></g>`;
+  }).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="2000mm" height="1850mm" viewBox="0 0 2000 1850" role="img" aria-label="업체 제출용 봉제 패턴 목업"><rect width="2000" height="1850" fill="#ffffff"/><g font-family="Malgun Gothic, Arial, sans-serif" fill="#172b40"><text x="55" y="55" font-size="40" font-weight="700">${xml(packet.template.name)} · ${xml(packet.template.version)}</text><text x="55" y="105" font-size="27">고객 UV → 업체 ${c.unit} 양식 · ${xml(c.panelCode)} · 원본 도안 유지</text>${shapes}<text x="55" y="1100" font-size="30">좌표: ${c.origin} / X ${c.x.toFixed(2)}, Y ${c.y.toFixed(2)} ${c.unit} / Y ${packet.template.yDirection==="up"?"위쪽 +":"아래쪽 +"}</text><text x="55" y="1160" font-size="30">인쇄: ${c.width} × ${c.height} ${c.unit} / 회전 ${c.rotation}° / 좌우 반전 없음</text><text x="55" y="1220" font-size="26">실선: 봉제 기준선 · 점선: 시접 참고 외곽 · 밑단 ${packet.sewing.hemAllowanceMm} mm</text><text x="55" y="1310" font-size="32" font-weight="700">M 가상 패턴 목업 · 실물 재단 승인 전</text><text x="55" y="1370" font-size="26">그레이딩·소재 수축률·곡선 시접은 업체 패턴으로 교체 후 검수합니다.</text><text x="55" y="1430" font-size="26">SVG 목업 치수 1:1 · 화면과 A4 PDF는 축소 표시</text><text x="55" y="1780" font-size="25" fill="#58677a">UV 역변환 오차 ${packet.verification.maxDeviationMm.toFixed(4)} mm · ${xml(packet.source.revision)}</text></g></svg>`;
+}
+export function factoryPatternPayload(packet: ProductionPacket) {
+  const panels = packet.sewing.panels.map(panel=>({ ...panel, seamPathMm:panelPath(panel.shape,panel.widthMm,panel.heightMm), allowanceReferenceMm:packet.sewing.seamAllowanceMm, grainDirection:"top-to-bottom" }));
+  const common = { templateVersion:packet.template.version, sourceRevision:packet.source.revision, customerUV:packet.source, artwork:packet.source.artwork, garment:packet.source.garment, sewing:packet.sewing, verification:packet.verification, panels, conversion:packet.conversion, conversions:packetConversions(packet) };
+  if(packet.template.supplierId==="jangwi") return { format:"JW_CUT_PRINT_V1", coordinateSystem:{units:"mm",origin:"panel-top-left",yPositive:"down"}, printInstructions:packet.conversion.instructions,...common };
+  if(packet.template.supplierId==="wolgok") return { format:"WC_NECK_PLACEMENT_V1", coordinateSystem:{units:"cm",origin:"neck-center",yPositive:"down"}, placementFromNeckCm:{x:packet.conversion.x,y:packet.conversion.y,width:packet.conversion.width,height:packet.conversion.height},placementsFromNeckCm:packetConversions(packet).map(c=>({placementId:c.placementId,panelCode:c.panelCode,x:c.x,y:c.y,width:c.width,height:c.height})),...common };
+  return { format:"JM_PANEL_PACKAGE_V1", coordinateSystem:{units:"mm",origin:"panel-center",yPositive:"up"}, materials:[{code:"FABRIC-MOCK-01",color:packet.source.color}], panelJobs:packetConversions(packet),...common };
+}
