@@ -8,9 +8,9 @@ import { useDesignSession } from "@/lib/design-session";
 // 삭제금지: ClothSim 연동 (레이아웃·스타일은 프론트에서 후속 작업)
 import ClothSim from "../ClothSim";
 const looks = [
-  { image: "campus", title: "동아리의 이름을 입어요.", text: "캠퍼스 배지 · 네이비 반팔", garment: "tee" as const, style: "campus" as const, lettering: "CAMPUS CLUB", color: "#253952" },
+  { image: "campus", title: "우리 모임의 이름을 입어요.", text: "클래식 배지 · 네이비 반팔", garment: "tee" as const, style: "campus" as const, lettering: "CAMPUS CLUB", color: "#253952" },
   { image: "wave", title: "우리만의 리듬으로.", text: "웨이브 그래픽 · 포레스트 후드", garment: "hoodie" as const, style: "wave" as const, lettering: "SEONGBUK CREW", color: "#236b60" },
-  { image: "club", title: "같은 마음, 같은 옷.", text: "클럽 타이포 · 캠퍼스 과잠", garment: "varsity" as const, style: "type" as const, lettering: "OUR CLUB", color: "#262b34" },
+  { image: "club", title: "같은 마음, 같은 옷.", text: "모임 타이포 · 단체 재킷", garment: "varsity" as const, style: "type" as const, lettering: "OUR CLUB", color: "#262b34" },
   { image: "print", title: "작은 문구도, 우리답게.", text: "미니멀 타이포 · 소프트 블루", garment: "tee" as const, style: "type" as const, lettering: "FIT TOGETHER", color: "#b5cede" },
 ];
 export default function MinimalHome() {
@@ -25,7 +25,7 @@ export default function MinimalHome() {
     nodes.forEach(node => observer.observe(node)); return () => { observer.disconnect(); animations.forEach(item => item.cancel()); };
   }, []);
   return <main id="main-content" ref={root} className="minimal-home shell">
-    <section className="quiet-hero"><h1 data-reveal>우리의 생각을,<br />함께 입는 옷으로.</h1><div className="quiet-hero-copy"><p data-reveal>한 문장의 아이디어부터 제작 도안까지.<br />우리다운 반티를 천천히 완성해보세요.</p><Link data-reveal className="quiet-link" href="/design">디자인 시작하기 <ArrowUpRight size={22} /></Link></div></section>
+    <section className="quiet-hero"><h1 data-reveal>우리의 생각을,<br />함께 입는 옷으로.</h1><div className="quiet-hero-copy"><p data-reveal>한 문장의 아이디어부터 제작 도안까지.<br />우리다운 단체티를 천천히 완성해보세요.</p><Link data-reveal className="quiet-link" href="/design">디자인 시작하기 <ArrowUpRight size={22} /></Link></div></section>
     {/* 삭제금지: ClothSim clothRepresentText 임시 연동 — 디자인·위치는 후속 */}
     <section className="minimal-clothsim-stub" aria-label="ClothSim 미리보기 (임시)">
       <label className="sr-only" htmlFor="minimal-cloth-represent-text">옷에 넣을 문구 (임시)</label>

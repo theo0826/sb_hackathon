@@ -20,7 +20,7 @@ export default function PatternDemo({deliveryDate}:{deliveryDate:string}) {
   const router=useRouter();
   const supplier=getSupplier(supplierId)!;
   const design=useMemo(()=>({...DEFAULT_DESIGN,garment,side,rotation,text:"SEONGBUK CREW"}),[garment,side,rotation]);
-  const order:OrderDraft=useMemo(()=>({group:"성북 캠퍼스 동아리 · 목업",contactEmail:"sample@example.com",sizes:{S:5,M:15,L:10,XL:0},desiredDeliveryDate:deliveryDate,method:supplier.methods[0],printWidthCm:Math.min(18,supplier.maxPrintWidthCm),printHeightCm:Math.min(18,supplier.maxPrintHeightCm),memo:"업체 양식과 봉제 패턴 변환을 확인하는 목업입니다."}),[supplier,deliveryDate]);
+  const order:OrderDraft=useMemo(()=>({group:"성북 이웃 모임 · 목업",contactEmail:"sample@example.com",sizes:{S:5,M:15,L:10,XL:0},desiredDeliveryDate:deliveryDate,method:supplier.methods[0],printWidthCm:Math.min(18,supplier.maxPrintWidthCm),printHeightCm:Math.min(18,supplier.maxPrintHeightCm),memo:"업체 양식과 봉제 패턴 변환을 확인하는 목업입니다."}),[supplier,deliveryDate]);
   const document=useMemo(()=>sampleProductionDocument(supplier,design,order,`sample-${garment}-${side}-${rotation}`),[supplier,design,order,garment,side,rotation]);
   const template=document.production!.template;
   function continueOrder(){loadDesign({design,prompt:"목업 디자인",filename:""});selectSupplier(supplier.id);setOrder(order);router.push("/quotes/new");}

@@ -1,4 +1,8 @@
 import type { Metadata } from "next";
-import MyDashboard from "@/components/library/MyDashboard";
+import MyDashboard, { type DashboardTab } from "@/components/library/MyDashboard";
 export const metadata: Metadata = { title: "마이페이지" };
-export default function MyPage() { return <MyDashboard />; }
+export default async function MyPage({ searchParams }: { searchParams: Promise<{ tab?: string | string[] }> }) {
+  const { tab } = await searchParams;
+  const selected: DashboardTab = typeof tab === "string" && ["orders", "guide", "waiting", "trash"].includes(tab) ? tab as DashboardTab : "design";
+  return <MyDashboard key={selected} initialTab={selected} />;
+}

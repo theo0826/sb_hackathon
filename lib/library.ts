@@ -110,7 +110,7 @@ export function useLibrary() {
 export async function saveLibraryItem(input: NewItem): Promise<LibraryItem> {
   if (input.kind === "design") {
     await initializeBackendSession();
-    const response = await fetch("/api/designs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ design: input.design, prompt: input.prompt, filename: input.filename, title: (input.title || input.filename || input.design.text || "우리 반티").slice(0, 100), preview: input.preview || null }) });
+    const response = await fetch("/api/designs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ design: input.design, prompt: input.prompt, filename: input.filename, title: (input.title || input.filename || input.design.text || "우리 단체티").slice(0, 100), preview: input.preview || null }) });
     const result = await response.json();
     if (!response.ok || !valid(result.item)) throw new Error(result.error || "디자인을 저장하지 못했어요.");
     await refresh(); channel?.postMessage("changed"); return result.item;
@@ -118,7 +118,7 @@ export async function saveLibraryItem(input: NewItem): Promise<LibraryItem> {
   await initializeLibrary();
   const db = await database();
   const now = new Date().toISOString();
-  const item: LibraryItem = structuredClone({ ...input, id: `library_${crypto.randomUUID()}`, title: (input.title || input.filename || input.design.text || "우리 반티").slice(0, 100), createdAt: now, updatedAt: now, favorite: false, preview: input.preview || null });
+  const item: LibraryItem = structuredClone({ ...input, id: `library_${crypto.randomUUID()}`, title: (input.title || input.filename || input.design.text || "우리 단체티").slice(0, 100), createdAt: now, updatedAt: now, favorite: false, preview: input.preview || null });
   const transaction = db.transaction("items", "readwrite"); const done = committed(transaction);
   transaction.objectStore("items").add(item); await done;
   await refresh(); channel?.postMessage("changed"); return item;
