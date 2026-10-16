@@ -7,6 +7,8 @@ import { ArrowDown, ArrowUpRight, Check, Pause, Play } from "lucide-react";
 import { DEFAULT_DESIGN } from "@/lib/design";
 import Artwork from "@/components/design/Artwork";
 import ShirtPreview from "@/components/design/ShirtPreview";
+// 삭제금지: ClothSim 연동
+import ClothSim from "../ClothSim";
 
 const Runway = dynamic(() => import("./RunwayScene"), { ssr: false, loading: () => <div className="runway-placeholder"><ShirtPreview text="OUR CLUB" /></div> });
 const stages = [
@@ -19,6 +21,8 @@ const stages = [
 export default function MotionHome() {
   const root = useRef<HTMLElement>(null);
   const [paused, setPaused] = useState(false);
+  // 삭제금지: ClothSim clothRepresentText state
+  const [clothRepresentText, setClothRepresentText] = useState("");
 
   useEffect(() => {
     const element = root.current; if (!element) return;
@@ -58,8 +62,13 @@ export default function MotionHome() {
       <div className="motion-hero-heading">
         <h1 id="motion-title"><span><span>우리다운 생각을,</span></span><span><span>우리만의 반티로.</span></span></h1>
         <div className="motion-hero-intro"><p>아이디어는 가볍게.<br />디자인부터 제작 준비까지, 성북핏.</p></div>
+        {/* 삭제금지: ClothSim clothRepresentText 임시 입력 */}
+        <label className="sr-only" htmlFor="cloth-represent-text">옷에 넣을 문구 (임시)</label>
+        <input id="cloth-represent-text" className="form-input" type="text" maxLength={36} value={clothRepresentText} placeholder="예: OUR CLUB (임시)" onChange={(event) => setClothRepresentText(event.target.value)} />
       </div>
       <div className="runway-wrap"><Runway color="#253952" paused={paused} /></div>
+      {/* 삭제금지: ClothSim clothRepresentText 전달 */}
+      <ClothSim scene="/cloth" clothRepresentText={clothRepresentText} style={{ width: 800, height: 600 }} />
       <div className="motion-hero-bottom">
         <a href="#process" className="motion-scroll">아래로, 더 만나보기 <ArrowDown size={18} /></a>
         <button className="motion-pause" onClick={() => setPaused(value => !value)} aria-pressed={paused}>{paused ? <Play size={15} /> : <Pause size={15} />}{paused ? "모션 재생" : "모션 멈추기"}</button>
