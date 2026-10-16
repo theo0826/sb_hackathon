@@ -1,4 +1,5 @@
 "use client";
+import { detailHref } from "@/lib/deployment";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
@@ -29,7 +30,7 @@ export default function SupplierComparison() {
     const invalid = [...reviewIssues(productionOrder, details), ...Object.values(validateOrder(productionOrder, supplier)), ...[validateDesignForSupplier(design, supplier)].filter(Boolean)];
     if (invalid.length) { setError(invalid.join(" ")); return; }
     active.current = true;
-    try { const record = createDemoOrder({ supplierId: supplier.id, design, order: productionOrder, details, filename }); selectSupplier(supplier.id); dialog.current?.close(); router.push(`/orders/${record.id}`); }
+    try { const record = createDemoOrder({ supplierId: supplier.id, design, order: productionOrder, details, filename }); selectSupplier(supplier.id); dialog.current?.close(); router.push(detailHref("orders", record.id)); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "저장하지 못했어요."); active.current = false; }
   }
   return <main id="main-content" className="wf-page"><FlowSteps current={3} />

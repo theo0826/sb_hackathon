@@ -12,7 +12,10 @@
     "check:sharing": "node tools/check-sharing.mjs",
     "test:unit": "node tests/design-contract.mjs && node tests/production-mapping.mjs && node tests/garment-masters.mjs && node tests/ai-contract.mjs && node tests/order-workflow.mjs",
     "test:backend": "node tests/backend-api.mjs",
-    "test:security": "node tests/local-security.mjs"
+    "test:security": "node tests/local-security.mjs",
+    "build:pages": "node tools/build-pages.mjs",
+    "preview:pages": "node tools/serve-pages.mjs",
+    "test:pages": "node tests/pages-export.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.3",

@@ -4,6 +4,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { isDesign, STORAGE_KEY, type Design } from "./design";
 import type { OrderDraft } from "./quote";
 import { initializeBackendSession } from "./backend-client";
+import { STATIC_SITE } from "./deployment";
 
 export type LibraryKind = "design" | "artwork" | "document";
 export type LibraryAttachment = { file: Blob; fileName: string; label: string };
@@ -83,6 +84,10 @@ async function migrate(db: IDBDatabase) {
 async function refresh() {
   const db = await database();
   const values = await request(db.transaction("items", "readonly").objectStore("items").getAll());
+  if (STATIC_SITE) {
+    publish({ items: values.filter(valid).sort((a, b) => b.createdAt.localeCompare(a.createdAt)), status: "ready", error: "" });
+    return;
+  }
   const response = await fetch("/api/designs", { cache: "no-store" });
   const result = await response.json();
   const cloud: LibraryItem[] = Array.isArray(result.items) ? result.items.filter(valid) : [];
@@ -108,7 +113,7 @@ export function useLibrary() {
   return current;
 }
 export async function saveLibraryItem(input: NewItem): Promise<LibraryItem> {
-  if (input.kind === "design") {
+  if (input.kind === "design" && !STATIC_SITE) {
     await initializeBackendSession();
     const response = await fetch("/api/designs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ design: input.design, prompt: input.prompt, filename: input.filename, title: (input.title || input.filename || input.design.text || "우리 단체티").slice(0, 100), preview: input.preview || null }) });
     const result = await response.json();

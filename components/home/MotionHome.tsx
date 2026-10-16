@@ -1,4 +1,5 @@
 "use client";
+import { publicPath } from "@/lib/deployment";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import dynamic from "next/dynamic";
@@ -23,6 +24,7 @@ export default function MotionHome() {
   const [paused, setPaused] = useState(false);
   // 삭제금지: ClothSim clothRepresentText state
   const [clothRepresentText, setClothRepresentText] = useState("");
+  const [clothUnavailable, setClothUnavailable] = useState(false);
 
   useEffect(() => {
     const element = root.current; if (!element) return;
@@ -74,18 +76,20 @@ export default function MotionHome() {
       <div className="motion-hero-heading">
         <h1 id="motion-title"><span><span>우리다운 생각을,</span></span><span><span>우리만의 단체티로.</span></span></h1>
         <div className="motion-hero-intro"><p>성북구 주민을 위한 단체티.<br />디자인부터 제작 준비까지, 성북핏.</p><Link href="/design" className="motion-button">우리 단체티 디자인하기 <ArrowUpRight size={18}/></Link></div>
-        {/* 삭제금지: ClothSim clothRepresentText 임시 입력 */}
-        <label className="sr-only" htmlFor="cloth-represent-text">옷에 넣을 문구 (임시)</label>
-        <input id="cloth-represent-text" className="form-input" type="text" maxLength={36} value={clothRepresentText} placeholder="예: OUR CLUB (임시)" onChange={(event) => setClothRepresentText(event.target.value)} />
+
       </div>
       <div className="runway-wrap"><Runway color="#216b53" paused={paused} /></div>
-      {/* 삭제금지: ClothSim clothRepresentText 전달 */}
-      <ClothSim scene="/cloth" clothRepresentText={clothRepresentText} style={{ width: 800, height: 600 }} />
+
       <div className="motion-hero-bottom">
         <a href="#process" className="motion-scroll">아래로, 더 만나보기 <ArrowDown size={18} /></a>
         <button className="motion-pause" onClick={() => setPaused(value => !value)} aria-pressed={paused}>{paused ? <Play size={15} /> : <Pause size={15} />}{paused ? "모션 재생" : "모션 멈추기"}</button>
       </div>
     </section>
+
+    <section className="home-clothsim" aria-labelledby="cloth-preview-title"><div><h2 id="cloth-preview-title">문구를 옷 위에.</h2><p>원하는 문구를 입력하고 의상 미리보기를 확인해보세요.</p>        {/* 삭제금지: ClothSim clothRepresentText 임시 입력 */}
+        <label className="sr-only" htmlFor="cloth-represent-text">옷에 넣을 문구</label>
+        <input id="cloth-represent-text" className="form-input" type="text" maxLength={36} value={clothRepresentText} placeholder="예: OUR CLUB" onChange={(event) => setClothRepresentText(event.target.value)} /></div><div className="home-clothsim-preview" data-unavailable={clothUnavailable}>      {/* 삭제금지: ClothSim clothRepresentText 전달 */}
+      <ClothSim scene={publicPath("/cloth")} clothRepresentText={clothRepresentText} onError={() => setClothUnavailable(true)} onReady={() => setClothUnavailable(false)} style={{ width: "100%", height: "100%" }} />{clothUnavailable && <p className="clothsim-message" role="status">의상 미리보기를 준비 중이에요. 아래 디자인 화면에서 색과 문구를 편집할 수 있어요.</p>}</div></section>
 
     <section id="process" className="motion-process" aria-labelledby="process-title">
       <div className="motion-section-intro"><h2 id="process-title" data-reveal>한 문장에서<br />한 장의 도안까지.</h2><p data-reveal>복잡한 준비는 덜고,<br />우리가 고를 것만 남겼어요.</p></div>
