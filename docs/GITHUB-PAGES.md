@@ -4,7 +4,7 @@ UI 커밋 `3da69f5`와 동료의 `main` 커밋 `65edf3e`를 `feature/ui`에서 �
 
 ## 현재 배포 상태
 
-2026-10-16 GitHub API는 Pages 활성화를 `422: Your current plan does not support GitHub Pages for this repository.`로 거절했습니다. 사용자가 **비공개 유지, 설정만 업로드**를 선택했습니다. 실제 사이트는 아직 배포되지 않았습니다.
+2026-10-16 GitHub API는 Pages 활성화를 `422: Your current plan does not support GitHub Pages for this repository.`로 거절했습니다. 이후 사용자가 저장소를 공개로 전환하고 Pages를 활성화했습니다. 현재 GitHub Actions 방식과 PAGES_ENABLED=true를 연결해 실제 사이트 배포를 완료했습니다.
 
 `feature/ui`에 push하면 GitHub Actions가 단위 검사 → 정적 빌드 → 산출물 검사를 실행하고 Pages artifact를 보관합니다. 저장소 변수 `PAGES_ENABLED`가 `true`일 때만 deploy 작업을 실행합니다. 다른 브랜치에서는 배포하지 않습니다.
 
@@ -30,9 +30,9 @@ npm run preview:pages
 
 동료의 새 커밋은 `git fetch origin` 후 해당 브랜치를 feature/ui에 merge합니다. 충돌 시 기존 UI와 삭제 금지 연동을 함께 보존하고, ClothSim 폴더 내부는 담당 동료에게 맡깁니다.
 
-## 나중에 실제 배포 활성화
+## 배포 활성화 절차 (현재 적용 완료)
 
-1. 비공개 저장소의 Pages를 지원하는 GitHub 요금제를 준비합니다.
+1. 공개 저장소는 무료 Pages를 사용합니다. 비공개라면 이를 지원하는 요금제가 필요합니다.
 2. Settings → Pages → Source를 GitHub Actions로 설정합니다.
 3. Settings → Environments → github-pages의 배포 허용 브랜치에 `feature/ui`를 추가합니다. 기존 정책은 유지합니다.
 4. Settings → Secrets and variables → Actions → Variables에 `PAGES_ENABLED=true`를 추가합니다. 비밀 키는 필요하지 않습니다.

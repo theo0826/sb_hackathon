@@ -19,6 +19,7 @@ import DesignSettings from "./DesignSettings";
 import type { CanvasHandle } from "./DesignCanvas";
 
 const Canvas = dynamic(() => import("./GarmentPreview3D"), { ssr: false, loading: () => <div className="canvas-loading"><LoaderCircle className="animate-spin" size={24} /><span>미리보기를 준비하고 있어요</span></div> });
+const ClothSimulation = dynamic(() => import("./ClothSimulationPreview"), { ssr: false });
 
 export default function DesignStudio() {
   const aiEnabled = useAIAvailability();
@@ -31,6 +32,8 @@ export default function DesignStudio() {
   const [showResult, setShowResult] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [previewMode, setPreviewMode] = useState<"design" | "simulation">("design");
+  const [simulationStatus, setSimulationStatus] = useState<"loading" | "ready" | "unavailable">("loading");
   const requestActive = useRef(false);
   const saveActive = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -142,7 +145,17 @@ export default function DesignStudio() {
       </section>
       <section className="wf-studio-preview ai-stage" aria-label="디자인 미리보기">
         <div className="wf-preview-toolbar"><div className="wf-segments" role="group" aria-label="인쇄 면"><button aria-pressed={design.side === "front"} onClick={() => patch({ side: "front" })} disabled={busy}>앞면</button><button aria-pressed={design.side === "back"} onClick={() => patch({ side: "back" })} disabled={busy}>뒷면</button></div><button className="text-link" onClick={save} disabled={busy || !(hasResult || design.image)}><Save size={15}/>{saving ? "저장 중…" : "저장"}</button></div>
-        <div className="wf-stage"><Canvas design={design} exportRef={canvas} showArtwork={hasResult || !!design.image}/>{generating && <div className="generation-overlay" role="status"><LoaderCircle className="animate-spin" size={28}/><strong>디자인을 반영하고 있어요</strong></div>}</div>
+        <div className="studio-preview-modes wf-segments" role="group" aria-label="미리보기 방식"><button type="button" aria-pressed={previewMode === "design"} onClick={() => setPreviewMode("design")}>디자인 미리보기</button><button type="button" aria-pressed={previewMode === "simulation"} onClick={() => { if (previewMode !== "simulation") setSimulationStatus("loading"); setPreviewMode("simulation"); }}>의상 시뮬레이션</button></div>
+        <div className="wf-stage" data-preview-mode={previewMode}>
+          <div style={{ visibility: previewMode === "simulation" && simulationStatus === "ready" ? "hidden" : "visible" }}><Canvas design={design} exportRef={canvas} showArtwork={hasResult || !!design.image}/></div>
+          {previewMode === "simulation" && <ClothSimulation clothRepresentText={design.text} ready={simulationStatus === "ready"} onReady={() => setSimulationStatus("ready")} onUnavailable={() => setSimulationStatus("unavailable")} />}
+          {generating && <div className="generation-overlay" role="status"><LoaderCircle className="animate-spin" size={28}/><strong>디자인을 반영하고 있어요</strong></div>}
+        </div>
+        {previewMode === "simulation" && <div className="studio-simulation-controls">
+          {/* 삭제금지: ClothSim clothRepresentText 입력 — 디자인 초안과 함께 보관. */}
+          <label htmlFor="cloth-represent-text">옷에 넣을 문구</label><input id="cloth-represent-text" className="form-input" type="text" maxLength={36} value={design.text} placeholder="예: OUR CLUB" onChange={event => patch({ text: event.target.value })} disabled={busy} />
+          {simulationStatus !== "ready" && <p className="wf-muted" role="status">{simulationStatus === "loading" ? "의상 시뮬레이션을 불러오고 있어요." : "의상 시뮬레이션을 준비 중이에요. 현재는 디자인 미리보기를 표시합니다."}</p>}
+        </div>}
         <div className="wf-colors" role="group" aria-label="의류 색상">{COLORS.map(color => <button key={color.hex} style={{ backgroundColor: color.hex }} aria-label={color.name} aria-pressed={design.color === color.hex} onClick={() => patch({ color: color.hex })} disabled={busy}/>)}</div>
         <div className="wf-variants" role="group" aria-label="시안 배치 선택">{["A 클래식","B 미니멀","C 스트리트"].map((label,index) => <button key={label} aria-pressed={variant === index && hasResult} disabled={busy} onClick={() => { patch(variantDesign(index)); setHasResult(true); }}><DesignThumbnail design={variantDesign(index)}/><span><strong>{label}</strong><small>{index === variant && hasResult ? "적용 중" : ["가슴 로고","앞면 중앙","가슴 + 등판"][index]}</small></span></button>)}</div>
         <p className="wf-muted wf-variant-note">시안 카드는 같은 디자인의 스타일·배치 예시예요.</p>
