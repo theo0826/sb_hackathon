@@ -63,7 +63,9 @@ body:has(.motion-home) .site-footer { max-width:1180px; padding:30px; font-size:
 /* Each production panel stays in the stack as the next panel arrives. */
 .motion-process { padding:0; background:transparent; border-radius:0; }
 .motion-process>.motion-section-intro { padding:0 24px; margin-bottom:40px; }
-.motion-stack { list-style:none; margin:0; padding:0 0 40px; position:relative; }
+.motion-stack { --stack-end-gap:40px; list-style:none; margin:0; padding:0 0 var(--stack-end-gap); position:relative; }
+/* A flow spacer extends the sticky containing block; padding alone does not. */
+.motion-stack::after { content:""; display:block; height:max(0px, calc(var(--stack-runout, 0px) - var(--stack-end-gap))); }
 .motion-stack-panel { --stack-progress:0; position:sticky; top:calc(56px + var(--stack-index)*18px); z-index:calc(1 + var(--stack-index)); display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:64px; min-height:460px; padding:48px; margin-bottom:36px; background:var(--motion-sky); border-radius:24px; transform-origin:center top; transform:scale(calc(1 - var(--stack-progress)*.035)); }
 .motion-stack-panel:nth-child(even) { background:#dce9f7; }
 .motion-stack-panel:last-child { margin-bottom:0; }
@@ -77,9 +79,9 @@ body:has(.motion-home) .site-footer { max-width:1180px; padding:30px; font-size:
 @media(max-width:1000px) { .motion-stack-panel { padding:32px; gap:32px; }.motion-stack-copy h3 { font-size:26px; } }
 @media(max-width:640px) {
  .motion-process { margin-top:48px; padding:0; }.motion-process>.motion-section-intro { padding:0 16px; margin-bottom:28px; }
- .motion-stack { padding-bottom:24px; }.motion-stack-panel { top:calc(18px + var(--stack-index)*12px); min-height:0; grid-template-columns:1fr; gap:22px; padding:26px 22px; margin-bottom:28px; border-radius:20px; }
+ .motion-stack { --stack-end-gap:24px; }.motion-stack-panel { top:calc(18px + var(--stack-index)*12px); min-height:0; grid-template-columns:1fr; gap:22px; padding:26px 22px; margin-bottom:28px; border-radius:20px; }
  .motion-stack-copy h3 { font-size:22px; margin-bottom:10px; }.motion-stack-copy p { font-size:15px; line-height:1.7; }
  .motion-stack-panel .motion-document { min-height:255px; padding:18px; }.motion-stack-panel .motion-document-content { min-height:205px; padding-top:14px; }
  .motion-end-link { min-height:140px; padding:28px 24px; }.motion-end h2 { font-size:30px; margin:0; }.motion-end-arrow { width:30px; height:30px; }
 }
-@media(prefers-reduced-motion:reduce) { .motion-stack-panel { position:relative; top:auto; transform:none; } }
+@media(prefers-reduced-motion:reduce) { .motion-stack::after { display:none; }.motion-stack-panel { position:relative; top:auto; transform:none; } }
