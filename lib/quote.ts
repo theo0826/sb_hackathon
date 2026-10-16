@@ -15,7 +15,7 @@ export type OrderDraft = {
 };
 export const DEFAULT_ORDER: OrderDraft = { group: "", contactEmail: "", sizes: { S: 5, M: 12, L: 8, XL: 0 }, desiredDeliveryDate: "", method: "DTF", printWidthCm: 18, printHeightCm: 18, memo: "" };
 export type QuoteDocument = { title: string; templateVersion: string; generatedAt: string; summary: string; productionNotes: string[]; checks: string[]; emailSubject: string; emailBody: string; verifiedRows: string[][]; production?: ProductionPacket };
-export type QuoteRecord = { id: string; mode: "mock" | "live"; status: "prepared"; createdAt: string; supplierId: string; design: Design; filename: string; order: OrderDraft; quantity: number; format: "pdf" | "email"; document?: QuoteDocument; trashedAt?: string | null };
+export type QuoteRecord = { id: string; sourceOrderId?: string; mode: "mock" | "live"; status: "prepared"; createdAt: string; supplierId: string; design: Design; filename: string; order: OrderDraft; quantity: number; format: "pdf" | "email"; document?: QuoteDocument; trashedAt?: string | null };
 
 export function todayKST(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);

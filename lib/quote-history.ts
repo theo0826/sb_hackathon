@@ -1,7 +1,9 @@
 "use client";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { isQuoteRecord, type QuoteRecord } from "./quote";
 import { STATIC_SITE } from "./deployment";
+import { getDemoOrders, setOrderQuoteTrashed, useDemoOrders } from "./order-workflow-client";
+import { orderQuote, orderQuoteId } from "./order-documents";
 const staticQuotesKey = "seongbuk-fit:static-quotes:v1";
 function staticQuotes(): QuoteRecord[] {
   const values: unknown = JSON.parse(sessionStorage.getItem(staticQuotesKey) || "[]");
@@ -44,11 +46,19 @@ export function refreshQuotes() {
 }
 export function useQuoteHistoryState() {
   const current = useSyncExternalStore(subscribe, () => state, () => initial);
+  const { orders, ready } = useDemoOrders();
+  const records = useMemo(() => {
+    const documents = orders.map(orderQuote);
+    const ids = new Set(documents.map(record => record.id));
+    return [...documents, ...current.records.filter(record => !ids.has(record.id))].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [orders, current.records]);
   useEffect(() => { void refreshQuotes(); }, []);
-  return current;
+  return { ...current, records, loading: current.loading || !ready };
 }
 export function useQuoteHistory() { return useQuoteHistoryState().records; }
 export async function setQuoteTrashed(id: string, trashed: boolean) {
+  const source = getDemoOrders().find(order => orderQuoteId(order) === id);
+  if (source) { setOrderQuoteTrashed(source.id, trashed ? new Date().toISOString() : null); return; }
   if (loading) await loading;
   const trashedAt = trashed ? new Date().toISOString() : null;
   if (STATIC_SITE && staticQuotes().some(record => record.id === id)) {

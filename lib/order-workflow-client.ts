@@ -23,6 +23,14 @@ export function useOrderDetails() {
 }
 export function resetOrderDetails() { detailsMemory = ""; try { sessionStorage.removeItem(detailsKey); } catch {} emit(); }
 function parseOrders(raw: string): DemoOrder[] { try { const value = JSON.parse(raw); return Array.isArray(value) ? value.filter(isDemoOrder) : []; } catch { return []; } }
+export function getDemoOrders() { return parseOrders(ordersSnapshot()); }
+export function setOrderQuoteTrashed(id: string, trashedAt: string | null) {
+  const orders = getDemoOrders();
+  if (!orders.some(order => order.id === id)) throw new Error("주문을 찾지 못했어요.");
+  const next = JSON.stringify(orders.map(order => order.id === id ? { ...order, quoteTrashedAt: trashedAt } : order));
+  try { sessionStorage.setItem(ordersKey, next); } catch { throw new Error("제작자료 상태를 저장하지 못했어요. 브라우저 저장 공간을 확인해주세요."); }
+  ordersMemory = next; emit();
+}
 export function useDemoOrders() {
   const raw = useSyncExternalStore(subscribe, ordersSnapshot, () => "");
   const ready = useSyncExternalStore(subscribe, () => true, () => false);
