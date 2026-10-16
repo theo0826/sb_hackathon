@@ -1,0 +1,225 @@
+{
+  "format": "JM_PANEL_PACKAGE_V1",
+  "coordinateSystem": {
+    "units": "mm",
+    "origin": "panel-center",
+    "yPositive": "up"
+  },
+  "materials": [
+    {
+      "code": "FABRIC-MOCK-01",
+      "color": "#253952"
+    }
+  ],
+  "panelJobs": [
+    {
+      "templateId": "jongam-panel-package",
+      "sourceRevision": "fixture-uv-v1",
+      "panelCode": "JM-BODY-F",
+      "unit": "mm",
+      "origin": "panel-center",
+      "x": 0,
+      "y": 76.0872,
+      "width": 180,
+      "height": 180,
+      "rotation": 0,
+      "mirror": false,
+      "seamAllowanceMm": 12,
+      "instructions": [
+        "고객 UV의 도안 원본과 방향을 유지",
+        "도안 중심 좌표로 배치; 봉제선과 시접 참고선을 분리",
+        "M 목업 기준이며 업체 실측·사이즈 그레이딩 후 재검수"
+      ]
+    }
+  ],
+  "templateVersion": "mock-v1",
+  "sourceRevision": "fixture-uv-v1",
+  "customerUV": {
+    "version": "uv-preview-v1",
+    "revision": "fixture-uv-v1",
+    "garment": "tee",
+    "baseSize": "M",
+    "color": "#253952",
+    "originalDesign": {
+      "garment": "tee",
+      "color": "#253952",
+      "ink": "#e9dec2",
+      "text": "SEONGBUK CREW",
+      "style": "campus",
+      "side": "front",
+      "x": 260,
+      "y": 248,
+      "scale": 100,
+      "rotation": 0,
+      "image": null
+    },
+    "panels": [
+      {
+        "id": "front",
+        "label": "앞판",
+        "widthMm": 520,
+        "heightMm": 700,
+        "count": 1,
+        "shape": "body"
+      },
+      {
+        "id": "back",
+        "label": "뒤판",
+        "widthMm": 520,
+        "heightMm": 700,
+        "count": 1,
+        "shape": "body"
+      },
+      {
+        "id": "sleeve",
+        "label": "소매 · 좌우 한 쌍",
+        "widthMm": 360,
+        "heightMm": 270,
+        "count": 2,
+        "shape": "sleeve"
+      },
+      {
+        "id": "collar",
+        "label": "목 리브",
+        "widthMm": 380,
+        "heightMm": 45,
+        "count": 1,
+        "shape": "strip"
+      }
+    ],
+    "artwork": {
+      "source": null,
+      "text": "SEONGBUK CREW",
+      "style": "campus",
+      "ink": "#e9dec2"
+    },
+    "placement": {
+      "panel": "front",
+      "u": 0.5,
+      "v": 0.391304,
+      "widthMm": 180,
+      "heightMm": 180,
+      "rotationDeg": 0
+    },
+    "dimensionsBasis": "mock-M-not-graded"
+  },
+  "artwork": {
+    "source": null,
+    "text": "SEONGBUK CREW",
+    "style": "campus",
+    "ink": "#e9dec2"
+  },
+  "garment": "tee",
+  "sewing": {
+    "baseSize": "M",
+    "graded": false,
+    "approvedForCutting": false,
+    "panels": [
+      {
+        "id": "front",
+        "label": "앞판",
+        "widthMm": 520,
+        "heightMm": 700,
+        "count": 1,
+        "shape": "body"
+      },
+      {
+        "id": "back",
+        "label": "뒤판",
+        "widthMm": 520,
+        "heightMm": 700,
+        "count": 1,
+        "shape": "body"
+      },
+      {
+        "id": "sleeve",
+        "label": "소매 · 좌우 한 쌍",
+        "widthMm": 360,
+        "heightMm": 270,
+        "count": 2,
+        "shape": "sleeve"
+      },
+      {
+        "id": "collar",
+        "label": "목 리브",
+        "widthMm": 380,
+        "heightMm": 45,
+        "count": 1,
+        "shape": "strip"
+      }
+    ],
+    "seamAllowanceMm": 12,
+    "hemAllowanceMm": 25
+  },
+  "verification": {
+    "status": "matched",
+    "maxDeviationMm": 0,
+    "artworkUnchanged": true,
+    "issues": []
+  },
+  "panels": [
+    {
+      "id": "front",
+      "label": "앞판",
+      "widthMm": 520,
+      "heightMm": 700,
+      "count": 1,
+      "shape": "body",
+      "seamPathMm": "M 114.4 0 L 197.6 10.5 Q 260 112 322.4 10.5 L 405.6 0 L 520 126 Q 426.4 196.00000000000003 488.79999999999995 280 L 488.79999999999995 700 L 31.2 700 L 31.2 280 Q 93.6 196.00000000000003 0 126 Z",
+      "allowanceReferenceMm": 12,
+      "grainDirection": "top-to-bottom"
+    },
+    {
+      "id": "back",
+      "label": "뒤판",
+      "widthMm": 520,
+      "heightMm": 700,
+      "count": 1,
+      "shape": "body",
+      "seamPathMm": "M 114.4 0 L 197.6 10.5 Q 260 112 322.4 10.5 L 405.6 0 L 520 126 Q 426.4 196.00000000000003 488.79999999999995 280 L 488.79999999999995 700 L 31.2 700 L 31.2 280 Q 93.6 196.00000000000003 0 126 Z",
+      "allowanceReferenceMm": 12,
+      "grainDirection": "top-to-bottom"
+    },
+    {
+      "id": "sleeve",
+      "label": "소매 · 좌우 한 쌍",
+      "widthMm": 360,
+      "heightMm": 270,
+      "count": 2,
+      "shape": "sleeve",
+      "seamPathMm": "M 0 62.1 Q 180 -54 360 62.1 L 298.8 270 L 61.2 270 Z",
+      "allowanceReferenceMm": 12,
+      "grainDirection": "top-to-bottom"
+    },
+    {
+      "id": "collar",
+      "label": "목 리브",
+      "widthMm": 380,
+      "heightMm": 45,
+      "count": 1,
+      "shape": "strip",
+      "seamPathMm": "M 0 0 H 380 V 45 H 0 Z",
+      "allowanceReferenceMm": 12,
+      "grainDirection": "top-to-bottom"
+    }
+  ],
+  "conversion": {
+    "templateId": "jongam-panel-package",
+    "sourceRevision": "fixture-uv-v1",
+    "panelCode": "JM-BODY-F",
+    "unit": "mm",
+    "origin": "panel-center",
+    "x": 0,
+    "y": 76.0872,
+    "width": 180,
+    "height": 180,
+    "rotation": 0,
+    "mirror": false,
+    "seamAllowanceMm": 12,
+    "instructions": [
+      "고객 UV의 도안 원본과 방향을 유지",
+      "도안 중심 좌표로 배치; 봉제선과 시접 참고선을 분리",
+      "M 목업 기준이며 업체 실측·사이즈 그레이딩 후 재검수"
+    ]
+  }
+}
