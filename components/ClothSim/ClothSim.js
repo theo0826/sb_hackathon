@@ -76,6 +76,7 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
           },
         }),
         preprocess: c.preprocess, fixed: c.fixed, signal: ctl.signal,
+        onTokenLog: c.onLog ? line => c.onLog(`[tokens] ${line}`) : undefined,
         onStep: s => {
           if (ctl.signal.aborted) return;
           setStatus(STAGE[s.stage] !== undefined ? `${STAGE[s.stage]}${s.count ? ` (${s.count})` : ''}` : s.stage);

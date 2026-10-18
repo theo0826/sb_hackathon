@@ -44,7 +44,7 @@ ref.current?.reset();                    // 시뮬레이션 처음부터
 | llm | LLM 연결 (`backend` 'ollama' 기본 / 'api', `host`, `model`, `baseUrl`, `apiModel`, `apiKey`) |
 | showInput | 입력칸 보이기 (기본 true) |
 | defaultText, placeholder | 입력칸 처음 글자, 안내 글자 |
-| fixed | `{ 'category/top/neck': 'hood' }` 처럼 미리 정한 토큰 (그 아래만 LLM 이 고름) |
+| fixed | `{ 'category/top/neck': 'hood' }` 처럼 미리 정한 토큰 (그 아래만 LLM 이 고름). `textToScene` 은 문장에서 재질·색 등을 자동 추출해 합침 (`parseIntent`) |
 | preprocess | 'v1_translate_en' (기본, 한국어면 먼저 영어로 번역) / 'none' |
 | scene | 처음 보여 줄 장면 (`{meta, bin}` 또는 scene.json, scene.bin 폴더 주소) |
 | options, autoplay, look | 시뮬레이션 설정 (아래 표) |

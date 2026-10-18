@@ -114,9 +114,20 @@ export interface Spec { text: string; tree: string; info: Record<string, unknown
 export interface Scene { meta: any; bin: ArrayBuffer; }
 export interface Progress { stage: 'translate' | 'choose' | 'number' | 'build' | 'done'; path?: string; count?: number; }
 
+export function parseIntent(text: string, userFixed?: Record<string, string | number>): {
+  fixed: Record<string, string | number>;
+  explicit_slots: Record<string, boolean>;
+};
+
+export function specTokenRows(spec: Spec): Record<string, string | number | undefined>[];
+export function logFinalSpecTokens(spec: Spec, onLine?: (line: string) => void): Record<string, string | number | undefined>[];
+
 export function textToScene(text: string, o?: {
   llm?: LLM; onStep?: (p: Progress) => void; signal?: AbortSignal;
-  fixed?: Record<string, string | number>; preprocess?: 'v1_translate_en' | 'none'; spec?: Spec;
+  fixed?: Record<string, string | number>;
+  priors?: Record<string, unknown>;
+  onTokenLog?: (line: string) => void;
+  preprocess?: 'v1_translate_en' | 'none'; spec?: Spec;
 }): Promise<{ spec: Spec; scene: Scene }>;
 export function loadEngine(): Promise<unknown>;
 

@@ -3,12 +3,17 @@
  */
 import WASM_B64 from './wasm.js';
 import TREE from './assets/trees/v0_seed.js';
+import PRIORS from './assets/priors/top_v0.js';
 import { makeLLM } from './llm.js';
+import { parseIntent } from './intent.js';
 import { loadBody } from '../anny/index.js';
 import { bytesToUint8Array } from '../anny/bodyAsset.js';
 import { clothError, clothLog } from './clothLog.js';
+import { logFinalSpecTokens } from './specLog.js';
 
 export { makeLLM, LLM_DEFAULTS } from './llm.js';
+export { parseIntent } from './intent.js';
+export { logFinalSpecTokens, specTokenRows } from './specLog.js';
 
 function b64bytes(s) {
   const bin = atob(s);
@@ -114,16 +119,26 @@ export async function textToScene(text, o = {}) {
   };
   let spec = o.spec;
   if (!spec) {
+    const intent = parseIntent(text, o.fixed);
+    if (Object.keys(intent.fixed).length) clothLog('intent fixed', intent.fixed);
     let count = 0;
     const t0 = performance.now();
+    const priors = o.priors !== undefined ? o.priors : JSON.parse(PRIORS);
     spec = await eng.select(text, async q => {
       if (o.signal && o.signal.aborted) throw o.signal.reason || new Error('취소됨');
       count++;
       step({ stage: q.kind === 'choose' ? 'choose' : q.purpose, path: q.path, count });
       return q.kind === 'choose' ? llm.choose(q, o.signal) : llm.generate(q, o.signal);
-    }, { preprocess: o.preprocess || 'v1_translate_en', model: llm.name, fixed: o.fixed || {} });
+    }, {
+      preprocess: o.preprocess || 'v1_translate_en',
+      model: llm.name,
+      fixed: intent.fixed,
+      priors,
+      explicit_slots: intent.explicit_slots,
+    });
     spec.info.select_seconds = Math.round((performance.now() - t0) / 100) / 10;
   }
+  logFinalSpecTokens(spec, o.onTokenLog);
   step({ stage: 'build' });
   const size = eng.bodySize(spec);
   clothLog('체형 사이즈', size);
