@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowDown, ArrowUpRight, Check, Pause, Play } from "lucide-react";
 import { DEFAULT_DESIGN } from "@/lib/design";
@@ -10,7 +9,6 @@ import ShirtPreview from "@/components/design/ShirtPreview";
 // 삭제금지: ClothSim 연동
 import ClothSim from "../ClothSim";
 
-const Runway = dynamic(() => import("./RunwayScene"), { ssr: false, loading: () => <div className="runway-placeholder"><ShirtPreview text="OUR CLUB" /></div> });
 const stages = [
   { title: "생각을 말하면, 디자인으로.", text: "색상, 문구, 원하는 분위기. 한 문장으로 시작하고 3D로 돌려보세요.", label: "디자인 생성" },
   { title: "우리에게 맞는 업체로.", text: "수량과 제작 방식에 맞춰 성북 지역의 예시 업체를 비교해요.", label: "업체 선택" },
@@ -23,6 +21,8 @@ export default function MotionHome() {
   const [paused, setPaused] = useState(false);
   // 삭제금지: ClothSim clothRepresentText state
   const [clothRepresentText, setClothRepresentText] = useState("");
+  // 삭제금지: ClothSim submit (전달 버튼)
+  const [clothSubmit, setClothSubmit] = useState(0);
 
   useEffect(() => {
     const element = root.current; if (!element) return;
@@ -62,13 +62,16 @@ export default function MotionHome() {
       <div className="motion-hero-heading">
         <h1 id="motion-title"><span><span>우리다운 생각을,</span></span><span><span>우리만의 반티로.</span></span></h1>
         <div className="motion-hero-intro"><p>아이디어는 가볍게.<br />디자인부터 제작 준비까지, 성북핏.</p></div>
-        {/* 삭제금지: ClothSim clothRepresentText 임시 입력 */}
-        <label className="sr-only" htmlFor="cloth-represent-text">옷에 넣을 문구 (임시)</label>
-        <input id="cloth-represent-text" className="form-input" type="text" maxLength={36} value={clothRepresentText} placeholder="예: OUR CLUB (임시)" onChange={(event) => setClothRepresentText(event.target.value)} />
+        {/* 삭제금지: ClothSim clothRepresentText 입력 */}
+        <label className="sr-only" htmlFor="cloth-represent-text">만들 옷 설명</label>
+        <input id="cloth-represent-text" className="form-input" type="text" value={clothRepresentText} placeholder="예: 오버핏 후드티" onChange={(event) => setClothRepresentText(event.target.value)} />
+        {/* 삭제금지: ClothSim submit 전달 버튼 */}
+        <button type="button" onClick={() => setClothSubmit((n) => n + 1)} disabled={!clothRepresentText.trim()}>전달</button>
       </div>
-      <div className="runway-wrap"><Runway color="#253952" paused={paused} /></div>
-      {/* 삭제금지: ClothSim clothRepresentText 전달 */}
-      <ClothSim scene="/cloth" clothRepresentText={clothRepresentText} style={{ width: 800, height: 600 }} />
+      <div className="runway-wrap">
+        {/* 삭제금지: ClothSim */}
+        <ClothSim showInput={false} clothRepresentText={clothRepresentText} submit={clothSubmit} look={{ background: [0.965, 0.961, 0.949, 1], bodyColor: "#253952" }} options={{ strain: false, bodyPoseIntro: { buildPose: 'arms_mid', durationSec: 0, settleSec: 4, showDressReveal: false } }} style={{ width: "100%", height: "100%" }} />
+      </div>
       <div className="motion-hero-bottom">
         <a href="#process" className="motion-scroll">아래로, 더 만나보기 <ArrowDown size={18} /></a>
         <button className="motion-pause" onClick={() => setPaused(value => !value)} aria-pressed={paused}>{paused ? <Play size={15} /> : <Pause size={15} />}{paused ? "모션 재생" : "모션 멈추기"}</button>

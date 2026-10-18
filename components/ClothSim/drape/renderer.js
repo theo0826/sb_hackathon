@@ -40,8 +40,10 @@ export class Renderer {
     this.bodyVerts = makeBuffer(dev, this.d.bodyVerts);
     this.bodyIdx = makeBuffer(dev, this.d.bodyIdx);
     const target = { format: this.format };
+    // D3D12/WebGPU 는 보통 1·4만 지원 (2 는 GPUPipelineError)
+    this.msaaCount = 4;
     const common = { primitive: { topology: 'triangle-list', cullMode: 'none' },
-      depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' }, multisample: { count: 4 } };
+      depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' }, multisample: { count: this.msaaCount } };
     const cm = await shaderModule(dev, 'cloth_render', false);
     this.cloth = await dev.createRenderPipelineAsync({ layout: 'auto', vertex: { module: cm, entryPoint: 'vs' }, fragment: { module: cm, entryPoint: 'fs', targets: [target] }, ...common });
     const bm = await shaderModule(dev, 'body_render', false);
@@ -59,8 +61,9 @@ export class Renderer {
     this.canvas.width = w; this.canvas.height = h;
     if (this.msaa) this.msaa.destroy();
     if (this.depth) this.depth.destroy();
-    this.msaa = this.device.createTexture({ size: [w, h], format: this.format, sampleCount: 4, usage: GPUTextureUsage.RENDER_ATTACHMENT });
-    this.depth = this.device.createTexture({ size: [w, h], format: 'depth24plus', sampleCount: 4, usage: GPUTextureUsage.RENDER_ATTACHMENT });
+    const sc = this.msaaCount || 4;
+    this.msaa = this.device.createTexture({ size: [w, h], format: this.format, sampleCount: sc, usage: GPUTextureUsage.RENDER_ATTACHMENT });
+    this.depth = this.device.createTexture({ size: [w, h], format: 'depth24plus', sampleCount: sc, usage: GPUTextureUsage.RENDER_ATTACHMENT });
     if (this.offscreen) {
       if (this.target) this.target.destroy();
       this.target = this.device.createTexture({ size: [w, h], format: this.format, usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC });
@@ -80,6 +83,15 @@ export class Renderer {
     for (let y = 0; y < h; y++) img.data.set(src.subarray(y * row, y * row + w * 4), y * w * 4);
     buf.unmap(); buf.destroy();
     this.ctx2d.putImageData(img, 0, 0);
+  }
+
+  destroy() {
+    this.viewBuf?.destroy();
+    this.bodyVerts?.destroy();
+    this.bodyIdx?.destroy();
+    this.msaa?.destroy();
+    this.depth?.destroy();
+    this.target?.destroy();
   }
 
   draw(camera) {

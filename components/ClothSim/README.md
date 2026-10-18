@@ -1,49 +1,69 @@
 # ClothSim
 
-옷 천 시뮬레이션 (WebGPU, XPBD) React 컴포넌트. 이 폴더를 컴포넌트 폴더에 통째로 붙여넣으면 `<ClothSim scene=... />` 로 바로 쓴다.
-React 말고 다른 패키지 필요 없음, 번들러 설정 필요 없음 (셰이더도 JS 문자열, JSX 안 씀). TypeScript 타입은 `index.d.ts`.
+글자로 옷을 적으면 브라우저 안에서 옷을 만들어 마네킹에 입혀 보여 주는 React 컴포넌트. 서버 없음.
+
+```
+입력 글자 -> LLM (Ollama 또는 API, 보기 고르기) -> C++ 엔진 (WebAssembly: 선택, 도면, 3D 배치, 장면) -> WebGPU 천 시뮬레이션
+```
+
+이 폴더를 통째로 `src/components/` 에 붙여넣으면 끝. 설치할 것 없음 (React 만 있으면 됨), 번들러 설정 필요 없음
+(wasm, 셰이더, 표준 체형, 트리 모두 JS 파일 안에 들어 있음, JSX 안 씀). TypeScript 타입은 `index.d.ts`.
 
 ## 쓰는 법
-
-이 폴더를 통째로 `src/components/` 에 붙여넣는다. 설치할 것 없음 (React 만 있으면 됨).
 
 ```tsx
 import ClothSim from './components/ClothSim';
 
-<div style={{ height: 600 }}>
-  <ClothSim scene="/cloth" />
-</div>
+<ClothSim style={{ width: 800, height: 600 }} />
 ```
 
-`scene` = `scene.json`, `scene.bin` 두 파일이 있는 폴더 주소. 테스트는 `public/cloth/` 에 두 파일을 넣고 `"/cloth"`.
-크기는 감싸는 요소 크기를 따라감 (높이를 꼭 정해 줄 것).
+위에 입력칸이 생긴다. 적고 `만들기` 를 누르면 진행 상태(번역, 보기 고르기, 옷 만드는 중)가 보이고, 끝나면 시뮬레이션이 시작된다.
+크기는 style 로 정한다 (높이를 꼭 정해 줄 것).
 
-설정 바꾸기, 조작:
+LLM 은 기본으로 내 컴퓨터의 Ollama (`http://localhost:11434`, 모델 `qwen3-vl:8b-instruct`). 바꾸려면 `llm`:
 
 ```tsx
-import { useRef, useState } from 'react';
-import ClothSim, { type ClothSimHandle } from './components/ClothSim';
-
-function Viewer() {
-  const ref = useRef<ClothSimHandle>(null);
-  const [tear, setTear] = useState(true);
-  return (
-    <div style={{ height: 600 }}>
-      <ClothSim ref={ref} scene="/cloth" options={{ tear, strain: true }}
-                onStats={s => console.log(s.frame, s.tornEdges)} />
-      <button onClick={() => setTear(t => !t)}>찢어짐 {tear ? '끄기' : '켜기'}</button>
-      <button onClick={() => ref.current?.reset()}>처음부터</button>
-    </div>
-  );
-}
+<ClothSim llm={{ model: 'qwen3-vl:8b-instruct' }} />                       // Ollama 모델 바꾸기
+<ClothSim llm={{ backend: 'api', baseUrl: '', apiModel: '', apiKey: '' }} /> // OpenAI 형식 API (칸은 나중에 채움)
 ```
 
-컴포넌트가 사라지면 GPU 메모리는 자동으로 정리된다. Next.js 는 파일 맨 위에 `'use client'`.
+연결 실패는 콘솔(console.error)에 남고, `onLog={line => ...}` 로도 받는다.
 
-React 없이 쓰려면 `import { createClothSim } from './ClothSim'` 으로 canvas 에 직접 붙인다:
-`const sim = await createClothSim(canvas, { scene: '/cloth' }); ... sim.destroy();`
+조작, 결과 받기:
 
-## 설정 (`sim.set(이름, 값)`)
+```tsx
+const ref = useRef<ClothSimDesignerHandle>(null);
+<ClothSim ref={ref} onSpec={spec => console.log(spec.tokens)} options={{ tear: true, strain: true }} />
+ref.current?.generate('반팔 카라티');   // 입력칸 없이 바로 만들기
+ref.current?.cancel();
+ref.current?.reset();                    // 시뮬레이션 처음부터
+```
+
+| 속성 | 뜻 |
+|---|---|
+| llm | LLM 연결 (`backend` 'ollama' 기본 / 'api', `host`, `model`, `baseUrl`, `apiModel`, `apiKey`) |
+| showInput | 입력칸 보이기 (기본 true) |
+| defaultText, placeholder | 입력칸 처음 글자, 안내 글자 |
+| fixed | `{ 'category/top/neck': 'hood' }` 처럼 미리 정한 토큰 (그 아래만 LLM 이 고름) |
+| preprocess | 'v1_translate_en' (기본, 한국어면 먼저 영어로 번역) / 'none' |
+| scene | 처음 보여 줄 장면 (`{meta, bin}` 또는 scene.json, scene.bin 폴더 주소) |
+| options, autoplay, look | 시뮬레이션 설정 (아래 표) |
+| onSpec, onScene, onProgress, onLog, onStats, onError, onReady | 알림 |
+
+화면 없이 글자 -> 장면만: `const { spec, scene } = await textToScene('후드티', { llm: makeLLM() })`
+장면만 보여 주기: `import { ClothSimView } from './components/ClothSim'` 후 `<ClothSimView scene={scene} />`
+
+Next.js 는 파일 맨 위에 `'use client'`.
+
+## Ollama 연결
+
+- 개발 서버(localhost)에서는 바로 된다
+- 다른 주소(배포한 사이트)에서 부르면 Ollama 가 막는다. Ollama 를 띄우기 전에 허용 주소를 정한다:
+  Windows `setx OLLAMA_ORIGINS "https://내사이트.com"` 후 Ollama 다시 시작 (테스트는 `*`)
+- 크롬은 공개 사이트에서 localhost 로 요청할 때 권한을 물어볼 수 있다 (사설망 접근)
+- API 키를 프론트에 넣으면 사용자가 볼 수 있다. 테스트용으로만
+
+## 시뮬레이션 설정 (`options` 또는 `ref.current.set(이름, 값)`)
 
 | 이름 | 기본 | 뜻 |
 |---|---|---|
@@ -59,20 +79,19 @@ React 없이 쓰려면 `import { createClothSim } from './ClothSim'` 으로 canv
 
 - 크롬, 엣지 최신 (WebGPU). HTTPS 또는 localhost 에서만 동작
 - 마우스: 왼쪽 끌기 회전, 오른쪽(또는 Shift) 끌기 이동, 휠 확대
-- canvas 크기는 CSS 로 정하면 됨 (화면 크기에 맞춰 자동으로 해상도 조절)
-- 장면 파일(scene.json, scene.bin)은 Python 쪽 `design` / `render` 결과의 `cloth/` 폴더
+- 마네킹은 Anny 표준 체형 XS~XL (사이즈표 가슴, 키에 가장 가까운 것). 체형 직접 입력은 아직 없음
+- 아직 없는 것: 맞음 검사(가슴 여유), 사이즈 자동 올림, 무작위 고르기(sample), 부분 수정
 
-## 파일
+## 모듈 (수정 범위)
 
-| 파일 | 하는 일 |
-|---|---|
-| index.js | 진입점 (기본 = React 컴포넌트, createClothSim) |
-| ClothSimView.js | React 컴포넌트 `<ClothSim>` |
-| create.js | createClothSim (canvas 에 붙이기, React 없이도 씀) |
-| gpu.js | WebGPU 장치, 버퍼, 셰이더 만들기 |
-| scene.js | 장면 읽기, 이웃 목록, 제약 색칠 |
-| grid.js | 몸 충돌 격자 |
-| solver.js | 계산 순서 (XPBD, 충돌, 봉제 합치기, 찢어짐) |
-| renderer.js | 그리기 |
-| camera.js | 마우스 카메라 |
-| shaders/*.js | 계산과 그리기 셰이더 (WGSL), 단계마다 파일 하나 |
+| 폴더 | 역할 | README |
+|---|---|---|
+| **anny/** | Anny 체형·포즈 asset, `loadBody` | `anny/README.md` |
+| **garment/** | LLM + wasm 옷 생성 (`textToScene`) | `garment/README.md` |
+| **drape/** | WebGPU 입힌 뒤 시뮬 (`createClothSim`) | `drape/README.md` |
+
+루트: `ClothSim.js`, `ClothSimView.js`, `index.js` (UI·진입점). `engine/index.js`는 이전 import 호환용 re-export.
+
+만든 파일 다시 만들기 (garment_maker 등):
+- wasm·트리: garment_maker 빌드 스크립트 → `garment/wasm.js`, `garment/assets/trees/`
+- 체형: `python -m garment.export.body_assets --out .../ClothSim/anny/assets/bodies` 후 `node tools/sync-cloth-bodies.mjs`

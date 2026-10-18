@@ -1,0 +1,23 @@
+/** /cloth-bodies fetch 실패·미동기화 시 assets 정적 import (경로 고정 → Turbopack resolve) */
+export const BODY_LOADERS = {
+  'anny_xs.js': () => import('./assets/bodies/anny_xs.js'),
+  'anny_s.js': () => import('./assets/bodies/anny_s.js'),
+  'anny_m.js': () => import('./assets/bodies/anny_m.js'),
+  'anny_l.js': () => import('./assets/bodies/anny_l.js'),
+  'anny_xl.js': () => import('./assets/bodies/anny_xl.js'),
+  'anny_xs_arms_up.js': () => import('./assets/bodies/anny_xs_arms_up.js'),
+  'anny_s_arms_up.js': () => import('./assets/bodies/anny_s_arms_up.js'),
+  'anny_m_arms_up.js': () => import('./assets/bodies/anny_m_arms_up.js'),
+  'anny_l_arms_up.js': () => import('./assets/bodies/anny_l_arms_up.js'),
+  'anny_xl_arms_up.js': () => import('./assets/bodies/anny_xl_arms_up.js'),
+  'anny_xs_arms_mid.js': () => import('./assets/bodies/anny_xs_arms_mid.js'),
+  'anny_s_arms_mid.js': () => import('./assets/bodies/anny_s_arms_mid.js'),
+  'anny_m_arms_mid.js': () => import('./assets/bodies/anny_m_arms_mid.js'),
+  'anny_l_arms_mid.js': () => import('./assets/bodies/anny_l_arms_mid.js'),
+  'anny_xl_arms_mid.js': () => import('./assets/bodies/anny_xl_arms_mid.js'),
+  'anny_xs_attention.js': () => import('./assets/bodies/anny_xs_attention.js'),
+  'anny_s_attention.js': () => import('./assets/bodies/anny_s_attention.js'),
+  'anny_m_attention.js': () => import('./assets/bodies/anny_m_attention.js'),
+  'anny_l_attention.js': () => import('./assets/bodies/anny_l_attention.js'),
+  'anny_xl_attention.js': () => import('./assets/bodies/anny_xl_attention.js'),
+};
