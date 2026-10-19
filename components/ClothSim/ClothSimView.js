@@ -1,7 +1,8 @@
 // React 컴포넌트: <ClothSim scene="/cloth" />. canvas 를 스스로 만들고, 사라질 때 GPU 를 정리한다.
 // JSX 없이 써서 JS, TS 프로젝트 어디서나 설정 없이 동작.
 import { createElement, forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { createClothSim, DEFAULT_OPTIONS } from './create.js';
+import { createClothSim, DEFAULT_OPTIONS } from './drape/create.js';
+import { clothError, clothLog } from './garment/clothLog.js';
 
 const ClothSim = forwardRef(function ClothSim(props, ref) {
   const { scene, options, autoplay = true, onStats, onError, onReady, style, className, look, clothRepresentText = '' } = props;
@@ -23,19 +24,36 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
   // 장면이 바뀌면 새로 만듦
   useEffect(() => {
     let alive = true;
+    const ac = new AbortController();
     setError(null);
-    const fail = e => { if (!alive) return; setError(String(e && e.message || e)); if (cb.current.onError) cb.current.onError(e); };
-    createClothSim(canvasRef.current, {
-      scene, autoplay, look, clothRepresentText, ...(options || {}),
+    const fail = e => {
+      if (!alive) return;
+      if (e?.name === 'AbortError') return;
+      clothError('시뮬 오류', e);
+      setError(String(e && e.message || e));
+      if (cb.current.onError) cb.current.onError(e);
+    };
+    clothLog('ClothSimView 장면 마운트', scene ? 'scene 있음' : 'scene 없음');
+    const simPromise = createClothSim(canvasRef.current, {
+      scene, autoplay, look, clothRepresentText, abortSignal: ac.signal, ...(options || {}),
       onStats: s => cb.current.onStats && cb.current.onStats(s),
       onError: fail,
     }).then(sim => {
-      if (!alive) { sim.destroy(); return; }
+      if (!alive) { sim.destroy(); return null; }
       simRef.current = sim;
       sim.setClothRepresentText(clothRepresentText);
+      clothLog('ClothSimView 시뮬 준비 완료');
       if (cb.current.onReady) cb.current.onReady(sim);
+      return sim;
     }).catch(fail);
-    return () => { alive = false; if (simRef.current) simRef.current.destroy(); simRef.current = null; };
+    return () => {
+      alive = false;
+      ac.abort();
+      const sim = simRef.current;
+      simRef.current = null;
+      if (sim) sim.destroy();
+      else simPromise.then(s => s && s.destroy()).catch(() => {});
+    };
   }, [scene]);
 
   // 설정이 바뀌면 그 값만 적용 (다시 만들지 않음)
