@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useSyncExternalStore } from "react";
-import { EMPTY_DETAILS, isDemoOrder, isOrderDetails, type DemoOrder, type OrderDetails } from "./order-workflow";
+import { EMPTY_DETAILS, isDemoOrder, isOrderDetails, reviewedOrderIssues, type DemoOrder, type OrderDetails, type OrderInput } from "./order-workflow";
+import type { QuoteRecord } from "./quote";
 
 const detailsKey = "seongbuk-fit:order-details:v1", ordersKey = "seongbuk-fit:demo-orders:v1";
 const listeners = new Set<() => void>();
@@ -36,8 +37,12 @@ export function useDemoOrders() {
   const ready = useSyncExternalStore(subscribe, () => true, () => false);
   return { orders: useMemo(() => parseOrders(raw), [raw]), ready };
 }
-export function createDemoOrder(input: Omit<DemoOrder, "id" | "createdAt" | "received">) {
-  const record: DemoOrder = { ...input, id: `demo_${crypto.randomUUID()}`, createdAt: new Date().toISOString(), received: false };
+export function createDemoOrder(input: OrderInput, review: { quote: QuoteRecord; confirmed: boolean }) {
+  const issues = reviewedOrderIssues(input, review?.quote, review?.confirmed === true);
+  if (issues.length) throw new Error(issues.join(" "));
+  const existing = getDemoOrders().find(order => order.preparedQuote?.id === review.quote.id);
+  if (existing) return existing;
+  const record: DemoOrder = structuredClone({ ...input, preparedQuote: review.quote, id: `demo_${crypto.randomUUID()}`, createdAt: new Date().toISOString(), received: false });
   const next = JSON.stringify([record, ...parseOrders(ordersSnapshot())]);
   try { sessionStorage.setItem(ordersKey, next); } catch { throw new Error("이 브라우저의 저장 공간이 부족해요. 첨부 이미지 크기를 줄인 뒤 다시 시도해주세요."); }
   ordersMemory = next; emit(); return record;

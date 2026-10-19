@@ -1,11 +1,36 @@
 import { isDesign, type Design } from "./design";
-import { isOrderDraft, SIZES, todayKST, totalQuantity, type OrderDraft } from "./quote";
+import { isOrderDraft, isQuoteRecord, isQuoteDocument, validateOrder, validateDesignForSupplier, SIZES, todayKST, totalQuantity, type OrderDraft, type QuoteRecord } from "./quote";
 import { getSupplier, type Supplier } from "./suppliers";
 
 export type Participant = { id: string; name: string; size: string; initials: string };
 export type OrderDetails = { roster: Participant[]; useRoster: boolean; requireInitials: boolean; phone: string; delivery: "shipping" | "pickup"; address: string; payment: "group" | "individual"; confirmed: boolean };
 export const EMPTY_DETAILS: OrderDetails = { roster: [], useRoster: false, requireInitials: false, phone: "", delivery: "shipping", address: "", payment: "group", confirmed: false };
-export type DemoOrder = { id: string; createdAt: string; supplierId: string; design: Design; order: OrderDraft; details: OrderDetails; filename: string; received: boolean; quoteTrashedAt?: string | null };
+export type DemoOrder = { id: string; createdAt: string; supplierId: string; design: Design; order: OrderDraft; details: OrderDetails; filename: string; received: boolean; quoteTrashedAt?: string | null; preparedQuote?: QuoteRecord };
+export type OrderInput = Pick<DemoOrder, "supplierId" | "design" | "order" | "details" | "filename">;
+
+function stableJSON(value: unknown): string {
+  return JSON.stringify(value, (_key, item) => item && typeof item === "object" && !Array.isArray(item)
+    ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
+}
+
+/** The actual order-creation boundary must require the exact generated document the user approved. */
+export function reviewedOrderIssues(input: OrderInput, quote: unknown, approved: boolean): string[] {
+  const issues = reviewIssues(input.order, input.details);
+  const supplier = getSupplier(input.supplierId);
+  if (!supplier) issues.push("업체를 먼저 선택해주세요.");
+  else {
+    issues.push(...Object.values(validateOrder(input.order, supplier)));
+    const designIssue = validateDesignForSupplier(input.design, supplier);
+    if (designIssue) issues.push(designIssue);
+  }
+  if (!isQuoteRecord(quote) || !isQuoteDocument(quote.document)) issues.push("업체 맞춤 도안을 먼저 생성하고 확인해주세요.");
+  else if (quote.supplierId !== input.supplierId || quote.filename !== input.filename
+    || stableJSON(quote.design) !== stableJSON(input.design) || stableJSON(quote.order) !== stableJSON(input.order)) {
+    issues.push("디자인이나 주문 조건이 바뀌었어요. 맞춤 도안을 다시 생성하고 확인해주세요.");
+  }
+  if (!approved) issues.push("업체 맞춤 도안을 확인한 뒤 체크해주세요.");
+  return [...new Set(issues)];
+}
 
 export function isOrderDetails(value: unknown): value is OrderDetails {
   if (!value || typeof value !== "object") return false;
@@ -15,7 +40,8 @@ export function isOrderDetails(value: unknown): value is OrderDetails {
 export function isDemoOrder(value: unknown): value is DemoOrder {
   if (!value || typeof value !== "object") return false;
   const d = value as DemoOrder;
-  return typeof d.id === "string" && /^demo_[a-f0-9-]{36}$/.test(d.id) && typeof d.createdAt === "string" && Number.isFinite(Date.parse(d.createdAt)) && !!getSupplier(d.supplierId) && isDesign(d.design) && isOrderDraft(d.order) && isOrderDetails(d.details) && typeof d.filename === "string" && typeof d.received === "boolean";
+  return typeof d.id === "string" && /^demo_[a-f0-9-]{36}$/.test(d.id) && typeof d.createdAt === "string" && Number.isFinite(Date.parse(d.createdAt)) && !!getSupplier(d.supplierId) && isDesign(d.design) && isOrderDraft(d.order) && isOrderDetails(d.details) && typeof d.filename === "string" && typeof d.received === "boolean"
+    && (d.preparedQuote === undefined || (isQuoteRecord(d.preparedQuote) && isQuoteDocument(d.preparedQuote.document)));
 }
 export function rosterIssues(row: Participant, initials: boolean) {
   return [!row.name.trim() && "이름 누락", !(SIZES as readonly string[]).includes(row.size) && "사이즈 확인", initials && !row.initials.trim() && "이니셜 누락"].filter(Boolean) as string[];

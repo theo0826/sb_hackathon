@@ -49,3 +49,31 @@ assert.equal(orderQuote({...savedOrder,quoteTrashedAt:null}).trashedAt,null);
 assert.equal(JSON.stringify(savedOrder),before,'Document generation must not change saved orders');
 assert.deepEqual(orderQuote(savedOrder),orderQuote(savedOrder),'Stable IDs and document timestamps on reload');
 console.log('PASS existing saved orders produce stable supplier-specific request/material documents, preserve snapshots, and retain trash/restore state');
+
+const { sampleProductionDocument } = await loadTS('lib/production-document.ts');
+const { isQuoteDocument } = await loadTS('lib/quote.ts');
+const preparedQuote = { ...orderQuote(savedOrder), id:'quote_22222222-2222-4222-8222-222222222222', mode:'live', document:sampleProductionDocument(SUPPLIERS[0], DEFAULT_DESIGN, validOrder, 'review-test') };
+preparedQuote.document.summary = '실제로 확인한 업체 맞춤 도안';
+assert(isQuoteDocument(preparedQuote.document));
+assert(!isQuoteDocument({ ...preparedQuote.document, verifiedRows:[null] }));
+assert(flow.reviewedOrderIssues(savedOrder, undefined, true).some(s => s.includes('먼저 생성')));
+assert(flow.reviewedOrderIssues(savedOrder, { ...preparedQuote, document:undefined }, true).some(s => s.includes('먼저 생성')));
+assert(flow.reviewedOrderIssues(savedOrder, preparedQuote, false).some(s => s.includes('체크')));
+assert.deepEqual(flow.reviewedOrderIssues(savedOrder, preparedQuote, true), []);
+for (const patch of [{ supplierId:SUPPLIERS[1].id }, { filename:'다른 파일.png' }, { design:{ ...DEFAULT_DESIGN, text:'바뀐 도안' } }, { order:{ ...validOrder, memo:'바뀐 요청' } }]) {
+  assert(flow.reviewedOrderIssues({ ...savedOrder, ...patch }, preparedQuote, true).some(s => s.includes('다시 생성')));
+}
+const reordered = Object.fromEntries(Object.entries(validOrder).reverse());
+assert.deepEqual(flow.reviewedOrderIssues({ ...savedOrder, order:reordered }, preparedQuote, true), []);
+const reviewedOrder = { ...savedOrder, preparedQuote };
+assert(flow.isDemoOrder(reviewedOrder));
+assert(!flow.isDemoOrder({ ...reviewedOrder, preparedQuote:{ ...preparedQuote, document:undefined } }));
+const documentSnapshot = orderQuote(reviewedOrder);
+assert.equal(documentSnapshot.id, preparedQuote.id);
+assert.equal(documentSnapshot.mode, 'live');
+assert.deepEqual(documentSnapshot.document, preparedQuote.document);
+assert.equal(documentSnapshot.sourceOrderId, savedOrder.id);
+documentSnapshot.document.summary = '수정된 복사본';
+assert.equal(preparedQuote.document.summary, '실제로 확인한 업체 맞춤 도안');
+assert.equal(orderQuote({ ...reviewedOrder, quoteTrashedAt:null }).trashedAt, null);
+console.log('PASS orders require a generated supplier document, explicit approval and matching snapshots; approved document and ID survive order storage unchanged');

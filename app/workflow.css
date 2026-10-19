@@ -43,6 +43,10 @@ input[type=checkbox] { accent-color:var(--blue); width:16px; height:16px; flex-s
 .wf-card { background:#fff; border:1px solid #e8ebe5; border-radius:var(--wf-radius); padding:24px; min-width:0; }
 .wf-card h2 { font-size:16px; font-weight:700; margin:0 0 16px; line-height:1.5; }
 .wf-card p { line-height:1.7; }
+.prepared-order-confirmation { margin-top:24px; }
+.prepared-order-check { display:flex; align-items:flex-start; gap:10px; padding:20px 0; line-height:1.7; cursor:pointer; }
+.prepared-order-check input { width:18px; height:18px; margin-top:4px; flex:none; accent-color:var(--blue); }
+.prepared-order-confirmation .actions { flex-wrap:wrap; }
 .wf-card-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
 .wf-card-heading h2 { margin:0; }
 .wf-muted { font-size:12px; line-height:1.7; color:var(--sub); }

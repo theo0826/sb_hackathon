@@ -15,6 +15,14 @@ export type OrderDraft = {
 };
 export const DEFAULT_ORDER: OrderDraft = { group: "", contactEmail: "", sizes: { S: 5, M: 12, L: 8, XL: 0 }, desiredDeliveryDate: "", method: "DTF", printWidthCm: 18, printHeightCm: 18, memo: "" };
 export type QuoteDocument = { title: string; templateVersion: string; generatedAt: string; summary: string; productionNotes: string[]; checks: string[]; emailSubject: string; emailBody: string; verifiedRows: string[][]; production?: ProductionPacket };
+export function isQuoteDocument(value: unknown): value is QuoteDocument {
+  if (!value || typeof value !== "object") return false;
+  const document = value as Record<string, unknown>;
+  return ["title", "templateVersion", "generatedAt", "summary", "emailSubject", "emailBody"].every(key => typeof document[key] === "string")
+    && Number.isFinite(Date.parse(document.generatedAt as string))
+    && [document.productionNotes, document.checks].every(items => Array.isArray(items) && items.every(item => typeof item === "string"))
+    && Array.isArray(document.verifiedRows) && document.verifiedRows.every(row => Array.isArray(row) && row.every(item => typeof item === "string"));
+}
 export type QuoteRecord = { id: string; sourceOrderId?: string; mode: "mock" | "live"; status: "prepared"; createdAt: string; supplierId: string; design: Design; filename: string; order: OrderDraft; quantity: number; format: "pdf" | "email"; document?: QuoteDocument; trashedAt?: string | null };
 
 export function todayKST(date = new Date()) {

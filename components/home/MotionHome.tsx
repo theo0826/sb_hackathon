@@ -40,8 +40,15 @@ export default function MotionHome() {
     const measureStack = () => {
       const last = panels.at(-1);
       if (!stack || !last) return;
-      // Leave enough scroll distance for the last card to reach its sticky inset.
+      panels.forEach(panel => panel.style.removeProperty("--stack-panel-height"));
+      if (reduced.matches) { stack.style.removeProperty("--stack-runout"); return; }
+      // Equal bottom edges make every card leave sticky positioning together.
+      // Keep the stepped top edges even when content heights differ at narrow widths.
+      const height = Math.max(...panels.map(panel => panel.offsetHeight));
+      const firstTop = parseFloat(getComputedStyle(panels[0]).top) || 0;
       const top = parseFloat(getComputedStyle(last).top) || 0;
+      const step = panels.length > 1 ? (top - firstTop) / (panels.length - 1) : 0;
+      panels.forEach((panel, index) => panel.style.setProperty("--stack-panel-height", `${height + (panels.length - 1 - index) * step}px`));
       stack.style.setProperty("--stack-runout", `${Math.max(0, window.innerHeight - last.offsetHeight - top)}px`);
     };
     const stackResize = new ResizeObserver(measureStack);
@@ -61,7 +68,7 @@ export default function MotionHome() {
       if (hero) hero.style.setProperty("--hero-scroll", String(reduced.matches || paused ? 0 : Math.min(1, scrollY / Math.max(hero.offsetHeight, 1))));
     };
     const scroll = () => { if (!frame) frame = requestAnimationFrame(update); };
-    const change = () => { if (reduced.matches) animations.forEach(animation => animation.cancel()); scroll(); };
+    const change = () => { if (reduced.matches) animations.forEach(animation => animation.cancel()); measureStack(); scroll(); };
     window.addEventListener("scroll", scroll, { passive: true }); window.addEventListener("resize", scroll); reduced.addEventListener("change", change); update();
     return () => { reveal.disconnect(); stackResize.disconnect(); window.removeEventListener("resize", measureStack); animations.forEach(animation => animation.cancel()); cancelAnimationFrame(frame); window.removeEventListener("scroll", scroll); window.removeEventListener("resize", scroll); reduced.removeEventListener("change", change); };
   }, [paused]);
