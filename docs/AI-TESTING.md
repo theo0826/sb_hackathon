@@ -36,7 +36,9 @@ quote는 quote_UUID 형태의 id, mode: 'live', status: 'prepared', createdAt(IS
 
 이전 개인 서버 코드는 이전 이력 호환을 위해 남아 있지만 LEGACY_BACKEND_ENABLED=false가 기본이며, AI·DB 호출 전에 차단됩니다. 기존 OPENAI_ENABLED도 로컬에서 false로 되돌렸습니다. 개인 키 파일은 Git에 포함하지 않습니다. 종전 npm run dev:ai / ai:enable 명령은 제거했습니다. 새 백엔드를 연결할 때 이 스위치나 개인 키를 켤 필요가 없습니다.
 
-ClothSim은 디자인 화면의 별도 의상 시뮬레이션입니다. 기본 Ollama 연결은 유지했으며 개인 GPT·Supabase 키와 관계없습니다. 교체할 경우 백엔드 담당자가 ClothSim 모듈의 LLM 연결을 수정합니다.
+ClothSim은 별도 탭·입력창 없이 디자인 미리보기 안에 통합했습니다. 왼쪽 공통 입력창에서 설명을 쓰고 AI 시안 만들기를 누르면 그 문장이 ClothSim.generate에 전달됩니다. 기본 Ollama 연결은 유지했으며 개인 GPT·Supabase 키와 관계없습니다. NEXT_PUBLIC_AI_DESIGN_URL이 설정돼 있으면 같은 제출로 새 디자인 API도 호출하고 반환된 인쇄 시안을 반영합니다. 의상 생성과 인쇄 시안은 독립 처리하며 하나가 실패해도 성공한 미리보기는 유지합니다. 생성 취소는 두 요청을 중단하며, 의상 장면만 생성된 경우 기존 반팔 주문 도안을 임의로 덮어쓰지 않습니다. 교체할 경우 백엔드 담당자가 ClothSim 모듈의 LLM 연결을 수정합니다.
+
+업체별 도안 버튼은 주문서 확인 → 업체 비교의 각 업체 카드에 있는 AI 맞춤 도안 만들기입니다. 누르면 해당 업체와 인쇄 치수를 적용하고 /quotes/prepare로 이동합니다. 그 화면에서 같은 이름의 버튼으로 새 변환 API를 호출합니다. PDF·메일 양식 모두 이 경로를 사용합니다. 기존 시연 주문 진행 버튼은 유지합니다.
 
 ## 검증
 

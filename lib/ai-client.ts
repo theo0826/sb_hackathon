@@ -3,7 +3,7 @@
 type Operation = "design" | "quote";
 
 /** Backend-owned endpoints. Never fall back to the previous personal /api integration. */
-async function requestAI(operation: Operation, body: Record<string, unknown>, requestKey: string) {
+async function requestAI(operation: Operation, body: Record<string, unknown>, requestKey: string, signal?: AbortSignal) {
   const endpoint = (operation === "design" ? process.env.NEXT_PUBLIC_AI_DESIGN_URL : process.env.NEXT_PUBLIC_AI_QUOTE_URL)?.trim();
   if (!endpoint) throw new Error("AI 서버 연결을 준비 중이에요. 연결 후 다시 시도해주세요.");
   if (!/^\/(?!\/)/.test(endpoint)) {
@@ -14,7 +14,7 @@ async function requestAI(operation: Operation, body: Record<string, unknown>, re
   try {
     response = await fetch(endpoint, {
       method: "POST", credentials: "omit", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...body, requestKey }), signal: AbortSignal.timeout(240_000),
+      body: JSON.stringify({ ...body, requestKey }), signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(240_000)]) : AbortSignal.timeout(240_000),
     });
   } catch { throw new Error("AI 서버에 연결하지 못했어요. 잠시 후 다시 시도해주세요."); }
   let result: Record<string, unknown>;
@@ -32,8 +32,8 @@ async function requestAI(operation: Operation, body: Record<string, unknown>, re
   return result;
 }
 
-export async function generateAIDesign(body: Record<string, unknown>, requestKey: string) {
-  const result = await requestAI("design", body, requestKey);
+export async function generateAIDesign(body: Record<string, unknown>, requestKey: string, signal?: AbortSignal) {
+  const result = await requestAI("design", body, requestKey, signal);
   return { design: result.design, reply: typeof result.reply === "string" ? result.reply : undefined };
 }
 

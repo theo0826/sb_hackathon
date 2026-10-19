@@ -24,6 +24,13 @@ try {
   await assert.rejects(client.generateAIDesign({}, requestKey), /응답 형식/);
   globalThis.fetch = async () => { throw new TypeError("Network error"); };
   await assert.rejects(client.generateAIDesign({}, requestKey), /연결하지 못했어요/);
+  const cancel = new AbortController();
+  globalThis.fetch = async (_url, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+  });
+  const pending = client.generateAIDesign({}, requestKey, cancel.signal);
+  cancel.abort();
+  await assert.rejects(pending, /연결하지 못했어요/);
   console.log("PASS new backend URLs, no personal fallback/cookies/keys, request payload, validation errors and disconnected response; no real network or AI calls");
 } finally {
   globalThis.fetch = originalFetch;

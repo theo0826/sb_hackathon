@@ -17,6 +17,7 @@ import { DesignThumbnail } from "@/components/quote/DesignSummary";
 import FlowSteps from "@/components/layout/FlowSteps";
 import DesignSettings from "./DesignSettings";
 import type { CanvasHandle } from "./DesignCanvas";
+import type { ClothSimulationControls } from "./ClothSimulationPreview";
 
 const Canvas = dynamic(() => import("./GarmentPreview3D"), { ssr: false, loading: () => <div className="canvas-loading"><LoaderCircle className="animate-spin" size={24} /><span>미리보기를 준비하고 있어요</span></div> });
 const ClothSimulation = dynamic(() => import("./ClothSimulationPreview"), { ssr: false });
@@ -31,9 +32,11 @@ export default function DesignStudio() {
   const [showResult, setShowResult] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [previewMode, setPreviewMode] = useState<"design" | "simulation">("design");
-  const [simulationOpened, setSimulationOpened] = useState(false);
+  const [previewVersion, setPreviewVersion] = useState(0);
   const requestActive = useRef(false);
+  const generationId = useRef(0);
+  const generationAbort = useRef<AbortController | null>(null);
+  const simulation = useRef<ClothSimulationControls>(null);
   const saveActive = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const promptInput = useRef<HTMLTextAreaElement>(null);
@@ -50,27 +53,53 @@ export default function DesignStudio() {
     }
   }, [showResult]);
 
+  useEffect(() => () => { generationId.current++; generationAbort.current?.abort(); }, []);
+
   async function generate(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
-    if (requestActive.current || uploading) return;
+    if (requestActive.current || uploading || saving) return;
     const instruction = prompt.trim();
-    if (!instruction) { setError("원하는 디자인을 한 문장으로 입력해주세요."); promptInput.current?.focus(); return; }
+    if (!instruction) { setError("원하는 의상을 한 문장으로 입력해주세요."); promptInput.current?.focus(); return; }
+    if (!simulation.current) { setError("미리보기를 준비하고 있어요. 잠시 후 다시 눌러주세요."); return; }
+    const id = ++generationId.current;
+    const controller = new AbortController(); generationAbort.current = controller;
     requestActive.current = true; setError(""); setMessage(""); setGenerating(true); setShowResult(false);
-    setMessages((current) => [...current, { id: crypto.randomUUID(), role: "user", text: instruction }]); setPrompt("");
+    setMessages(current => [...current, { id: crypto.randomUUID(), role: "user", text: instruction }]);
     try {
-      const result = await generateAIDesign({ prompt: instruction, currentDesign: design }, crypto.randomUUID());
-      if (!isDesign(result.design)) throw new Error("생성 결과를 확인할 수 없어요. 다시 요청해주세요.");
-      setDesign(result.design);
-      updateDetails({ confirmed: false });
-      setHasResult(true);
-      setShowResult(true);
-      setFilename(result.design.image ? "AI 디자인.png" : "");
-      setMessages((current) => [...current, { id: crypto.randomUUID(), role: "assistant", text: result.reply || "요청한 디자인을 반영했어요. 더 바꾸고 싶은 부분을 말해주세요." }]);
+      const [garment, artwork] = await Promise.allSettled([
+        simulation.current.generate(instruction),
+        process.env.NEXT_PUBLIC_AI_DESIGN_URL?.trim()
+          ? generateAIDesign({ prompt: instruction, currentDesign: design }, crypto.randomUUID(), controller.signal)
+          : Promise.resolve(null),
+      ]);
+      if (id !== generationId.current) return;
+      const garmentReady = garment.status === "fulfilled" && garment.value;
+      let reply = garmentReady ? "설명한 의상을 디자인 미리보기에 반영했어요." : "";
+      if (artwork.status === "fulfilled" && artwork.value) {
+        if (!isDesign(artwork.value.design)) throw new Error("생성 결과를 확인할 수 없어요. 다시 요청해주세요.");
+        setDesign(artwork.value.design); updateDetails({ confirmed: false }); setHasResult(true);
+        setFilename(artwork.value.design.image ? "AI 디자인.png" : "");
+        reply = artwork.value.reply || "요청한 디자인을 반영했어요.";
+      } else if (artwork.status === "rejected") {
+        if (!garmentReady) throw artwork.reason;
+        setError(artwork.reason instanceof Error ? artwork.reason.message : "인쇄 시안 서버 연결을 확인해주세요.");
+      }
+      if (!reply) throw new Error("의상을 만들지 못했어요. 생성 연결을 확인하고 다시 시도해주세요.");
+      setShowResult(true); setMessage(reply);
+      setMessages(current => [...current, { id: crypto.randomUUID(), role: "assistant", text: reply }]);
     } catch (cause) {
+      if (id !== generationId.current) return;
       setError(cause instanceof Error ? cause.message : "연결을 확인하고 다시 시도해주세요.");
-      setPrompt(instruction);
-      setMessages((current) => [...current, { id: crypto.randomUUID(), role: "assistant", text: "이번 요청을 완료하지 못했어요. 입력한 내용은 다시 보낼 수 있도록 남겨뒀어요." }]);
-    } finally { requestActive.current = false; setGenerating(false); }
+      setMessages(current => [...current, { id: crypto.randomUUID(), role: "assistant", text: "이번 요청을 완료하지 못했어요. 설명을 바꾸거나 다시 시도해주세요." }]);
+    } finally {
+      if (id === generationId.current) { requestActive.current = false; generationAbort.current = null; setGenerating(false); }
+    }
+  }
+
+  function cancelGeneration() {
+    generationId.current++; generationAbort.current?.abort(); generationAbort.current = null;
+    simulation.current?.cancel(); requestActive.current = false; setGenerating(false);
+    setMessage("생성을 취소했어요. 입력한 설명은 그대로 남겨뒀어요.");
   }
 
   async function upload(event: ChangeEvent<HTMLInputElement>) {
@@ -107,7 +136,7 @@ export default function DesignStudio() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "저장하지 못했어요."); }
     finally { saveActive.current = false; setSaving(false); }
   }
-  function newDesign() { if (!generating && !uploading && !saving) { resetSession(); resetOrderDetails(); setSimulationOpened(false); setPreviewMode("design"); setMessage(""); setError(""); } }
+  function newDesign() { if (!generating && !uploading && !saving) { resetSession(); resetOrderDetails(); setPreviewVersion(current => current + 1); setMessage(""); setError(""); } }
 
   const busy = generating || uploading || saving;
   function variantDesign(index: number): Design {
@@ -122,7 +151,6 @@ export default function DesignStudio() {
   }
   const price = estimate(SUPPLIERS[0], order);
   const designPreview = <Canvas design={design} exportRef={canvas} showArtwork={hasResult || !!design.image}/>;
-  const generationOverlay = generating ? <div className="generation-overlay" role="status"><LoaderCircle className="animate-spin" size={28}/><strong>디자인을 반영하고 있어요</strong></div> : null;
   return <main id="main-content" className="wf-page wf-studio"><FlowSteps current={1} />
     <h1 className="sr-only">디자인 스튜디오</h1>
     <div className="wf-studio-grid">
@@ -134,9 +162,10 @@ export default function DesignStudio() {
         <button className="wf-upload" onClick={() => fileInput.current?.click()} disabled={busy}>{design.image ? <Image src={design.image} width={64} height={64} alt="첨부한 로고" unoptimized/> : <ImagePlus size={26}/>}<span>{uploading ? "이미지 준비 중…" : filename || "모임 로고 · 참고 이미지"}</span></button>
         <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" hidden aria-label="참고 이미지 선택" onChange={upload}/>
         <div className="wf-upload-note"><span>PNG · JPG · WEBP / 최대 8MB</span>{design.image && <button className="text-link" disabled={busy} onClick={() => { patch({ image: null }); setFilename(""); }}><X size={13}/>삭제</button>}</div>
-        <form onSubmit={generate} className="wf-prompt-form"><label htmlFor="prompt">원하는 느낌을 한 문장으로</label><textarea ref={promptInput} id="prompt" rows={5} maxLength={300} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder={'초록색 단체티에 우리 모임 로고를 넣고, 등판에는 모임 이름을 크게'} disabled={busy}/>
+        <form onSubmit={generate} className="wf-prompt-form"><label htmlFor="prompt">원하는 느낌을 한 문장으로</label><textarea ref={promptInput} id="prompt" rows={5} maxLength={300} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder={'초록색 오버핏 후드티에 캥거루 주머니를 넣어줘'} disabled={busy}/>
           <div className="wf-prompt-hints">{["클래식","미니멀","스트리트"].map(word => <button type="button" key={word} disabled={busy} onClick={() => setPrompt(current => (current + " " + word + " 느낌으로").trim().slice(0,300))}>{word}</button>)}</div>
           <button className="wf-dark-button wide" type="submit" disabled={busy}>{generating ? <LoaderCircle className="animate-spin" size={16}/> : <Sparkles size={16}/>} {generating ? "시안을 만들고 있어요…" : "AI 시안 만들기"}</button>
+          {generating && <button type="button" className="outline wide" onClick={cancelGeneration}>생성 취소</button>}
           <button type="button" className="outline wide" onClick={sample} disabled={busy}>예시 시안으로 시작</button>
         </form>
         <DesignSettings design={design} onChange={patch} disabled={busy}/>
@@ -144,8 +173,8 @@ export default function DesignStudio() {
       </section>
       <section className="wf-studio-preview ai-stage" aria-label="디자인 미리보기">
         <div className="wf-preview-toolbar"><div className="wf-segments" role="group" aria-label="인쇄 면"><button aria-pressed={design.side === "front"} onClick={() => patch({ side: "front" })} disabled={busy}>앞면</button><button aria-pressed={design.side === "back"} onClick={() => patch({ side: "back" })} disabled={busy}>뒷면</button></div><button className="text-link" onClick={save} disabled={busy || !(hasResult || design.image)}><Save size={15}/>{saving ? "저장 중…" : "저장"}</button></div>
-        <div className="studio-preview-modes wf-segments" role="group" aria-label="미리보기 방식"><button type="button" aria-pressed={previewMode === "design"} onClick={() => setPreviewMode("design")}>디자인 미리보기</button><button type="button" aria-pressed={previewMode === "simulation"} onClick={() => { setSimulationOpened(true); setPreviewMode("simulation"); }}>의상 시뮬레이션</button></div>
-        {simulationOpened ? <ClothSimulation active={previewMode === "simulation"} fallback={designPreview} overlay={generationOverlay}/> : <div className="wf-stage" data-preview-mode="design">{designPreview}{generationOverlay}</div>}
+        <h2 className="studio-preview-heading">디자인 미리보기</h2>
+        <ClothSimulation key={previewVersion} controllerRef={simulation} fallback={designPreview}/>
         <div className="wf-colors" role="group" aria-label="의류 색상">{COLORS.map(color => <button key={color.hex} style={{ backgroundColor: color.hex }} aria-label={color.name} aria-pressed={design.color === color.hex} onClick={() => patch({ color: color.hex })} disabled={busy}/>)}</div>
         <div className="wf-variants" role="group" aria-label="시안 배치 선택">{["A 클래식","B 미니멀","C 스트리트"].map((label,index) => <button key={label} aria-pressed={variant === index && hasResult} disabled={busy} onClick={() => { patch(variantDesign(index)); setHasResult(true); }}><DesignThumbnail design={variantDesign(index)}/><span><strong>{label}</strong><small>{index === variant && hasResult ? "적용 중" : ["가슴 로고","앞면 중앙","가슴 + 등판"][index]}</small></span></button>)}</div>
         <p className="wf-muted wf-variant-note">시안 카드는 같은 디자인의 스타일·배치 예시예요.</p>
