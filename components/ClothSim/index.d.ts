@@ -29,7 +29,7 @@ export interface CreateClothSimParams extends Partial<ClothSimOptions> {
   /** scene.json, scene.bin 이 있는 폴더 주소, 또는 이미 받은 { meta, bin } */
   scene?: string | { meta: unknown; bin: ArrayBuffer | ArrayBufferView };
   /** 이미 만든 WebGPU 장치를 같이 쓸 때 (GPUDevice). 없으면 새로 만듦 */
-  device?: any;
+  device?: unknown;
   autoplay?: boolean;
   look?: { background?: [number, number, number, number]; bodyColor?: string };
   offscreen?: boolean;
@@ -111,7 +111,7 @@ export function makeLLM(options?: LLMOptions): LLM;
 
 /** 고른 토큰 묶음 (Python spec.json 과 같은 모양) */
 export interface Spec { text: string; tree: string; info: Record<string, unknown>; body: Record<string, unknown>; tokens: Record<string, { value: string | number; label: string; meta: Record<string, unknown>; source: string; prob?: number; alts?: [string, number][] }>; }
-export interface Scene { meta: any; bin: ArrayBuffer; }
+export interface Scene { meta: Record<string, unknown>; bin: ArrayBuffer; }
 export interface Progress { stage: 'translate' | 'choose' | 'number' | 'build' | 'done'; path?: string; count?: number; }
 
 export function parseIntent(text: string, userFixed?: Record<string, string | number>): {

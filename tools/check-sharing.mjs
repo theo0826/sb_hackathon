@@ -11,6 +11,7 @@ const findings = new Set();
 const report = (scope, file, kind) => findings.add(JSON.stringify({ scope, file, kind }));
 const privateValues = new Set();
 const localName = path.basename(process.env.USERPROFILE || process.env.HOME || '');
+const machineName = process.env.COMPUTERNAME || process.env.HOSTNAME || '';
 // Compare every locally configured secret against both current files and history.
 for (const file of fs.readdirSync(root).filter(name => /^\.env(?:\.|$)/.test(name) && name !== '.env.example')) {
   if (!fs.statSync(file).isFile()) continue;
@@ -36,6 +37,7 @@ function scan(scope, file, bytes) {
   }
   const content = bytes.toString('utf8');
   if (localName.length >= 5 && content.toLowerCase().includes(localName.toLowerCase())) report(scope, file, 'matches local account name (redacted)');
+  if (machineName.length >= 5 && content.toLowerCase().includes(machineName.toLowerCase())) report(scope, file, 'matches local computer name (redacted)');
   for (const [kind, pattern] of patterns) if (pattern.test(content)) report(scope, file, kind);
   for (const token of content.match(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g) || []) {
     try {

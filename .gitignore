@@ -66,3 +66,19 @@ coverage/
 screenshots/
 recordings/
 exports/
+
+# Personal machine metadata and credential exports
+Thumbs.db
+Desktop.ini
+.git-credentials
+.gitconfig
+.bash_history
+.zsh_history
+.python_history
+.azure/
+.kube/
+.docker/config.json
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519

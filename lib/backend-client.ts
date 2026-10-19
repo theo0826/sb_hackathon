@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
+import { STATIC_SITE } from "./deployment";
 export function useAIAvailability() {
-  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [enabled, setEnabled] = useState<boolean | null>(STATIC_SITE ? false : null);
   useEffect(() => {
+    if (STATIC_SITE) return;
     let active = true;
     void fetch("/api/status", { cache: "no-store" }).then(response => response.json()).then(result => { if (active) setEnabled(result.aiEnabled === true); }).catch(() => { if (active) setEnabled(false); });
     return () => { active = false; };
@@ -10,6 +12,7 @@ export function useAIAvailability() {
   return enabled;
 }
 export async function initializeBackendSession() {
+  if (STATIC_SITE) throw new Error("이 사이트에서는 브라우저 편집과 목업 양식 변환을 이용해주세요.");
   const response = await fetch("/api/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}", signal: AbortSignal.timeout(15000) });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || "서버 연결을 확인해주세요.");

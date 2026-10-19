@@ -1,3 +1,4 @@
+import { publicPath } from "./deployment";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { placementDesign, type Design } from "./design";
@@ -140,7 +141,7 @@ function projectSurface(body: THREE.Object3D) {
 }
 export async function loadGarmentMaster() {
   // Checked-in CC0 meshes, subdivided offline; no external service at runtime.
-  if (!masterFile) masterFile = new GLTFLoader().loadAsync("/models/garment-masters-v2.glb").then(gltf => gltf.scene).catch(error => { masterFile = undefined; throw error; });
+  if (!masterFile) masterFile = new GLTFLoader().loadAsync(publicPath("/models/garment-masters-v2.glb")).then(gltf => gltf.scene).catch(error => { masterFile = undefined; throw error; });
   return masterFile;
 }
 

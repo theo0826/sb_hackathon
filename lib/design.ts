@@ -58,10 +58,10 @@ export const COLORS = [
   { hex: "#b5cede", name: "소프트 블루" },
 ] as const;
 
-export const DEFAULT_PROMPT = "네이비 반팔티에 대학 동아리 느낌의 배지. 문구는 CAMPUS CLUB. 앞면 중앙에 크림색으로 깔끔하게.";
+export const DEFAULT_PROMPT = "네이비 반팔티에 성북구 주민 모임의 배지. 문구는 OUR GROUP. 앞면 중앙에 크림색으로 깔끔하게.";
 export const DEFAULT_DESIGN: Design = {
   garment: "tee",
-  color: "#253952", ink: "#e9dec2", text: "CAMPUS CLUB", style: "campus",
+  color: "#253952", ink: "#e9dec2", text: "OUR GROUP", style: "campus",
   side: "front", x: 260, y: 248, scale: 100, rotation: 0, image: null,
 };
 export const SHIRT_PATH = "M132 48 Q150 65 200 66 Q250 65 268 48 L319 72 L392 154 L335 194 L300 148 L300 426 Q200 442 100 426 L100 148 L65 194 L8 154 L81 72 Z";
@@ -70,7 +70,7 @@ export const STORAGE_KEY = "seongbuk-fit:design:v1";
 
 export function mockDesign(prompt: string, current: Design = DEFAULT_DESIGN): Partial<Design> {
   const base=simpleDesign(current);
-  const name=prompt.match(/(?:동아리명|문구)(?:은|는|를|[:：])?\s*["“']([^"”']{1,36})["”']/)?.[1];
+  const name=prompt.match(/(?:동아리명|단체명|모임명|문구)(?:은|는|를|[:：])?\s*["“']([^"”']{1,36})["”']/)?.[1];
   const both=/앞뒤|(?:가슴|앞면).*(?:등판|뒷면)|(?:등판|뒷면).*(?:가슴|앞면)/.test(prompt);
   const side:Side=both?"front":/등판|뒷면/.test(prompt)?"back":/가슴|앞면/.test(prompt)?"front":base.side;
   const chest=/가슴/.test(prompt),center=/중앙/.test(prompt);

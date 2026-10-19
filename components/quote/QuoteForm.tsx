@@ -6,17 +6,23 @@ import { useRef, useState, type FormEvent } from "react";
 import { ArrowRight, Check, Info, LoaderCircle } from "lucide-react";
 import { useDesignSession } from "@/lib/design-session";
 import { getSupplier } from "@/lib/suppliers";
-import { SIZES, isQuoteRecord, todayKST, totalQuantity, validateOrder, validateDesignForSupplier, type OrderDraft, type QuoteRecord } from "@/lib/quote";
-import { refreshQuotes } from "@/lib/quote-history";
-import { aiRequest, useAIAvailability } from "@/lib/backend-client";
+import { SIZES, isQuoteRecord, isQuoteDocument, todayKST, totalQuantity, validateOrder, validateDesignForSupplier, type OrderDraft, type QuoteRecord } from "@/lib/quote";
+import { refreshQuotes, saveStaticQuote } from "@/lib/quote-history";
+import { detailHref, LOCAL_DATA_ONLY } from "@/lib/deployment";
+import { sampleProductionDocument } from "@/lib/production-document";
+import { convertAIQuote } from "@/lib/ai-client";
+import { createDemoOrder, useOrderDetails } from "@/lib/order-workflow-client";
+import { reviewedOrderIssues } from "@/lib/order-workflow";
 import FlowSteps from "@/components/layout/FlowSteps";
 import ProductionDocument from "@/components/supplier/ProductionDocument";
 
 export default function QuoteForm() {
-  const aiEnabled = useAIAvailability();
   const router = useRouter();
   const { design, filename, supplierId, order, setOrder, hasResult } = useDesignSession();
   const supplier = getSupplier(supplierId);
+  const { details } = useOrderDetails();
+  const [preparedConfirmed, setPreparedConfirmed] = useState(false);
+  const orderActive = useRef(false);
   const [review, setReview] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
@@ -32,10 +38,16 @@ export default function QuoteForm() {
     const fields = validateOrder(order, supplier); setErrors(fields);
     if (Object.keys(fields).length) { document.getElementById(Object.keys(fields)[0])?.focus(); return; }
     submissionActive.current = true;
-    setError(""); setSubmitting(true);
+    setError(""); setPreparedConfirmed(false); setSubmitting(true);
     try {
-      const result = await aiRequest("/api/quotes", { supplierId, design, filename, order, conversionMode }, crypto.randomUUID());
-      if (!isQuoteRecord(result.quote)) throw new Error("요청 결과를 확인하지 못했어요.");
+      const key = crypto.randomUUID();
+      let result;
+      if (conversionMode === "sample") {
+        const quote: QuoteRecord = { id: `quote_${key}`, mode: "mock", status: "prepared", createdAt: new Date().toISOString(), supplierId: supplier.id, design, filename, order: structuredClone(order), quantity: totalQuantity(order), format: supplier.format, document: sampleProductionDocument(supplier, design, order, key) };
+        result = { quote };
+      } else result = await convertAIQuote({ supplierId, design, filename, order, conversionMode }, key);
+      if (!isQuoteRecord(result.quote) || !isQuoteDocument(result.quote.document)) throw new Error("요청 결과를 확인하지 못했어요.");
+      await saveStaticQuote(result.quote);
       setPreparedQuote(result.quote); setReview(true);
       void refreshQuotes();
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -44,17 +56,39 @@ export default function QuoteForm() {
       setError(cause instanceof Error ? cause.message : "연결을 확인해주세요.");
     } finally { submissionActive.current = false; setSubmitting(false); }
   }
-  async function submit() {
-    if (preparedQuote) router.push(`/quotes/${preparedQuote.id}`);
+  const orderInput = { supplierId: supplier?.id || "", design, order, details, filename };
+  const orderIssues = preparedQuote ? reviewedOrderIssues(orderInput, preparedQuote, true) : [];
+  function submit() {
+    if (orderActive.current || !preparedQuote) return;
+    const issues = reviewedOrderIssues(orderInput, preparedQuote, preparedConfirmed);
+    if (issues.length) { setError(issues.join(" ")); return; }
+    orderActive.current = true; setSubmitting(true); setError("");
+    try {
+      const record = createDemoOrder(orderInput, { quote: preparedQuote, confirmed: preparedConfirmed });
+      router.push(detailHref("orders", record.id));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "주문을 저장하지 못했어요.");
+      orderActive.current = false; setSubmitting(false);
+    }
   }
   const fieldError = (name: string) => errors[name] ? <p id={`${name}-error`} className="field-error" role="alert">{errors[name]}</p> : null;
 
   return <main id="main-content" className="shell studio-main"><div className="intro"><div><h1>{review ? "업체 맞춤 도안을 확인해요." : "맞춤 도안을 준비해요."}</h1><p>{review ? "고객 UV와 업체 패턴의 배치를 비교하고 내려받으세요." : "고객 UV를 업체별 봉제·인쇄 패턴과 견적 요청서로 변환해요."}</p></div><FlowSteps current={3} /></div>
     {!(hasResult || design.image) ? <section className="panel empty-state"><Info size={28} /><h2>먼저 디자인을 만들어주세요.</h2><Link href="/design" className="primary">디자인 만들기</Link></section> : !supplier ? <section className="panel empty-state"><Info size={28} /><h2>견적을 요청할 업체를 먼저 선택해주세요.</h2><p>PDF 또는 이메일 양식을 선택한 업체 기준으로 준비해요.</p><Link href="/suppliers" className="primary">업체 선택하기</Link></section> : <>
-      <div className="demo-notice"><Info size={17} /><span>현재 업체 정보 기반의 초안이에요. 요청서는 서버에 저장되며, 업체 발송과 금액 확정은 별도예요.</span></div>
-      {review ? <><ProductionDocument supplier={supplier} design={preparedQuote?.design || design} order={preparedQuote?.order || order} filename={filename} document={preparedQuote?.document} /><div className="bottom-action flow-next"><div><strong>{supplier.name} · 총 {totalQuantity(order)}벌</strong><p>{supplier.format === "pdf" ? "PDF 도안서" : "이메일 제목·본문"}과 첨부 도안을 확인한 뒤 완료해주세요.</p></div><div className="actions"><button className="outline" onClick={() => setReview(false)} disabled={submitting}>주문 정보 수정</button><button id="submit-quote" className="primary" onClick={submit} disabled={submitting}>{submitting ? <LoaderCircle className="animate-spin" size={16} /> : <Check size={16} />}{submitting ? "요청 내역 저장 중…" : "견적 요청서 보관함 보기"}</button></div></div></> : <div className="quote-layout"><form id="quote-form" className="panel quote-form" onSubmit={prepare} noValidate><fieldset disabled={submitting} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+      <div className="demo-notice"><Info size={17} /><span>{LOCAL_DATA_ONLY ? "시연용 초안이에요. 요청서는 현재 탭에 보관되며 실제 업체에는 발송되지 않아요." : "현재 업체 정보 기반의 초안이에요. 요청서는 서버에 저장되며, 업체 발송과 금액 확정은 별도예요."}</span></div>
+      {review ? <>
+        <ProductionDocument supplier={supplier} design={preparedQuote?.design || design} order={preparedQuote?.order || order} filename={preparedQuote?.filename || filename} document={preparedQuote?.document} expandSpecs />
+        <div className="wf-card prepared-order-confirmation">
+          <h2>맞춤 도안을 확인한 후 주문해주세요</h2>
+          <p>{supplier.name}의 {supplier.format === "pdf" ? "PDF 도안서와" : "메일 양식과"} 인쇄 위치·크기, 수량을 확인해주세요.</p>
+          <label className="prepared-order-check"><input type="checkbox" checked={preparedConfirmed} onChange={event => setPreparedConfirmed(event.target.checked)} disabled={submitting}/>{supplier.format === "pdf" ? "PDF 맞춤 도안" : "메일 양식과 첨부 도안"} 및 주문 조건을 확인했어요.</label>
+          {orderIssues.length > 0 && <p className="wf-alert" role="alert">{orderIssues.join(" ")} <Link href="/quotes/new">주문서 다시 확인</Link></p>}
+          <div className="actions"><button className="outline" onClick={() => { setPreparedConfirmed(false); setPreparedQuote(null); setReview(false); }} disabled={submitting}>주문 정보 수정</button><button id="submit-quote" className="primary" onClick={submit} disabled={submitting || !preparedConfirmed || orderIssues.length > 0}>{submitting ? <LoaderCircle className="animate-spin" size={16}/> : <Check size={16}/>} {submitting ? "주문 저장 중…" : "도안 확인 후 주문하기"}</button></div>
+          <p className="wf-muted">시연 주문이며 실제 결제나 업체 발송은 이루어지지 않아요.</p>
+        </div>
+      </> : <div className="quote-layout"><form id="quote-form" className="panel quote-form" onSubmit={prepare} noValidate><fieldset disabled={submitting} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
         <div className="panel-title"><h2>주문 정보</h2><span>* 필수 입력</span></div>
-        <div className="field"><label className="field-label" htmlFor="group">단체 이름 *</label><input id="group" className="form-input" value={order.group} maxLength={50} placeholder="예: 고려대학교 캠퍼스 동아리" onChange={(event) => update({ group: event.target.value })} required aria-invalid={!!errors.group} aria-describedby={errors.group ? "group-error" : undefined} />{fieldError("group")}</div>
+        <div className="field"><label className="field-label" htmlFor="group">단체 이름 *</label><input id="group" className="form-input" value={order.group} maxLength={50} placeholder="예: 성북구 이웃 모임" onChange={(event) => update({ group: event.target.value })} required aria-invalid={!!errors.group} aria-describedby={errors.group ? "group-error" : undefined} />{fieldError("group")}</div>
         <div className="field"><label className="field-label" htmlFor="contactEmail">연락 이메일 *</label><input id="contactEmail" className="form-input" type="email" value={order.contactEmail} maxLength={254} placeholder="team@example.com" onChange={(event) => update({ contactEmail: event.target.value })} required aria-invalid={!!errors.contactEmail} aria-describedby={errors.contactEmail ? "contactEmail-error" : undefined} />{fieldError("contactEmail")}</div>
         <fieldset className="field"><legend className="field-label">사이즈별 수량 *</legend><div className="size-grid" id="sizes" tabIndex={-1}>{SIZES.map((size) => <label key={size} htmlFor={`size-${size}`}>{size}<input id={`size-${size}`} type="number" min={0} max={999} step={1} value={order.sizes[size]} onChange={(event) => update({ sizes: { ...order.sizes, [size]: Math.max(0, Math.min(999, Math.trunc(Number(event.target.value)))) } })} aria-invalid={!!errors.sizes} /></label>)}</div><div className="quantity-total"><span>총 주문 수량 <small>최소 {supplier.minOrder}벌</small></span><strong>{totalQuantity(order)}벌</strong></div>{fieldError("sizes")}</fieldset>
         <div className="form-row"><div className="field"><label className="field-label" htmlFor="desiredDeliveryDate">희망 수령일 *</label><input id="desiredDeliveryDate" className="form-input" type="date" min={todayKST()} value={order.desiredDeliveryDate} onChange={(event) => update({ desiredDeliveryDate: event.target.value })} required aria-invalid={!!errors.desiredDeliveryDate} />{fieldError("desiredDeliveryDate")}</div><div className="field"><label className="field-label" htmlFor="method">제작 방식 *</label><select id="method" className="form-input" value={order.method} onChange={(event) => update({ method: event.target.value })}>{supplier.methods.map((method) => <option key={method}>{method}</option>)}</select>{fieldError("method")}</div></div>
@@ -63,7 +97,7 @@ export default function QuoteForm() {
         <div className="note-bar"><Info size={15} /><span>이 업체의 예시 인쇄 영역은 최대 {supplier.maxPrintWidthCm} × {supplier.maxPrintHeightCm}cm예요. 실제 배치와 크기는 업체 확인 후 확정해요.</span></div>
         <div className="field memo-field"><label className="field-label" htmlFor="memo">추가 요청 사항 <small>{order.memo.length} / 500</small></label><textarea id="memo" className="form-input" rows={4} maxLength={500} value={order.memo} placeholder="원단, 포장, 일정 등 전달할 내용을 적어주세요." onChange={(event) => update({ memo: event.target.value })} /></div>
         </details>
-        <div className="pattern-conversion-actions"><button className="outline" type="button" disabled={submitting} onClick={()=>void prepare(undefined,"sample")}>{submitting?<LoaderCircle className="animate-spin" size={16}/>:<ArrowRight size={16}/>}목업 양식으로 변환·저장</button><button className="primary" type="submit" disabled={submitting || aiEnabled !== true}>{submitting ? <><LoaderCircle className="animate-spin" size={16} />변환 중…</> : aiEnabled === false ? "AI 변환 비활성화" : <>AI로 업체 패턴 변환<ArrowRight size={16}/></>}</button></div><p className="pattern-source-note">변환·저장 시 도안과 주문 정보(연락 이메일 포함)를 비공개 클라우드에 저장합니다. 목업 변환은 유료 AI를 호출하지 않습니다. AI 변환은 고객 UV의 도안·배치를 유지하며 업체 양식으로 변환합니다. <Link href="/patterns" className="text-link">업체 양식 3종 보기</Link></p>
+        <div className="pattern-conversion-actions"><button className="outline" type="button" disabled={submitting} onClick={()=>void prepare(undefined,"sample")}>{submitting?<LoaderCircle className="animate-spin" size={16}/>:<ArrowRight size={16}/>}목업 양식으로 변환·저장</button><button className="primary" type="submit" disabled={submitting}>{submitting ? <><LoaderCircle className="animate-spin" size={16} />변환 중…</> : <>AI 맞춤 도안 만들기<ArrowRight size={16}/></>}</button></div><p className="pattern-source-note">{LOCAL_DATA_ONLY ? "목업 자료는 현재 탭에 보관됩니다. AI 변환 시 도안과 주문 정보(연락 이메일 포함)를 연결된 서버로 전송하고, 결과를 현재 탭에도 보관합니다. 필요한 제작자료를 내려받아주세요." : "변환·저장 시 도안과 주문 정보(연락 이메일 포함)를 비공개 클라우드에 저장합니다."} 목업 변환은 유료 AI를 호출하지 않습니다. AI 변환은 고객 UV의 도안·배치를 유지하며 업체 양식으로 변환합니다. <Link href="/patterns" className="text-link">업체 양식 3종 보기</Link></p>
       </fieldset></form><aside className="panel quote-side"><h2>{supplier.name}</h2><span className={`format-badge ${supplier.format}`}>{supplier.format === "pdf" ? "PDF 도안서 제출" : "이메일 양식 제출"}</span><dl className="design-summary"><div><dt>디자인</dt><dd>{design.image ? filename : design.text}</dd></div><div><dt>인쇄 면</dt><dd>{design.placements?[...new Set(design.placements.map(p=>p.side==="front"?"앞면":"등판"))].join(" + "):design.side === "front" ? "앞면" : "뒷면"}</dd></div><div><dt>예시 제작 기간</dt><dd>{supplier.leadDays}</dd></div></dl><p className="quote-format-note">선택한 업체 규격에 맞춰 도안과 제작자료를 준비해요.</p><Link href="/suppliers" className="text-link">업체 변경하기</Link></aside></div>}
       {error && <p className="error submit-error" role="alert">{error}</p>}
     </>}

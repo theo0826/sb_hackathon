@@ -12,6 +12,7 @@ export function required(name: string) {
   return value;
 }
 export function database() {
+  if (process.env.LEGACY_BACKEND_ENABLED !== "true") throw new ApiError("기존 개인 백엔드 연결은 사용하지 않습니다.", 503);
   const secret = required("SUPABASE_SECRET_KEY");
   if (secret.startsWith("sb_publishable_")) throw new ApiError("Supabase 공개용 키가 설정됐어요. 서버 환경변수에 비밀 키를 입력해주세요.", 503);
   return createClient(required("SUPABASE_URL"), secret, {
@@ -19,6 +20,7 @@ export function database() {
   });
 }
 export function requireAI() {
+  if (process.env.LEGACY_BACKEND_ENABLED !== "true") throw new ApiError("기존 개인 AI 연결은 사용하지 않습니다.", 503);
   if (process.env.OPENAI_ENABLED !== "true") throw new ApiError("AI 생성이 현재 비활성화돼 있어요. 저장한 디자인과 제작자료는 계속 확인할 수 있어요.", 503);
   required("OPENAI_API_KEY");
 }

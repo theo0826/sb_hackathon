@@ -109,8 +109,8 @@ export class Solver {
     };
     this.K = {};
     await Promise.all(Object.entries(plan).map(async ([name, bufs]) => {
-      const module = await shaderModule(dev, name, true);
-      const pipeline = await dev.createComputePipelineAsync({ layout: 'auto', compute: { module, entryPoint: 'main' }, label: name });
+      const shader = await shaderModule(dev, name, true);
+      const pipeline = await dev.createComputePipelineAsync({ layout: 'auto', compute: { module: shader, entryPoint: 'main' }, label: name });
       const entries = [{ binding: 0, resource: { buffer: B.params } }, ...bufs.map((b, i) => ({ binding: i + 1, resource: { buffer: B[b] } }))];
       this.K[name] = { pipeline, group: dev.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries }) };
     }));

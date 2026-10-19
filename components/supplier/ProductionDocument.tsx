@@ -15,7 +15,7 @@ import { textArtworkSVG } from "@/lib/print-artwork";
 
 const Canvas = dynamic(() => import("@/components/design/GarmentPreview3D"), { ssr: false, loading: () => <div className="canvas-loading"><LoaderCircle className="animate-spin" size={20} /></div> });
 
-export default function ProductionDocument({ supplier, design, order, filename, document }: { supplier: Supplier; design: Design; order: OrderDraft; filename: string; document?: QuoteDocument }) {
+export default function ProductionDocument({ supplier, design, order, filename, document, expandSpecs = false }: { supplier: Supplier; design: Design; order: OrderDraft; filename: string; document?: QuoteDocument; expandSpecs?: boolean }) {
   const artwork = useRef<SVGSVGElement>(null);
   const canvas = useRef<CanvasHandle>(null);
   const patterns = useRef<PatternHandle>(null);
@@ -66,7 +66,7 @@ export default function ProductionDocument({ supplier, design, order, filename, 
     {document?.production && <PatternComparison packet={document.production} design={design} exportRef={patterns}/>}
     {document && <div className="document-checklist"><h3>{document.production?.converter === "sample" ? "목업 변환 설명" : "AI 제작 설명"}</h3><p>{document.summary}</p><ul>{document.productionNotes.map((note, index) => <li key={index}><Check size={13} />{note}</li>)}</ul><h3>제작 전 확인할 사항</h3><ul>{document.checks.map((note, index) => <li key={index}>{note}</li>)}</ul></div>}
     <div className="document-artifacts"><div><h3>{textOnly?"인쇄 문구 원본":"인쇄 도안 원본"}</h3><div className="document-art" style={{ backgroundColor: design.color }}>{textOnly ? <Image src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(literalSource)}`} width={800} height={800} alt={firstText?.text||design.text} unoptimized className="artwork-image"/> : design.image ? <Image src={design.image} width={800} height={800} alt={filename || "선택 도안"} unoptimized className="artwork-image" /> : <Artwork design={design} exportRef={artwork} />}</div>{textOnly&&<p>각 배치의 문구 원본은 문구 SVG로 모두 내려받을 수 있어요.</p>}</div><div><h3>고객 UV를 적용한 모습</h3><div className="document-shirt"><Canvas design={design} exportRef={canvas} uv={document?.production?.source}/></div></div></div>
-    <details className="flow-disclosure production-specs"><summary>주문 정보와 업체 규격 확인</summary>
+    <details className="flow-disclosure production-specs" open={expandSpecs}><summary>주문 정보와 업체 규격 확인</summary>
     {supplier.format === "email" ? <div className="email-document"><div className="email-subject"><span>받는 업체</span><strong>{supplier.name} <small>실제 이메일 주소 등록 전</small></strong></div><div className="email-subject"><span>제목</span><strong>{email.subject}</strong></div><pre>{email.body}</pre></div> : <dl className="document-rows">{orderRows(supplier, design, order).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}<div><dt>추가 요청</dt><dd>{order.memo.trim() || "없음"}</dd></div></dl>}
     <div className="document-checklist"><strong>함께 전달할 자료</strong><p>{supplier.attachmentTypes.join(" · ")}</p><ul>{supplier.requirements.map((item) => <li key={item}><Check size={13} />{item}</li>)}</ul><p>인쇄 영역은 최대 {supplier.maxPrintWidthCm} × {supplier.maxPrintHeightCm}cm예요. 첨부 이미지는 최대 800px의 편집용 파일로, 실제 인쇄용 해상도 검수는 별도예요.</p></div>
     </details>
