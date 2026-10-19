@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
+    "dev:ai": "node tools/enable-ai.mjs && next dev --hostname 127.0.0.1",
+    "ai:enable": "node tools/enable-ai.mjs",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
     "typecheck": "tsc --noEmit",
