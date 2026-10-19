@@ -8,7 +8,7 @@ import { ArrowRight, Check, ImagePlus, LoaderCircle, Plus, Save, Sparkles, X } f
 import { COLORS, defaultClubPlacements, isDesign, mockDesign, type Design } from "@/lib/design";
 import { useDesignSession } from "@/lib/design-session";
 import { saveLibraryItem } from "@/lib/library";
-import { aiRequest, useAIAvailability } from "@/lib/backend-client";
+import { generateAIDesign } from "@/lib/ai-client";
 import { totalQuantity } from "@/lib/quote";
 import { estimate, won } from "@/lib/order-workflow";
 import { SUPPLIERS } from "@/lib/suppliers";
@@ -22,7 +22,6 @@ const Canvas = dynamic(() => import("./GarmentPreview3D"), { ssr: false, loading
 const ClothSimulation = dynamic(() => import("./ClothSimulationPreview"), { ssr: false });
 
 export default function DesignStudio() {
-  const aiEnabled = useAIAvailability();
   const { design, setDesign, prompt, setPrompt, filename, setFilename, messages, setMessages, resetSession, hasResult, setHasResult, order } = useDesignSession();
   const { update: updateDetails } = useOrderDetails();
   const variant = design.style === "type" ? 1 : design.style === "wave" ? 2 : 0;
@@ -53,14 +52,13 @@ export default function DesignStudio() {
 
   async function generate(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
-    if (aiEnabled !== true) { setError("AI 생성이 현재 비활성화돼 있어요."); return; }
     if (requestActive.current || uploading) return;
     const instruction = prompt.trim();
     if (!instruction) { setError("원하는 디자인을 한 문장으로 입력해주세요."); promptInput.current?.focus(); return; }
     requestActive.current = true; setError(""); setMessage(""); setGenerating(true); setShowResult(false);
     setMessages((current) => [...current, { id: crypto.randomUUID(), role: "user", text: instruction }]); setPrompt("");
     try {
-      const result = await aiRequest("/api/designs/generate", { prompt: instruction, currentDesign: design }, crypto.randomUUID());
+      const result = await generateAIDesign({ prompt: instruction, currentDesign: design }, crypto.randomUUID());
       if (!isDesign(result.design)) throw new Error("생성 결과를 확인할 수 없어요. 다시 요청해주세요.");
       setDesign(result.design);
       updateDetails({ confirmed: false });
@@ -138,8 +136,7 @@ export default function DesignStudio() {
         <div className="wf-upload-note"><span>PNG · JPG · WEBP / 최대 8MB</span>{design.image && <button className="text-link" disabled={busy} onClick={() => { patch({ image: null }); setFilename(""); }}><X size={13}/>삭제</button>}</div>
         <form onSubmit={generate} className="wf-prompt-form"><label htmlFor="prompt">원하는 느낌을 한 문장으로</label><textarea ref={promptInput} id="prompt" rows={5} maxLength={300} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder={'초록색 단체티에 우리 모임 로고를 넣고, 등판에는 모임 이름을 크게'} disabled={busy}/>
           <div className="wf-prompt-hints">{["클래식","미니멀","스트리트"].map(word => <button type="button" key={word} disabled={busy} onClick={() => setPrompt(current => (current + " " + word + " 느낌으로").trim().slice(0,300))}>{word}</button>)}</div>
-          <button className="wf-dark-button wide" type="submit" disabled={busy || aiEnabled !== true}>{generating ? <LoaderCircle className="animate-spin" size={16}/> : <Sparkles size={16}/>} {generating ? "시안을 만들고 있어요…" : "AI 시안 만들기"}</button>
-          {aiEnabled === false && <p className="wf-muted">AI 생성이 꺼져 있어요. 예시 시안으로 체험할 수 있어요.</p>}
+          <button className="wf-dark-button wide" type="submit" disabled={busy}>{generating ? <LoaderCircle className="animate-spin" size={16}/> : <Sparkles size={16}/>} {generating ? "시안을 만들고 있어요…" : "AI 시안 만들기"}</button>
           <button type="button" className="outline wide" onClick={sample} disabled={busy}>예시 시안으로 시작</button>
         </form>
         <DesignSettings design={design} onChange={patch} disabled={busy}/>

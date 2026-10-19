@@ -1,26 +1,43 @@
-# 백엔드 AI 테스트
+# 새 백엔드 연결과 테스트
 
-`feature/ui`에는 AI 시안 생성, 업체 양식 AI 변환, ClothSim 의상 생성이 연결돼 있습니다. 홈 화면에는 ClothSim을 추가하지 않습니다.
+현재 프론트엔드는 개인 Supabase·GPT API 키를 사용하지 않습니다. AI 디자인 생성·업체 패턴 변환 버튼은 서버 상태와 관계없이 활성화됩니다. 생성 중에는 중복 클릭을 막습니다. 주소 미설정 시 연결 준비 안내만 표시하며, 기존 개인 API로 대체 호출하지 않습니다.
 
-## AI 시안과 업체 양식 변환
+## 백엔드 팀이 설정할 두 주소
 
-프로젝트 루트에서 실행합니다.
+.env.local 또는 빌드 환경에 다음 공개 URL만 설정합니다. API 키는 프론트엔드에 넣지 않습니다.
 
-```sh
-npm ci
-npm run dev:ai
+```env
+NEXT_PUBLIC_AI_DESIGN_URL=https://BACKEND_HOST/팀에서-정한-디자인-경로
+NEXT_PUBLIC_AI_QUOTE_URL=https://BACKEND_HOST/팀에서-정한-변환-경로
 ```
 
-`http://127.0.0.1:3000/design`에서 AI 시안을 만듭니다. 업체를 선택한 세션에서는 `http://127.0.0.1:3000/quotes/prepare`의 기존 AI 양식 변환도 테스트할 수 있습니다. 현재 주문서·업체 비교의 기본 흐름은 시연 주문을 만들며, 위 주소가 별도 변환 화면입니다. `dev:ai`는 `.env.local`의 `OPENAI_ENABLED=true`를 설정하고 서버를 시작합니다. 기존 API 키와 사용 한도는 유지합니다. 스위치만 켜려면 `npm run ai:enable` 후 실행 중인 서버를 재시작합니다.
+주소 경로는 백엔드 팀이 정합니다. 같은 서버에 배포하면 /새로운-경로 형태도 지원합니다. 경로를 바꾸기 위해 화면 코드를 수정할 필요가 없습니다. 로컬은 npm run dev로 실행합니다. GitHub Pages는 같은 이름의 저장소 Actions Variables를 설정한 후 feature/ui를 다시 빌드·배포합니다. NEXT_PUBLIC_ 값은 빌드 때 포함됩니다.
 
-새 작업 폴더에는 `.env.example`에서 `.env.local`을 생성합니다. `npm run check:ai`에 연결 설정 누락이 표시되면 서버용 `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`를 각 팀원의 로컬 환경에 설정해야 합니다. 실제 계정 권한과 DB 스키마 연결은 별도 확인이 필요합니다. 키를 Git에 커밋하거나 `NEXT_PUBLIC_` 변수에 넣지 않습니다.
+별도 도메인의 API는 프론트엔드 출처에 대한 CORS와 OPTIONS를 지원해야 합니다. 요청은 application/json POST이며 기존 개인 세션 쿠키와 Authorization 헤더를 보내지 않습니다. 인증을 새로 도입할 경우 lib/ai-client.ts에 백엔드 팀 방식으로 추가합니다. 기존 개인 /api/session, /api/jobs, /api/assets에는 의존하지 않습니다.
 
-AI를 실제로 요청하면 설정된 API의 사용량이 발생합니다. 기존 DB의 일일·세션 한도는 유지하며, 활성화 명령 자체는 외부 요청·DB 쓰기·AI 생성을 하지 않습니다. 호출을 끄려면 `.env.local`에서 `OPENAI_ENABLED=false`로 설정하고 서버를 재시작합니다. `test:backend`와 `test:security`는 AI가 꺼진 환경을 전제로 하는 별도 검사입니다.
+## 요청·응답 계약
 
-## ClothSim 의상 생성
+구현 위치: lib/ai-client.ts. 아래 JSON은 규격 표기이며 Design·OrderDraft·QuoteRecord의 전체 필드는 해당 타입을 따릅니다.
 
-디자인 화면의 ‘의상 시뮬레이션’ 탭에서 설명을 입력하고 생성합니다. 별도 활성화 스위치는 없습니다. 현재 기본 연결은 이 기기의 Ollama `http://localhost:11434`, 모델은 `qwen3-vl:8b-instruct`입니다. 해당 Ollama 서버와 모델을 준비해야 합니다. Chrome 또는 Edge의 WebGPU 지원이 필요합니다. 생성 결과는 인쇄 도안·주문 자료와 별도입니다.
+| 기능 | 요청 JSON | 성공 응답 |
+| --- | --- | --- |
+| AI 디자인 | { prompt, currentDesign, requestKey } | { design, reply? } |
+| AI 업체 변환 | { supplierId, design, filename, order, conversionMode: 'ai', requestKey } | { quote } |
 
-## GitHub Pages에서 테스트할 때
+Design은 lib/design.ts의 isDesign, QuoteRecord는 lib/quote.ts의 isQuoteRecord를 통과해야 합니다. 현재 단색 반팔·로고 배치 규격을 유지합니다. 이미지가 있다면 image는 null 또는 3,000,000자 이하의 PNG/JPEG/WebP base64 data URL로 반환합니다. 기존 개인 서버의 /api/assets/... 경로를 반환하면 안 됩니다. 테스트용 전체 Design 예시는 tests/fixtures/team-design.json에 있습니다.
 
-현재 Pages 빌드는 서버 API를 제외하는 정적 배포입니다. AI 시안과 업체 변환은 로컬 Next.js 서버에서 테스트해야 합니다. Pages의 비활성화 표시를 제거하는 것만으로 서버 AI가 작동하지는 않습니다. 공용 테스트에는 서버 실행이 가능한 배포 환경과 해당 환경의 비밀 키 설정이 필요합니다. 서버 주소·배포 구성이 확정되면 별도 연결합니다.
+quote는 quote_UUID 형태의 id, mode: 'live', status: 'prepared', createdAt(ISO), supplierId, design, filename, order, quantity, format('pdf' 또는 'email')을 반환합니다. PDF·메일 내용에는 document(QuoteDocument)가 필요합니다. QuoteDocument의 title, templateVersion, generatedAt, summary, productionNotes, checks, emailSubject, emailBody, verifiedRows를 채웁니다. 필요하면 production 패턴 정보를 함께 반환합니다. 전체 타입은 lib/quote.ts, 양식 생성 예시는 lib/production-document.ts에 있습니다. PDF 생성·메일 양식 다운로드는 기존 프론트엔드가 처리하며 메일을 실제로 발송하지 않습니다.
+
+실패는 4xx/5xx와 { error: '표시할 안내', fields?: { 필드명: '오류 안내' } }를 반환합니다. 화면은 안내를 표시하고 다시 시도할 수 있습니다. 현재 어댑터는 240초 이내의 최종 응답을 받습니다. 비동기 작업/스트리밍 규격은 새 백엔드 구현 시 어댑터 한 곳에서 확장합니다. requestKey는 중복 요청 구분용입니다.
+
+## 저장과 개인 연결 차단
+
+디자인·제작자료는 IndexedDB, 요청서와 시연 주문은 현재 탭 저장소를 사용합니다. 새 서버 응답의 요청서는 현재 탭에도 저장해 상세·PDF·메일 다운로드를 이어갑니다. 서버에 저장할지 여부와 구현은 새 백엔드 팀이 결정합니다.
+
+이전 개인 서버 코드는 이전 이력 호환을 위해 남아 있지만 LEGACY_BACKEND_ENABLED=false가 기본이며, AI·DB 호출 전에 차단됩니다. 기존 OPENAI_ENABLED도 로컬에서 false로 되돌렸습니다. 개인 키 파일은 Git에 포함하지 않습니다. 종전 npm run dev:ai / ai:enable 명령은 제거했습니다. 새 백엔드를 연결할 때 이 스위치나 개인 키를 켤 필요가 없습니다.
+
+ClothSim은 디자인 화면의 별도 의상 시뮬레이션입니다. 기본 Ollama 연결은 유지했으며 개인 GPT·Supabase 키와 관계없습니다. 교체할 경우 백엔드 담당자가 ClothSim 모듈의 LLM 연결을 수정합니다.
+
+## 검증
+
+npm run test:unit에는 새 어댑터의 주소·요청·오류 처리를 검증하는 모의 테스트가 포함됩니다. 개인 API·DB와 실제 유료 생성 요청은 호출하지 않습니다. 이전 test:backend는 개인 서버용으로 남은 검사이며 새 백엔드 검증에 사용하지 않습니다.

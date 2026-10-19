@@ -3,8 +3,6 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { isDesign, STORAGE_KEY, type Design } from "./design";
 import type { OrderDraft } from "./quote";
-import { initializeBackendSession } from "./backend-client";
-import { STATIC_SITE } from "./deployment";
 
 export type LibraryKind = "design" | "artwork" | "document";
 export type LibraryAttachment = { file: Blob; fileName: string; label: string };
@@ -84,14 +82,7 @@ async function migrate(db: IDBDatabase) {
 async function refresh() {
   const db = await database();
   const values = await request(db.transaction("items", "readonly").objectStore("items").getAll());
-  if (STATIC_SITE) {
-    publish({ items: values.filter(valid).sort((a, b) => b.createdAt.localeCompare(a.createdAt)), status: "ready", error: "" });
-    return;
-  }
-  const response = await fetch("/api/designs", { cache: "no-store" });
-  const result = await response.json();
-  const cloud: LibraryItem[] = Array.isArray(result.items) ? result.items.filter(valid) : [];
-  publish({ items: [...cloud, ...values.filter(valid)].sort((a, b) => b.createdAt.localeCompare(a.createdAt)), status: "ready", error: !response.ok && response.status !== 401 ? result.error || "서버 디자인을 불러오지 못했어요." : "" });
+  publish({ items: values.filter(valid).sort((a, b) => b.createdAt.localeCompare(a.createdAt)), status: "ready", error: "" });
 }
 export function initializeLibrary() {
   if (!loading) loading = (async () => {
@@ -113,13 +104,6 @@ export function useLibrary() {
   return current;
 }
 export async function saveLibraryItem(input: NewItem): Promise<LibraryItem> {
-  if (input.kind === "design" && !STATIC_SITE) {
-    await initializeBackendSession();
-    const response = await fetch("/api/designs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ design: input.design, prompt: input.prompt, filename: input.filename, title: (input.title || input.filename || input.design.text || "우리 단체티").slice(0, 100), preview: input.preview || null }) });
-    const result = await response.json();
-    if (!response.ok || !valid(result.item)) throw new Error(result.error || "디자인을 저장하지 못했어요.");
-    await refresh(); channel?.postMessage("changed"); return result.item;
-  }
   await initializeLibrary();
   const db = await database();
   const now = new Date().toISOString();
@@ -129,12 +113,7 @@ export async function saveLibraryItem(input: NewItem): Promise<LibraryItem> {
   await refresh(); channel?.postMessage("changed"); return item;
 }
 export async function updateLibraryItem(id: string, patch: Pick<Partial<LibraryItem>, "title" | "favorite" | "trashedAt">) {
-  if (id.startsWith("cloud_")) {
-    const response = await fetch(`/api/designs/${id.slice(6)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "디자인을 수정하지 못했어요.");
-    await refresh(); channel?.postMessage("changed"); return;
-  }
+  if (id.startsWith("cloud_")) throw new Error("이전 개인 서버의 자료는 수정하지 않습니다.");
   const db = await database();
   const transaction = db.transaction("items", "readwrite"); const done = committed(transaction);
   const get = transaction.objectStore("items").get(id);
