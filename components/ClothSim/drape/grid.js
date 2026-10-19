@@ -1,11 +1,19 @@
 // 몸 충돌 격자 만들기 (C++ native/src/collider_build.cpp 와 같은 방법)
 //   칸마다 margin 안의 삼각형 목록(CSR), 칸 가운데에서 +x 광선의 들어감/나감 세기로 몸 안쪽 표시
 //   결과 grid = [칸 시작(ncell+1), 칸별 삼각형, 안쪽 표시(ncell)], btri = 삼각형마다 a b c 법선 (12 float)
-export function buildGrid(V, F, cell, margin, thickness) {
+/** Vbounds: 포즈 블렌드 시 격자 칸 크기만 넓히기 (같은 nv, 정점 i 대응) */
+export function buildGrid(V, F, cell, margin, thickness, Vbounds = null) {
   const nf = F.length / 3, nv = V.length / 3;
   const btri = new Float32Array(12 * nf);
   const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
-  for (let i = 0; i < nv; i++) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], V[3 * i + k]); hi[k] = Math.max(hi[k], V[3 * i + k]); }
+  for (let i = 0; i < nv; i++) for (let k = 0; k < 3; k++) {
+    lo[k] = Math.min(lo[k], V[3 * i + k]);
+    hi[k] = Math.max(hi[k], V[3 * i + k]);
+    if (Vbounds) {
+      lo[k] = Math.min(lo[k], Vbounds[3 * i + k]);
+      hi[k] = Math.max(hi[k], Vbounds[3 * i + k]);
+    }
+  }
   const pad = margin + thickness + cell;
   const origin = [0, 0, 0], dims = [0, 0, 0];
   for (let k = 0; k < 3; k++) { origin[k] = Math.fround(lo[k] - pad); dims[k] = Math.ceil((hi[k] - lo[k] + 2 * pad) / cell); }
@@ -75,4 +83,18 @@ export function buildGrid(V, F, cell, margin, thickness) {
       }
     }
   return { btri, grid, origin, dims, off: { start: 0, tris: T0, inside: I0 }, ntri: nf };
+}
+
+/** 포즈만 바뀔 때 삼각형 btri 위치·법선만 갱신 (격자 CSR 은 그대로) */
+export function updateBtri(V, F, btri) {
+  const nf = F.length / 3;
+  for (let t = 0; t < nf; t++) {
+    const ia = F[3 * t], ib = F[3 * t + 1], ic = F[3 * t + 2];
+    const a = [V[3 * ia], V[3 * ia + 1], V[3 * ia + 2]], b = [V[3 * ib], V[3 * ib + 1], V[3 * ib + 2]], c = [V[3 * ic], V[3 * ic + 1], V[3 * ic + 2]];
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    let n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const ln = Math.hypot(...n);
+    n = ln > 0 ? n.map(x => x / ln) : [0, 1, 0];
+    btri.set([...a, ...b, ...c, ...n], 12 * t);
+  }
 }

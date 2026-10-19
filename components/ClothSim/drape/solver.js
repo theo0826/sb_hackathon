@@ -3,7 +3,9 @@
 //                       -> 몸 점 천 삼각형 충돌 (해시 비우기, 넣기, 밀기, 적용) -> 속도
 // 프레임마다 그 뒤 부착 패널, 찢어짐, 늘어남 표시값, 삼각형 숨김, 법선.
 import { makeBuffer, emptyBuffer, shaderModule, STORAGE } from './gpu.js';
-import { buildGrid } from './grid.js';
+import { buildGrid, updateBtri } from './grid.js';
+import { clothLog } from '../garment/clothLog.js';
+import { bodyVertsFromMesh } from './scene.js';
 
 // common.wgsl 의 Params 와 같은 순서 (4 바이트씩)
 const FIELDS = [
@@ -44,6 +46,9 @@ export class Solver {
     this.opts = { tear_on: true, seam_tear_on: true, tear_scale: 1.0, seam_tear_cm: m.tear.seam_tear_cm, push_on: m.sim.push_on !== false, weld: true };
     this.frame = 0;
     this.paramData = new ArrayBuffer(FIELDS.length * 4);
+    /** intro 포즈 블렌드: 중력·격자를 옷이 따라오게 */
+    this.poseDrape = false;
+    this._poseDrapeTick = 0;
   }
 
   async init() {
@@ -104,8 +109,8 @@ export class Solver {
     };
     this.K = {};
     await Promise.all(Object.entries(plan).map(async ([name, bufs]) => {
-      const module = await shaderModule(dev, name, true);
-      const pipeline = await dev.createComputePipelineAsync({ layout: 'auto', compute: { module, entryPoint: 'main' }, label: name });
+      const shader = await shaderModule(dev, name, true);
+      const pipeline = await dev.createComputePipelineAsync({ layout: 'auto', compute: { module: shader, entryPoint: 'main' }, label: name });
       const entries = [{ binding: 0, resource: { buffer: B.params } }, ...bufs.map((b, i) => ({ binding: i + 1, resource: { buffer: B[b] } }))];
       this.K[name] = { pipeline, group: dev.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries }) };
     }));
@@ -116,7 +121,57 @@ export class Solver {
       dev.queue.writeBuffer(buf, 0, new Uint32Array([c.off, c.cnt, 0, 0]));
       return { cnt: c.cnt, group: dev.createBindGroup({ layout: xp.getBindGroupLayout(1), entries: [{ binding: 0, resource: { buffer: buf } }] }) };
     });
+    this._gridCapBtri = B.btri.size;
+    this._gridCapGrid = B.grid.size;
     this.reset();
+  }
+
+  rebindCollide() {
+    const B = this.B;
+    const pipeline = this.K.collide.pipeline;
+    const bufs = ['P', 'X', 'btri', 'grid', 'caps'];
+    const entries = [{ binding: 0, resource: { buffer: B.params } }, ...bufs.map((b, i) => ({ binding: i + 1, resource: { buffer: B[b] } }))];
+    this.K.collide.group = this.device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries });
+  }
+
+  /** 격자 데이터가 커지면 GPU 버퍼 재할당 (포즈 intro 등) */
+  uploadGrid() {
+    const btriLen = this.grid.btri.byteLength;
+    const gridLen = this.grid.grid.byteLength;
+    let dirty = false;
+    if (!this._gridCapBtri || this._gridCapBtri < btriLen) {
+      if (this.B.btri) this.B.btri.destroy();
+      this.B.btri = makeBuffer(this.device, this.grid.btri, STORAGE, 'btri');
+      this._gridCapBtri = this.B.btri.size;
+      dirty = true;
+    } else {
+      this.device.queue.writeBuffer(this.B.btri, 0, this.grid.btri);
+    }
+    if (!this._gridCapGrid || this._gridCapGrid < gridLen) {
+      if (this.B.grid) this.B.grid.destroy();
+      this.B.grid = makeBuffer(this.device, this.grid.grid, STORAGE, 'grid');
+      this._gridCapGrid = this.B.grid.size;
+      dirty = true;
+    } else {
+      this.device.queue.writeBuffer(this.B.grid, 0, this.grid.grid);
+    }
+    if (dirty) this.rebindCollide();
+  }
+
+  /** intro 시작 1회: 두 포즈 envelope 격자 + GPU 버퍼 확장 */
+  reservePoseGrid(Va, Vb) {
+    const A = this.scene.A;
+    const m = this.scene.meta;
+    if (m.body.type !== 'mesh') return;
+    const { cell, margin, thickness } = this.sim;
+    const F = A.coll_F;
+    const gA = buildGrid(Va, F, cell, margin, thickness, Vb);
+    const gB = buildGrid(Vb, F, cell, margin, thickness, Va);
+    this._gridCapGrid = Math.max(this._gridCapGrid || 0, gA.grid.byteLength, gB.grid.byteLength);
+    this.grid = gA;
+    this.uploadGrid();
+    clothLog('포즈 격자 확보', { dims: this.grid.dims, gridBytes: this.grid.grid.byteLength });
+    this.writeParams();
   }
 
   writeParams() {
@@ -125,7 +180,10 @@ export class Solver {
     const head = b.head || [0, 0, 0, 0];
     const v = {
       n: this.n, ne: this.ne, ns: this.ns, nb: this.nb,
-      dt, gravity: sim.gravity, damping: Math.exp(-sim.damping_rate * dt), seam_factor: Math.max(0, 1 - f / sim.ramp),
+      dt,
+      gravity: sim.gravity * (this.poseDrape ? 1.35 : 1),
+      damping: Math.exp(-sim.damping_rate * dt),
+      seam_factor: this.poseDrape ? Math.max(0.25, 1 - f / Math.max(1, sim.ramp * 0.65)) : Math.max(0, 1 - f / sim.ramp),
       mu_s: sim.mu_s, mu_k: sim.mu_k, push_radius: sim.push_radius, thickness: sim.thickness,
       max_dist: sim.max_dist, tear_on: o.tear_on ? 1 : 0, tear_scale: o.tear_scale, seam_tear_cm: o.seam_tear_cm,
       ngroups: this.ngroups, weld_on: (o.weld && f >= sim.ramp) ? 1 : 0, push_on: o.push_on ? 1 : 0, nbv: this.nbv,
@@ -174,6 +232,68 @@ export class Solver {
     this.run(pass, 'strain', this.n);
     this.run(pass, 'tri_dead', this.ntri);
     this.run(pass, 'normals', this.n);
+  }
+
+  /**
+   * 포즈 변화 중: 매 프레임 btri(삼각형 위치·법선), 4프레임마다 격자 CSR·inside 재빌드
+   * Light 만 쓰면 격자가 고정되어 충돌이 intro 끝날 때까지 안 따라감
+   */
+  applyBodyVerticesDrape(V, renderer) {
+    const A = this.scene.A;
+    if (V.length !== A.body_V.length) throw new Error('몸 정점 수 불일치');
+    A.body_V.set(V);
+    if (A.coll_V && A.coll_V.length === V.length) A.coll_V.set(V);
+    this._poseDrapeTick++;
+    const m = this.scene.meta;
+    if (m.body.type === 'mesh') {
+      updateBtri(A.coll_V, A.coll_F, this.grid.btri);
+      this.device.queue.writeBuffer(this.B.btri, 0, this.grid.btri);
+      if ((this._poseDrapeTick & 7) === 0) this.rebuildBodyCollisionGrid();
+    }
+    this.d.bodyVerts = bodyVertsFromMesh(A.body_V, this.d.bodyIdx);
+    this.device.queue.writeBuffer(this.B.bverts, 0, this.d.bodyVerts);
+    if (renderer) renderer.device.queue.writeBuffer(renderer.bodyVerts, 0, this.d.bodyVerts);
+  }
+
+  /** 포즈 블렌드 중: btri·렌더만 (reservePoseGrid 후) */
+  applyBodyVerticesLight(V, renderer) {
+    const A = this.scene.A;
+    if (V.length !== A.body_V.length) throw new Error('몸 정점 수 불일치');
+    A.body_V.set(V);
+    if (A.coll_V && A.coll_V.length === V.length) A.coll_V.set(V);
+    if (this.scene.meta.body.type === 'mesh') {
+      updateBtri(A.coll_V, A.coll_F, this.grid.btri);
+      this.device.queue.writeBuffer(this.B.btri, 0, this.grid.btri);
+    }
+    this.d.bodyVerts = bodyVertsFromMesh(A.body_V, this.d.bodyIdx);
+    this.device.queue.writeBuffer(this.B.bverts, 0, this.d.bodyVerts);
+    if (renderer) renderer.device.queue.writeBuffer(renderer.bodyVerts, 0, this.d.bodyVerts);
+  }
+
+  /** coll_V 기준으로 충돌 격자만 재빌드 (정점은 이미 Light/Drape 로 반영된 상태) */
+  rebuildBodyCollisionGrid() {
+    const A = this.scene.A;
+    if (this.scene.meta.body.type !== 'mesh') return;
+    this.grid = buildGrid(A.coll_V, A.coll_F, this.sim.cell, this.sim.margin, this.sim.thickness);
+    this.uploadGrid();
+    this.writeParams();
+  }
+
+  /** 몸 메쉬를 블렌드된 정점으로 갱신 (충돌 격자 전체 재빌드 + 렌더) */
+  applyBodyVertices(V, renderer) {
+    const A = this.scene.A;
+    if (V.length !== A.body_V.length) throw new Error('몸 정점 수 불일치');
+    A.body_V.set(V);
+    if (A.coll_V && A.coll_V.length === V.length) A.coll_V.set(V);
+    const m = this.scene.meta;
+    if (m.body.type === 'mesh') {
+      this.grid = buildGrid(A.coll_V, A.coll_F, this.sim.cell, this.sim.margin, this.sim.thickness);
+      this.uploadGrid();
+    }
+    this.d.bodyVerts = bodyVertsFromMesh(A.body_V, this.d.bodyIdx);
+    this.device.queue.writeBuffer(this.B.bverts, 0, this.d.bodyVerts);
+    if (renderer) renderer.device.queue.writeBuffer(renderer.bodyVerts, 0, this.d.bodyVerts);
+    this.writeParams();
   }
 
   // 한 프레임 (1/60 초). 계산 패스 하나에 모두 기록 (WebGPU 는 dispatch 사이 쓰기를 다음 dispatch 에 보이게 보장)

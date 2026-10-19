@@ -34,6 +34,25 @@ function csr(n, pairs, stride) {
   return { start, list };
 }
 
+/** 몸 메쉬 정점 -> 렌더용 pos+normal (6 floats / vert) */
+export function bodyVertsFromMesh(BV, BF) {
+  const nv = BV.length / 3;
+  const nrm = new Float32Array(3 * nv);
+  for (let f = 0; f < BF.length / 3; f++) {
+    const a = BF[3 * f], b = BF[3 * f + 1], c = BF[3 * f + 2];
+    const ux = BV[3 * b] - BV[3 * a], uy = BV[3 * b + 1] - BV[3 * a + 1], uz = BV[3 * b + 2] - BV[3 * a + 2];
+    const vx = BV[3 * c] - BV[3 * a], vy = BV[3 * c + 1] - BV[3 * a + 1], vz = BV[3 * c + 2] - BV[3 * a + 2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    for (const i of [a, b, c]) { nrm[3 * i] += nx; nrm[3 * i + 1] += ny; nrm[3 * i + 2] += nz; }
+  }
+  const bodyVerts = new Float32Array(6 * nv);
+  for (let i = 0; i < nv; i++) {
+    const l = Math.hypot(nrm[3 * i], nrm[3 * i + 1], nrm[3 * i + 2]) || 1;
+    for (let k = 0; k < 3; k++) { bodyVerts[6 * i + k] = BV[3 * i + k]; bodyVerts[6 * i + 3 + k] = nrm[3 * i + k] / l; }
+  }
+  return bodyVerts;
+}
+
 export function derive(scene) {
   const { meta, A } = scene;
   const n = meta.n, ntri = meta.n_tris;
@@ -64,20 +83,8 @@ export function derive(scene) {
   for (let t = 0; t < ntri; t++) for (let k = 0; k < 3; k++) vt[n + 1 + fill[T[4 * t + k]]++] = t;
 
   // 몸 그리기: 매끈한 법선
-  const BV = A.body_V, BF = A.body_F, nv = BV.length / 3;
-  const nrm = new Float32Array(3 * nv);
-  for (let f = 0; f < BF.length / 3; f++) {
-    const a = BF[3 * f], b = BF[3 * f + 1], c = BF[3 * f + 2];
-    const ux = BV[3 * b] - BV[3 * a], uy = BV[3 * b + 1] - BV[3 * a + 1], uz = BV[3 * b + 2] - BV[3 * a + 2];
-    const vx = BV[3 * c] - BV[3 * a], vy = BV[3 * c + 1] - BV[3 * a + 1], vz = BV[3 * c + 2] - BV[3 * a + 2];
-    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-    for (const i of [a, b, c]) { nrm[3 * i] += nx; nrm[3 * i + 1] += ny; nrm[3 * i + 2] += nz; }
-  }
-  const bodyVerts = new Float32Array(6 * nv);
-  for (let i = 0; i < nv; i++) {
-    const l = Math.hypot(nrm[3 * i], nrm[3 * i + 1], nrm[3 * i + 2]) || 1;
-    for (let k = 0; k < 3; k++) { bodyVerts[6 * i + k] = BV[3 * i + k]; bodyVerts[6 * i + 3 + k] = nrm[3 * i + k] / l; }
-  }
+  const BV = A.body_V, BF = A.body_F;
+  const bodyVerts = bodyVertsFromMesh(BV, BF);
   const { cons, clist, colors } = colorConstraints(meta, A);
   return { adj, off, triEdges, vtadj: vt, bodyVerts, bodyIdx: BF, cons, clist, colors };
 }

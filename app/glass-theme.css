@@ -5,6 +5,11 @@
 .studio-simulation-controls { margin-top:16px; display:grid; gap:8px; }
 .studio-simulation-controls label { font-size:14px; font-weight:600; }
 .studio-simulation-controls p { margin:0; }
+.studio-simulation-controls[hidden] { display:none; }
+.studio-simulation-controls textarea { width:100%; min-height:88px; resize:vertical; font:inherit; }
+.studio-simulation-controls .wf-alert { overflow-wrap:anywhere; }
+.studio-simulation-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.studio-simulation-actions button { min-height:44px; }
 @media(max-width:640px) { .studio-preview-modes { width:100%; }.studio-preview-modes button { flex:1; padding:8px; font-size:12px; } }
 :root {
   --glass-surface:rgba(255,255,255,.65); --glass-rim:rgba(255,255,255,.88);
