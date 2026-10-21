@@ -1,6 +1,6 @@
 import {
-  COLOR_PHRASES, FIT_PHRASES, MATERIAL_PHRASES, NECK_PHRASES,
-  P_NONE_COL, P_NONE_MAT, firstMatch,
+  CLOSURE_PHRASES, COLOR_PHRASES, DECORATION_PHRASES, FIT_PHRASES, MATERIAL_PHRASES, NECK_PHRASES, SURFACE_PHRASES,
+  P_CLOSURE, P_DECORATION, P_NONE_COL, P_NONE_MAT, P_SURFACE, firstMatch,
 } from './explicitMap.js';
 
 /**
@@ -29,6 +29,13 @@ export function parseIntent(text, userFixed = {}) {
 
   const fit = firstMatch(text, FIT_PHRASES);
   if (fit) fixed['category/top/fit'] = fit;
+
+  const clo = firstMatch(text, CLOSURE_PHRASES);
+  if (clo) fixed[P_CLOSURE] = clo;
+  const sur = firstMatch(text, SURFACE_PHRASES);
+  if (sur) fixed[P_SURFACE] = sur;
+  const dec = firstMatch(text, DECORATION_PHRASES);
+  if (dec) fixed[P_DECORATION] = dec;
 
   if (/후드|hoodie|hood/i.test(text)) fixed['category/top/neck'] ??= 'hood';
   if (/맨투맨|sweatshirt|스웻/i.test(text)) {

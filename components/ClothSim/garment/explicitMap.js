@@ -45,6 +45,7 @@ export const COLOR_PHRASES = [
   [/차콜|charcoal/i, 'charcoal'],
   [/네이비|navy/i, 'navy'],
   [/올리브|olive/i, 'olive'],
+  [/초록|녹색|그린|(?<!forest\s)green/i, 'green'],
   [/베이지|beige|카키|khaki/i, 'beige'],
   [/크림|아이보리|ivory|cream/i, 'cream'],
   [/탄|camel|tan/i, 'tan'],
@@ -61,6 +62,13 @@ export const COLOR_PHRASES = [
 /** @type {PhrasePair[]} */
 export const NECK_PHRASES = [
   [/후드|hoodie|hood/i, 'hood'],
+  [/카라\s*티/i, 'polo'],
+  [/(?<!티)셔츠|남방|dress\s*shirt|button[- ]?(?:up|down)\s*shirt|oxford\s*shirt/i, 'shirt_collar'],
+  [/헨리|henley/i, 'henley'],
+  [/모크\s*넥|mock\s*neck/i, 'mock_neck'],
+  [/차이나\s*카라|밴드\s*카라|mandarin/i, 'mandarin'],
+  [/보트\s*넥|boat\s*neck/i, 'boat_neck'],
+  [/스쿱\s*넥|scoop\s*neck/i, 'scoop_neck'],
   [/폴로|polo/i, 'polo'],
   [/터틀|목폴라|turtleneck/i, 'turtleneck'],
   [/v\s*넥|v-neck|브이넥/i, 'v_neck'],
@@ -74,6 +82,35 @@ export const FIT_PHRASES = [
   [/릴랙스|relaxed/i, 'relaxed'],
   [/박시|boxy/i, 'boxy'],
 ];
+
+/** 2026-10-20 추가: 여밈, 무늬, 장식 (Python garment/tree/explicit_map.py 와 같음) */
+/** @type {PhrasePair[]} */
+export const CLOSURE_PHRASES = [
+  [/반\s*집업|하프\s*집업|half\s*zip|quarter\s*zip/i, 'half_zip'],
+  [/집업|zip[- ]?up|full\s*zip|지퍼/i, 'full_zip'],
+  [/단추|버튼\s*업|button[- ]?up|button\s*front/i, 'button_front'],
+  [/스냅|snap/i, 'snap_front'],
+];
+
+/** @type {PhrasePair[]} */
+export const SURFACE_PHRASES = [
+  [/스트라이프|줄무늬|단가라|stripe/i, 'stripe'],
+  [/체크|깅엄|타탄|plaid|check|gingham|tartan/i, 'check'],
+  [/타이\s*다이|tie[- ]?dye/i, 'tie_dye'],
+  [/카모|camo|꽃무늬|플로럴|floral|도트|polka/i, 'all_over'],
+  [/그래픽|프린트|프린팅|graphic|printed/i, 'graphic'],
+];
+
+/** @type {PhrasePair[]} */
+export const DECORATION_PHRASES = [
+  [/자수|embroider/i, 'embroidery'],
+  [/와펜|패치|patch/i, 'patch'],
+  [/레터링|lettering/i, 'lettering'],
+];
+
+export const P_CLOSURE = 'category/top/closure';
+export const P_SURFACE = 'category/top/surface_pattern';
+export const P_DECORATION = 'category/top/decoration';
 
 export const P_NONE_MAT = 'category/top/split/none/material';
 export const P_NONE_COL = 'category/top/split/none/color';

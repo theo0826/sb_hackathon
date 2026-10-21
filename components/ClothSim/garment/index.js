@@ -109,6 +109,27 @@ async function instantiate() {
   };
 }
 
+/** spec 의 표면 무늬, 가공 토큰 -> 그리기용 (drape/renderer.js 가 읽음). 도면 경로와 상관없이 마지막 이름으로 찾음 */
+function surfaceFromSpec(spec) {
+  const tok = {};
+  for (const [p, t] of Object.entries(spec?.tokens || {})) tok[p.split('/').pop()] = t;
+  const v = k => tok[k]?.value;
+  const hexOf = k => tok[k]?.meta?.hex;
+  const pattern = v('surface_pattern') || 'solid';
+  const out = { pattern, finish: v('finish') || 'none' };
+  if (pattern === 'stripe') {
+    out.direction = v('stripe_direction') || 'horizontal';
+    out.width = Number(v('stripe_width')) || 1;
+    out.color2 = hexOf('stripe_color') || '#f2f1ec';
+  } else if (pattern === 'check') {
+    out.check_type = v('check_type') || 'gingham';
+    out.width = { small: 1, medium: 2.5, large: 5 }[v('check_scale')] || 2.5;
+    if (out.check_type === 'buffalo') out.width = Math.max(out.width, 3);
+    out.color2 = hexOf('check_color') || '#f2f1ec';
+  }
+  return out;
+}
+
 export async function textToScene(text, o = {}) {
   clothLog('textToScene 시작', text.slice(0, 80));
   const eng = await loadEngine();
@@ -153,6 +174,7 @@ export async function textToScene(text, o = {}) {
     throw e;
   }
   scene.meta.garment_size = size;
+  scene.meta.surface = surfaceFromSpec(spec);
   scene.meta.body_pose = bodyPose;
   clothLog('textToScene 완료', { size, bodyPose, verts: scene.meta?.sim?.n });
   step({ stage: 'done' });

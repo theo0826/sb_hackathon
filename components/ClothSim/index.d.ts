@@ -5,10 +5,29 @@ export interface ClothSimOptions {
   strain: boolean;     // 늘어남 색
   tear: boolean;       // 원단 찢어짐
   seamTear: boolean;   // 봉제선 터짐
-  push: boolean;       // 손가락 충돌
+  push: boolean;       // 몸 점 -> 천 삼각형 충돌 (기본 켬: 점 사이 면을 몸이 뚫고 보이지 않게)
   body: boolean;       // 마네킹 보이기
   tearScale: number;   // 찢어짐 기준 배수에 곱하는 값
   speed: number;       // 화면 한 번에 계산할 프레임 수
+}
+
+/** 입히기 설정 (만들 때만 적용, 바꾸려면 다시 만듦) */
+export interface DressOptions {
+  /** 1단계(입히기) 사용: 중력 없이 몸 안에 들어간 천을 최소 간격 밖으로 밀어낸 뒤 중력 (기본 true) */
+  dressing?: boolean;
+  /** 1단계를 화면에 보여 줌. false 면 빨리 계산하고 2단계부터 보여 줌 (기본 true) */
+  showDressing?: boolean;
+  /** 몸과 천 최소 간격 cm (기본 0.2) */
+  clearance?: number;
+  /** 굽힘 강성 배수 (원단 대표값에 곱함, 기본 1) */
+  bendScale?: number;
+  /** 이중막: 속막이 겉막에서 최소한 떨어질 간격 비율 (처음 간격 x 이 값, 기본 0.7) */
+  shellMin?: number;
+  /** 1단계 최대 프레임 (기본 300) */
+  dressMaxFrames?: number;
+  /** 1단계 끝 기준: 한 프레임 최대 이동 cm (기본 0.01) */
+  dressTol?: number;
+  onDressingDone?: (info: { reason: 'converged' | 'max_frames'; frames: number; maxMovePerFrame: number | null; movePerFrameP99?: number | null }) => void;
 }
 
 export interface ClothSimStats {
@@ -25,7 +44,7 @@ export interface ClothSimStats {
   ramp: number;        // 봉제 프레임 수
 }
 
-export interface CreateClothSimParams extends Partial<ClothSimOptions> {
+export interface CreateClothSimParams extends Partial<ClothSimOptions>, DressOptions {
   /** scene.json, scene.bin 이 있는 폴더 주소, 또는 이미 받은 { meta, bin } */
   scene?: string | { meta: unknown; bin: ArrayBuffer | ArrayBufferView };
   /** 이미 만든 WebGPU 장치를 같이 쓸 때 (GPUDevice). 없으면 새로 만듦 */
@@ -45,6 +64,8 @@ export interface ClothSim {
   readonly playing: boolean;
   readonly options: ClothSimOptions;
   readonly lastStats: ClothSimStats | null;
+  /** 1단계(입히기) 중인지 */
+  readonly dressing: boolean;
   play(): void;
   pause(): void;
   reset(): void;
@@ -64,8 +85,8 @@ export function createClothSim(canvas: HTMLCanvasElement, params: CreateClothSim
 export interface ClothSimProps {
   /** scene.json, scene.bin 이 있는 폴더 주소, 또는 이미 받은 { meta, bin } */
   scene?: string | { meta: unknown; bin: ArrayBuffer | ArrayBufferView };
-  /** 켜고 끄는 값. 바꾸면 바로 적용 (다시 만들지 않음) */
-  options?: Partial<ClothSimOptions>;
+  /** 켜고 끄는 값 (바꾸면 바로 적용) + 입히기 설정 (만들 때만) */
+  options?: Partial<ClothSimOptions> & DressOptions & Record<string, unknown>;
   autoplay?: boolean;
   look?: { background?: [number, number, number, number]; bodyColor?: string };
   onStats?: (s: ClothSimStats) => void;

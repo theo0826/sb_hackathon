@@ -15,11 +15,13 @@ struct Params {
   ncons: u32, ntri: u32, frame: u32, tear_armed: u32,
   seam_tear_on: u32, n_stretch: u32, push_depth: f32, hash_cell: f32,
   hash_size: u32, hash_slots: u32, e_start_off: u32, e_list_off: u32,
-  ncaps: u32, pad0: u32, pad1: u32, pad2: u32,
+  ncaps: u32, dress: u32, nshell: u32, shell_min: f32,   // dress: 1단계(입히기) 중이면 1, nshell: 이중막 짝 수 (없으면 0), shell_min: 속막 최소 간격 비율
+  nout: u32, shell_gap: f32, pad0: u32, pad1: u32,   // nout: 이 번호부터 속막 점, shell_gap: 겉막 점은 몸에서 이만큼 더 떨어짐 (속막 두께)
 };
 @group(0) @binding(0) var<uniform> prm: Params;
 
-// 제약 하나: 늘어남(kind 0), 굽힘(1), 봉제(2). comp = XPBD 유연도 cm/dyne (0 = 단단함)
+// 제약 하나: 늘어남(kind 0), 굽힘(1), 봉제(2), 봉제선 굽힘(3). comp = XPBD 유연도 (늘어남 cm/dyne, 굽힘 1/(dyne cm))
+// 굽힘(1, 3): a, b = 날개 점, 접는 변 = cons[link] 의 두 점, r = 정지 이면각 (0 = 평평)
 struct Edge { a: u32, b: u32, r: f32, k: f32, link: i32, limit: f32, comp: f32, kind: u32, };
 struct Bind { idx: u32, t0: u32, t1: u32, t2: u32, w0: f32, w1: f32, w2: f32, off: f32, };
 struct Tri { a: u32, b: u32, c: u32, mesh: u32, };

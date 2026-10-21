@@ -5,6 +5,13 @@
 //   sim.set('tear', false);   sim.pause();   sim.destroy();
 //
 // scene: scene.json, scene.bin 이 있는 폴더 주소, 또는 { meta, bin } (이미 받은 JSON 과 ArrayBuffer)
+//
+// 두 단계로 입힘
+//   1단계 (dressing): 중력 없이 위치만 풀어서, 처음 배치에서 몸 안에 들어가거나 최소 간격(clearance, 기본 0.2cm)보다
+//     가까운 천을 밖으로 밀어냄. 늘어남, 굽힘, 봉제는 켠 채라 이상적인 옷 모양은 유지. 움직임이 멈추면 끝
+//   2단계: 중력으로 늘어뜨림
+//   showDressing: false 면 1단계를 화면에 그리지 않고 빨리 계산한 뒤 2단계부터 보여 줌
+//   bendScale: 굽힘 강성 배수 (scene.js 의 원단 대표값에 곱함)
 // 장면 파일은 Python 쪽 (garment/export/webgpu_scene.py, design 또는 render 결과의 cloth/ 폴더) 이 만든다.
 import { initGPU, releaseGPU } from './gpu.js';
 import { loadScene, derive } from './scene.js';
@@ -18,7 +25,7 @@ export const DEFAULT_OPTIONS = {
   strain: true,      // 늘어남 색
   tear: true,        // 원단 찢어짐
   seamTear: false,   // 봉제선 터짐
-  push: false,       // 손가락 충돌 (몸 점 -> 천 삼각형)
+  push: true,        // 몸 점 -> 천 삼각형 충돌 (점 사이 면을 몸이 뚫고 나오지 않게, 손가락 등). 계산량 늘어남
   body: true,        // 마네킹 보이기
   tearScale: 1,      // 찢어짐 기준 배수에 곱하는 값
   speed: 1,          // 화면 한 번에 계산할 프레임 수
@@ -33,6 +40,9 @@ export function createClothSim(canvas, options = {}) {
   createQueue = out.then(() => {}, () => {});
   return out;
 }
+
+/** 1단계 기본값 */
+const DRESS_DEFAULTS = { clearance: 0.2, dressMaxFrames: 300, dressTol: 0.01, dressCheckEvery: 10, hiddenFramesPerTick: 8 };
 
 /** intro: 포즈 한 단계 갱신 → 그 프레임들 동안 물리 (단계마다 격자 포함 갱신) */
 const INTRO_POSE_STEPS = 16;
@@ -52,8 +62,16 @@ async function createClothSimImpl(canvas, options = {}) {
   if (aborted()) throw new DOMException('ClothSim aborted', 'AbortError');
   const scene = await loadScene(source);
   if (aborted()) throw new DOMException('ClothSim aborted', 'AbortError');
-  const derived = derive(scene);
-  const solver = await Solver.create(device, scene, derived);
+  const dressOpt = {
+    dressing: options.dressing !== false,
+    showDressing: options.showDressing !== false,
+    clearance: options.clearance ?? DRESS_DEFAULTS.clearance,
+    maxFrames: options.dressMaxFrames ?? DRESS_DEFAULTS.dressMaxFrames,
+    tol: options.dressTol ?? DRESS_DEFAULTS.dressTol,
+  };
+  const derived = derive(scene, { bendScale: options.bendScale ?? 1 });
+  clothLog('굽힘 (이면각)', derived.bendInfo);
+  const solver = await Solver.create(device, scene, derived, { clearance: dressOpt.clearance, dressing: dressOpt.dressing, shellMin: options.shellMin });
   if (aborted()) {
     for (const b of Object.values(solver.B)) b.destroy();
     throw new DOMException('ClothSim aborted', 'AbortError');
@@ -170,6 +188,41 @@ async function createClothSimImpl(canvas, options = {}) {
     pending = true;
     stats().then(s => { if (alive) onStats(s); }).catch(e => { if (alive && onError) onError(e); }).finally(() => { pending = false; });
   }
+  // 1단계 수렴 확인: dressCheckEvery 프레임마다 위치를 읽어, 점들의 프레임당 이동량 상위 1% 값이 dressTol 아래면 끝
+  // (가장 많이 움직인 점 하나로 보면, 겹침과 관계없이 천천히 자리 잡는 넓은 판 때문에 끝나지 않음)
+  let dressPrevX = null, dressPrevFrame = 0, dressChecking = false, dressLastMove = null;
+  function endDressing(reason) {
+    if (!solver.dress) return;
+    solver.dress = false;
+    solver.writeParams();
+    clothLog('1단계(입히기) 끝', { reason, frames: solver.frame, maxMovePerFrame: dressLastMove });
+    if (options.onDressingDone) options.onDressingDone({ reason, frames: solver.frame, maxMovePerFrame: dressLastMove, movePerFrameP99: dressLastMove });
+  }
+  async function dressCheck() {
+    if (!solver.dress || dressChecking) return;
+    if (solver.frame >= dressOpt.maxFrames) { endDressing('max_frames'); return; }
+    if (solver.frame - dressPrevFrame < DRESS_DEFAULTS.dressCheckEvery && dressPrevX) return;
+    dressChecking = true;
+    try {
+      const frame = solver.frame;
+      const X = await solver.readX();
+      if (dressPrevX && frame > dressPrevFrame) {
+        const att = scene.A.attach, moves = [];
+        for (let i = 0; i < solver.n; i++) {
+          if (att[i] === 1) continue;
+          const dx = X[3 * i] - dressPrevX[3 * i], dy = X[3 * i + 1] - dressPrevX[3 * i + 1], dz = X[3 * i + 2] - dressPrevX[3 * i + 2];
+          moves.push(dx * dx + dy * dy + dz * dz);
+        }
+        moves.sort((a, b) => a - b);
+        const p99 = moves.length ? moves[Math.min(moves.length - 1, Math.floor(moves.length * 0.99))] : 0;
+        dressLastMove = Math.sqrt(p99) / (frame - dressPrevFrame);
+        // 봉제가 끝나고(ramp) 합친 점이 자리 잡을 때까지는 기다림
+        if (frame >= solver.sim.ramp + 10 && dressLastMove < dressOpt.tol) endDressing('converged');
+      }
+      dressPrevX = X; dressPrevFrame = frame;
+    } finally { dressChecking = false; }
+  }
+
   function finishIntroSettle() {
     if (!poseAnim || poseAnim.mode !== 'intro') return;
     poseAnim.settleFramesLeft = 0;
@@ -180,8 +233,9 @@ async function createClothSimImpl(canvas, options = {}) {
 
   function loop() {
     if (!alive || aborted()) return;
-    const introBlend = poseAnim?.ready && poseAnim.mode === 'intro' && !poseAnim.done && !poseAnim.snapOnly;
-    const introSettle = poseAnim?.ready && poseAnim.mode === 'intro' && poseAnim.done && poseAnim.settleFramesLeft > 0;
+    const dressing = solver.dress;
+    const introBlend = !dressing && poseAnim?.ready && poseAnim.mode === 'intro' && !poseAnim.done && !poseAnim.snapOnly;
+    const introSettle = !dressing && poseAnim?.ready && poseAnim.mode === 'intro' && poseAnim.done && poseAnim.settleFramesLeft > 0;
     if (introBlend) {
       if (poseAnim.t0 == null) poseAnim.t0 = performance.now();
       const raw = Math.min(1, (performance.now() - poseAnim.t0) / poseAnim.durationMs);
@@ -209,7 +263,7 @@ async function createClothSimImpl(canvas, options = {}) {
     } else if (introSettle) {
       poseAnim.settleFramesLeft--;
       if (poseAnim.settleFramesLeft <= 0) finishIntroSettle();
-    } else if (poseAnim?.ready && poseAnim.mode === 'cycle') {
+    } else if (!dressing && poseAnim?.ready && poseAnim.mode === 'cycle') {
       const ph = ((performance.now() - poseAnim.t0) / 1000 / poseAnim.period) % 1;
       const u = 0.5 - 0.5 * Math.cos(2 * Math.PI * ph);
       const a = poseAnim.Va;
@@ -220,11 +274,14 @@ async function createClothSimImpl(canvas, options = {}) {
     }
     if (playing) {
       const t0 = performance.now();
-      for (let k = 0; k < opts.speed; k++) solver.stepFrame();
-      msPerFrame = 0.9 * msPerFrame + 0.1 * (performance.now() - t0) / opts.speed;
+      // 1단계를 안 보여 주면 한 번에 여러 프레임 계산
+      const nf = dressing && !dressOpt.showDressing ? DRESS_DEFAULTS.hiddenFramesPerTick : opts.speed;
+      for (let k = 0; k < nf; k++) solver.stepFrame();
+      msPerFrame = 0.9 * msPerFrame + 0.1 * (performance.now() - t0) / nf;
       if (solver.frame % statsEvery === 0) refresh();
+      if (dressing) dressCheck();
     }
-    if (!offscreen) renderer.draw(camera);
+    if (!offscreen && (!dressing || dressOpt.showDressing)) renderer.draw(camera);
     raf = requestAnimationFrame(loop);
   }
   raf = requestAnimationFrame(loop);
@@ -238,7 +295,14 @@ async function createClothSimImpl(canvas, options = {}) {
     camera,
     play() { playing = true; },
     pause() { playing = false; },
-    reset() { solver.reset(); refresh(); },
+    reset() {
+      solver.dress = dressOpt.dressing; dressPrevX = null; dressPrevFrame = 0; dressLastMove = null;
+      solver.reset(); refresh();
+    },
+    /** 1단계(입히기) 중인지 */
+    get dressing() { return solver.dress; },
+    // 진단용 (콘솔에서 위치, 장면 배열 확인). 화면 동작에는 쓰지 않음
+    get _debug() { return { solver, scene, derived }; },
     set(name, value) {
       if (!(name in DEFAULT_OPTIONS)) throw new Error(`ClothSim: 모르는 설정 ${name}`);
       opts[name] = value; apply();
@@ -252,7 +316,11 @@ async function createClothSimImpl(canvas, options = {}) {
     async step(k = 1) {
       const was = playing; playing = false;
       const t0 = performance.now();
-      for (let i = 0; i < k; i++) { solver.stepFrame(); if (i % 10 === 9) await device.queue.onSubmittedWorkDone(); }
+      for (let i = 0; i < k; i++) {
+        solver.stepFrame();
+        // 1단계 확인은 반복 횟수가 아니라 프레임 번호로 (step(5) 처럼 작게 나눠 부르면 전에는 확인이 한 번도 안 돌아 1단계가 끝나지 않았음)
+        if (solver.frame % 10 === 0 || i === k - 1) { await device.queue.onSubmittedWorkDone(); if (solver.dress) await dressCheck(); }
+      }
       await device.queue.onSubmittedWorkDone();
       msPerFrame = (performance.now() - t0) / k;
       const s = await solver.readStats();

@@ -15,7 +15,9 @@
     "test:security": "node tests/local-security.mjs",
     "build:pages": "node tools/build-pages.mjs",
     "preview:pages": "node tools/serve-pages.mjs",
-    "test:pages": "node tests/pages-export.mjs"
+    "test:pages": "node tests/pages-export.mjs",
+    "predeploy": "npm run build:pages",
+    "deploy": "gh-pages -d out"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.3",
@@ -38,6 +40,7 @@
     "@types/three": "^0.186.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "16.4.0",
+    "gh-pages": "^6.3.0",
     "tailwindcss": "4.3.3",
     "typescript": "~5.9.3"
   },

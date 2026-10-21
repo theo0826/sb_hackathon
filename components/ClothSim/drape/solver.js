@@ -22,27 +22,36 @@ const FIELDS = [
   ['ncons', 'u'], ['ntri', 'u'], ['frame', 'u'], ['tear_armed', 'u'],
   ['seam_tear_on', 'u'], ['n_stretch', 'u'], ['push_depth', 'f'], ['hash_cell', 'f'],
   ['hash_size', 'u'], ['hash_slots', 'u'], ['e_start_off', 'u'], ['e_list_off', 'u'],
-  ['ncaps', 'u'], ['pad0', 'u'], ['pad1', 'u'], ['pad2', 'u'],
+  ['ncaps', 'u'], ['dress', 'u'], ['nshell', 'u'], ['shell_min', 'f'],
+  ['nout', 'u'], ['shell_gap', 'f'], ['pad0', 'u'], ['pad1', 'u'],
 ];
 const HASH_SIZE = 1 << 16, HASH_SLOTS = 24;
 const TEAR_DELAY = 10;   // 봉제 끝나고 이만큼 프레임 뒤부터 찢어짐 판정 (합친 점이 자리 잡을 시간)
 
 export class Solver {
-  static async create(device, scene, derived) {
-    const s = new Solver(device, scene, derived);
+  static async create(device, scene, derived, opts = {}) {
+    const s = new Solver(device, scene, derived, opts);
     await s.init();
     return s;
   }
 
-  constructor(device, scene, derived) {
+  constructor(device, scene, derived, opts = {}) {
     this.device = device;
     this.scene = scene;
     this.d = derived;
     const m = scene.meta;
     this.n = m.n; this.ne = m.n_edges; this.ns = m.n_seams; this.nb = m.n_binds; this.ntri = m.n_tris;
-    this.ncons = this.ne + this.ns; this.ngroups = m.n_weld_groups || 0;
+    // 제약 수 = 변 + 봉제 + 봉제선 굽힘 (scene.js 가 덧붙임)
+    this.ncons = derived.cons.length / 8; this.ngroups = m.n_weld_groups || 0;
     this.nbv = derived.bodyVerts.length / 6;
     this.sim = { ...m.sim };
+    // 몸과 천 최소 간격 (1단계, 2단계 같은 값. 기본 0.2cm)
+    this.sim.thickness = opts.clearance ?? 0.2;
+    // 1단계(입히기): 중력 없이, 속도 없이 위치만 풀어서 몸 안에 들어간 천을 최소 간격 밖으로 밀어냄. 끝나면 false
+    this.dress = opts.dressing !== false;
+    // 이중막: 겉막과 속막 짝 (scene.js). 속막이 겉막 밖으로 못 나가게 함. 최소 간격 = 처음 간격 x shellMin
+    this.nshell = derived.shellPairs ? derived.shellPairs.length / 4 : 0;
+    this.shellMin = opts.shellMin ?? 0.7;
     this.opts = { tear_on: true, seam_tear_on: true, tear_scale: 1.0, seam_tear_cm: m.tear.seam_tear_cm, push_on: m.sim.push_on !== false, weld: true };
     this.frame = 0;
     this.paramData = new ArrayBuffer(FIELDS.length * 4);
@@ -88,6 +97,7 @@ export class Solver {
     B.hcnt = emptyBuffer(dev, 4 * HASH_SIZE, STORAGE, 'hcnt');
     B.hslot = emptyBuffer(dev, 4 * HASH_SIZE * HASH_SLOTS, STORAGE, 'hslot');
     B.acc = emptyBuffer(dev, 16 * n, STORAGE, 'acc');
+    B.shellPairs = makeBuffer(dev, d.shellPairs || new Uint32Array(4), STORAGE, 'shellPairs');
     B.params = dev.createBuffer({ size: this.paramData.byteLength, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, label: 'params' });
 
     const plan = {
@@ -101,6 +111,7 @@ export class Solver {
       body_push: ['P', 'X', 'tris', 'hcnt', 'hslot', 'bverts', 'acc'],
       push_apply: ['P', 'acc', 'invm'],
       velocity: ['P', 'X', 'V', 'attach'],
+      shell_side: ['P', 'shellPairs', 'tris', 'vtadj', 'invm'],
       bind: ['X', 'binds'],
       tear: ['X', 'edges', 'broken'],
       strain: ['X', 'edges', 'adj', 'broken', 'strain'],
@@ -181,12 +192,12 @@ export class Solver {
     const v = {
       n: this.n, ne: this.ne, ns: this.ns, nb: this.nb,
       dt,
-      gravity: sim.gravity * (this.poseDrape ? 1.35 : 1),
+      gravity: this.dress ? 0 : sim.gravity * (this.poseDrape ? 1.35 : 1),
       damping: Math.exp(-sim.damping_rate * dt),
       seam_factor: this.poseDrape ? Math.max(0.25, 1 - f / Math.max(1, sim.ramp * 0.65)) : Math.max(0, 1 - f / sim.ramp),
       mu_s: sim.mu_s, mu_k: sim.mu_k, push_radius: sim.push_radius, thickness: sim.thickness,
       max_dist: sim.max_dist, tear_on: o.tear_on ? 1 : 0, tear_scale: o.tear_scale, seam_tear_cm: o.seam_tear_cm,
-      ngroups: this.ngroups, weld_on: (o.weld && f >= sim.ramp) ? 1 : 0, push_on: o.push_on ? 1 : 0, nbv: this.nbv,
+      ngroups: this.ngroups, weld_on: (o.weld && f >= sim.ramp) ? 1 : 0, push_on: o.push_on && !this.dress ? 1 : 0, nbv: this.nbv,
       gox: g.origin[0], goy: g.origin[1], goz: g.origin[2], cell: sim.cell,
       gdx: g.dims[0], gdy: g.dims[1], gdz: g.dims[2], margin: sim.margin,
       g_start_off: g.off.start, g_tris_off: g.off.tris, g_inside_off: g.off.inside, body_kind: b.type === 'mesh' ? 0 : 1,
@@ -195,7 +206,8 @@ export class Solver {
       ncons: this.ncons, ntri: this.ntri, frame: f, tear_armed: f >= sim.ramp + TEAR_DELAY ? 1 : 0,
       seam_tear_on: o.seam_tear_on ? 1 : 0, n_stretch: m.n_stretch, push_depth: sim.push_depth, hash_cell: sim.hash_cell,
       hash_size: HASH_SIZE, hash_slots: HASH_SLOTS, e_start_off: this.d.off.e_start, e_list_off: this.d.off.e_list,
-      ncaps: this.scene.A.caps ? this.scene.A.caps.length / 7 : 0, pad0: 0, pad1: 0, pad2: 0,
+      ncaps: this.scene.A.caps ? this.scene.A.caps.length / 7 : 0, dress: this.dress ? 1 : 0, nshell: this.nshell, shell_min: this.shellMin,
+      nout: this.nshell ? (this.scene.meta.shell.n_outer || this.n) : this.n, shell_gap: this.nshell ? (this.scene.meta.shell.gap_cm || 0) : 0, pad0: 0, pad1: 0,
     };
     const u = new Uint32Array(this.paramData), fl = new Float32Array(this.paramData), it = new Int32Array(this.paramData);
     FIELDS.forEach(([k, t], i) => { if (t === 'u') u[i] = v[k]; else if (t === 'i') it[i] = v[k]; else fl[i] = v[k]; });
@@ -309,15 +321,19 @@ export class Solver {
         pass.setPipeline(k.pipeline);
         pass.setBindGroup(0, k.group);
         for (const c of this.colorGroups) { pass.setBindGroup(1, c.group); pass.dispatchWorkgroups(Math.ceil(c.cnt / 64)); }
+        this.run(pass, 'shell_side', this.nshell);
         this.run(pass, 'collide', this.n);
         this.run(pass, 'weld', this.ngroups);
       }
-      if (this.opts.push_on) {
+      // 몸 점 -> 천 삼각형 밀기는 2단계(중력)부터. 1단계 겹침 풀기는 점 충돌(최소 간격)로 하고,
+      // 1단계 중 밀기를 켜면 밀기와 제약이 서로 되돌리는 움직임이 이어져 끝나지 않음
+      if (this.opts.push_on && !this.dress) {
         this.run(pass, 'hash_clear', HASH_SIZE);
         this.run(pass, 'hash_insert', this.ntri);
         this.run(pass, 'body_push', this.nbv);
         this.run(pass, 'push_apply', this.n);
-        this.run(pass, 'weld', this.ngroups);   // 밀기 뒤 다시 합치기
+        this.run(pass, 'shell_side', this.nshell);   // 속막 위치 고친 뒤
+        this.run(pass, 'weld', this.ngroups);   // 밀기 뒤 다시 합치기 (봉제 점은 마지막에 합쳐야 벌어지지 않음)
       }
       this.run(pass, 'velocity', this.n);
     }
@@ -325,6 +341,19 @@ export class Solver {
     pass.end();
     this.device.queue.submit([enc.finish()]);
     this.frame++;
+  }
+
+  /** 천 위치만 읽기 (1단계 수렴 확인용) */
+  async readX() {
+    const dev = this.device, sz = Math.max(16, 12 * this.n);
+    const buf = dev.createBuffer({ size: sz, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+    const enc = dev.createCommandEncoder();
+    enc.copyBufferToBuffer(this.B.X, 0, buf, 0, sz);
+    dev.queue.submit([enc.finish()]);
+    await buf.mapAsync(GPUMapMode.READ);
+    const X = new Float32Array(buf.getMappedRange().slice(0));
+    buf.unmap(); buf.destroy();
+    return X;
   }
 
   // 상태 읽기 (느림, 가끔만)

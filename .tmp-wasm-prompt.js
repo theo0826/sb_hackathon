@@ -1,0 +1,16 @@
+const fs = require('fs');
+const s = fs.readFileSync('components/ClothSim/garment/wasm.js', 'utf8');
+const start = s.indexOf('export default ');
+const b64 = JSON.parse(s.slice(start + 'export default '.length).trim().replace(/;$/, ''));
+const buf = Buffer.from(b64, 'base64');
+const text = buf.toString('latin1');
+const i = text.indexOf('You are a fashion designer');
+const a = Math.max(0, i - 400);
+const b = Math.min(text.length, i + 2500);
+console.log(text.slice(a, b).replace(/[^\x09\x0a\x0d\x20-\x7e]/g, '\n'));
+console.log('\n\n===== nearby rodata cluster =====\n');
+const j = text.indexOf('Already chosen');
+console.log('already', j);
+const k = text.indexOf('logprob');
+console.log('around logprob field names:');
+console.log(text.slice(k - 600, k + 400).replace(/[^\x20-\x7e]/g, '\n'));

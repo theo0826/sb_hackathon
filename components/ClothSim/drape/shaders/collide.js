@@ -47,7 +47,7 @@ fn scan_cell(c: u32, p: vec3f, b: ptr<function, Best>) {
   for (var k = k0; k < k1; k++) { test_tri(grid[prm.g_tris_off + k], p, b); }
 }
 
-fn collide_mesh(p: ptr<function, vec3f>) -> bool {
+fn collide_mesh(p: ptr<function, vec3f>, th: f32) -> bool {
   let ix = i32(floor(((*p).x - prm.gox) / prm.cell));
   let iy = i32(floor(((*p).y - prm.goy) / prm.cell));
   let iz = i32(floor(((*p).z - prm.goz) / prm.cell));
@@ -78,12 +78,11 @@ fn collide_mesh(p: ptr<function, vec3f>) -> bool {
   if (dist > prm.max_dist) { return false; }
   let n = tv(u32(b.t), 3u);
   let sgn = select(-1.0, 1.0, dot(*p - b.cp, b.nsum) >= 0.0);
-  if (dist * sgn < prm.thickness) { *p = b.cp + n * prm.thickness; return true; }
+  if (dist * sgn < th) { *p = b.cp + n * th; return true; }
   return false;
 }
 
-fn collide_primitive(p: ptr<function, vec3f>) -> bool {
-  let th = prm.thickness;
+fn collide_primitive(p: ptr<function, vec3f>, th: f32) -> bool {
   let p0 = *p;
   var q = *p;
   if (q.y > prm.py_bottom && q.y < prm.py_top) {
@@ -123,7 +122,10 @@ fn main(@builtin(global_invocation_id) g: vec3u) {
   let before = vec3f(P[3u*i], P[3u*i+1u], P[3u*i+2u]);
   var p = before;
   var hit = false;
-  if (prm.body_kind == 0u) { hit = collide_mesh(&p); } else { hit = collide_primitive(&p); }
+  // 이중막이면 겉막 점은 속막 두께만큼 몸에서 더 떨어져야 함. 같은 최소 간격을 쓰면 꼭 끼는 곳(슬림 소매)에서
+  // 몸이 속막을 바깥으로 밀고, 속막이 겉막 사이로 비져 나와 검은 점으로 보임
+  let th = prm.thickness + select(0.0, prm.shell_gap, prm.nshell > 0u && i < prm.nout);
+  if (prm.body_kind == 0u) { hit = collide_mesh(&p, th); } else { hit = collide_primitive(&p, th); }
   if (hit) {
     var nrm = p - before;
     let depth = length(nrm);
