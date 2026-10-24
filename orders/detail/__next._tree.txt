@@ -1,6 +1,6 @@
-:HL["/sb_hackathon/_next/static/css/f0ce97a09fe99ef6.css","style"]
-:HL["/sb_hackathon/_next/static/css/2788bd07ca2f3067.css","style"]
+:HL["/sb_hackathon/_next/static/css/eb8b5482f11ecc6e.css","style"]
+:HL["/sb_hackathon/_next/static/css/caa70973ee432573.css","style"]
 3:[["children",{"s":"__PAGE__","h":160}]]
 2:[["children",{"s":"detail","h":96,"c":"$Q3"}]]
 1:[["children",{"s":"orders","h":96,"c":"$Q2"}]]
-0:{"b":"SkBQ4lfWW-oCXakb2PF_J","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
+0:{"b":"2FjcTKeLN6014wGpWi73w","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
