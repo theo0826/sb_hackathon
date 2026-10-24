@@ -1,5 +1,5 @@
-:HL["/sb_hackathon/_next/static/chunks/1mwr7i43vabxq.css","style"]
-:HL["/sb_hackathon/_next/static/chunks/0cm0n19o4ha6g.css","style"]
+:HL["/sb_hackathon/_next/static/css/f0ce97a09fe99ef6.css","style"]
+:HL["/sb_hackathon/_next/static/css/2788bd07ca2f3067.css","style"]
 2:[["children",{"s":"__PAGE__","h":160}]]
 1:[["children",{"s":"orders","h":96,"c":"$Q2"}]]
-0:{"b":"uMFZ6MDiHS19iIfTbUk-T","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
+0:{"b":"N1lKkg42RItcogAEGg0Vk","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
