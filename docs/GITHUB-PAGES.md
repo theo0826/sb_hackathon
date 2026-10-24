@@ -1,22 +1,22 @@
 # GitHub Pages와 팀 작업
 
-UI 커밋 `3da69f5`와 동료의 `main` 커밋 `65edf3e`를 `feature/ui`에서 병합했습니다. `main`과 `components/ClothSim/` 내부는 수정하지 않습니다. MotionHome·MinimalHome의 삭제 금지 import, state, 입력, clothRepresentText 전달을 보존했습니다. 호출하는 쪽에서 위치·크기·배포 경로만 조정했습니다. 현재 데스크톱과 모바일 홈 모두 MotionHome이며, MinimalHome은 자동 전환되지 않는 별도 구현입니다.
+배포 기준 브랜치는 `main`입니다. `components/ClothSim/`의 의상 생성·시뮬레이션 코드는 배포 복구 과정에서 수정하지 않습니다. 현재 데스크톱과 모바일 홈 모두 MotionHome이며, MinimalHome은 자동 전환되지 않는 별도 구현입니다.
 
 ## 현재 배포 상태
 
-2026-10-16 GitHub API는 Pages 활성화를 `422: Your current plan does not support GitHub Pages for this repository.`로 거절했습니다. 이후 사용자가 저장소를 공개로 전환하고 Pages를 활성화했습니다. 현재 GitHub Actions 방식과 PAGES_ENABLED=true를 연결해 실제 사이트 배포를 완료했습니다.
+2026-10-24 점검에서 Pages가 `Deploy from a branch → main → /`로 설정되어 Next.js 앱 대신 README를 게시하고 있음을 확인했습니다. Pages의 Source는 **GitHub Actions**로 설정해야 합니다. `main` 루트의 Next.js 소스를 그대로 게시하거나 `out/`을 소스 브랜치에 커밋하지 않습니다.
 
-`feature/ui`에 push하면 GitHub Actions가 단위 검사 → 정적 빌드 → 산출물 검사를 실행하고 Pages artifact를 보관합니다. 저장소 변수 `PAGES_ENABLED`가 `true`일 때만 deploy 작업을 실행합니다. 다른 브랜치에서는 배포하지 않습니다.
+`main`에 push하면 **Deploy main to GitHub Pages**가 단위 검사 → 정적 빌드 → 산출물 검사를 실행하고 검증된 `out/`만 Pages artifact로 배포합니다. 저장소 변수 `PAGES_ENABLED`가 `true`일 때만 deploy 작업을 실행합니다. 다른 브랜치에서는 배포하지 않습니다. 기존 `npm run deploy`는 `gh-pages` 브랜치에 파일을 올리는 별도 방식이므로 이 배포에는 사용하지 않습니다.
 
 ## 작업과 로컬 확인
 
 Node.js 24와 `npm ci`를 사용합니다.
 
 ```sh
-git switch feature/ui
-git pull --ff-only origin feature/ui
+git switch main
+git pull --ff-only origin main
 # 수정·커밋 후
-git push origin feature/ui
+git push origin main
 
 npm run test:unit
 npm run build:pages
@@ -26,17 +26,17 @@ npm run preview:pages
 
 미리보기: `http://127.0.0.1:4173/sb_hackathon/`. 산출물: `out/`.
 
-빌드 스크립트는 `.tools/pages-source/` 복사본에서만 서버 API·서버 코드·런타임 ID 경로를 제외합니다. 환경 파일은 복사하지 않습니다. 원본 서버 소스와 일반 `npm run build`는 보존됩니다. 공개 이미지·3D 모델·장면 파일은 저장소 접두 경로를 사용합니다.
+빌드 스크립트는 `.tools/pages-source/` 복사본에서만 서버 API·서버 코드·런타임 ID 경로를 제외합니다. 환경 파일은 복사하지 않습니다. 정적 배포 빌드는 Webpack을 명시적으로 사용합니다. 원본 서버 소스와 일반 `npm run build`는 보존됩니다. 공개 이미지·3D 모델·장면 파일은 저장소 접두 경로를 사용합니다.
 
-동료의 새 커밋은 `git fetch origin` 후 해당 브랜치를 feature/ui에 merge합니다. 충돌 시 기존 UI와 삭제 금지 연동을 함께 보존하고, ClothSim 폴더 내부는 담당 동료에게 맡깁니다.
+동료의 새 변경은 `main`에 병합되면 자동 배포됩니다. 충돌 시 기존 UI와 삭제 금지 연동을 함께 보존하고, ClothSim 폴더 내부는 담당 동료에게 맡깁니다.
 
 ## 배포 활성화 절차 (현재 적용 완료)
 
 1. 공개 저장소는 무료 Pages를 사용합니다. 비공개라면 이를 지원하는 요금제가 필요합니다.
 2. Settings → Pages → Source를 GitHub Actions로 설정합니다.
-3. Settings → Environments → github-pages의 배포 허용 브랜치에 `feature/ui`를 추가합니다. 기존 정책은 유지합니다.
+3. Settings → Environments → github-pages의 배포 허용 브랜치에 `main`이 포함되어 있는지 확인합니다. 기존 정책은 유지합니다.
 4. Settings → Secrets and variables → Actions → Variables에 `PAGES_ENABLED=true`를 추가합니다. 비밀 키는 필요하지 않습니다.
-5. feature/ui에 push하거나 해당 브랜치를 선택해 Deploy UI to GitHub Pages를 수동 실행합니다.
+5. main에 push하거나 해당 브랜치를 선택해 Deploy main to GitHub Pages를 수동 실행합니다.
 
 예상 배포 주소는 `https://theo0826.github.io/sb_hackathon/`이며, 성공한 deploy 작업이 반환한 주소를 확인하세요. [GitHub 공식 워크플로 안내](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
 

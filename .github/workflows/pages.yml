@@ -1,8 +1,8 @@
-name: Deploy UI to GitHub Pages
+name: Deploy main to GitHub Pages
 
 on:
   push:
-    branches: [feature/ui]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.ref == 'refs/heads/feature/ui'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -37,7 +37,7 @@ jobs:
           path: out
 
   deploy:
-    # Enable only after Pages is available for this private repository's plan.
+    # Publish the tested static export; Pages must use the GitHub Actions source.
     if: vars.PAGES_ENABLED == 'true'
     needs: build
     runs-on: ubuntu-latest

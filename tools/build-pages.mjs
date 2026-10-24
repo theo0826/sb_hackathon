@@ -23,7 +23,7 @@ for (const item of ["app", "components", "lib", "public", "package.json", "next.
   });
 }
 const require = createRequire(import.meta.url);
-const result = spawnSync(process.execPath, [require.resolve("next/dist/bin/next"), "build", staging], {
+const result = spawnSync(process.execPath, [require.resolve("next/dist/bin/next"), "build", staging, "--webpack"], {
   cwd: staging, stdio: "inherit",
   env: { ...process.env, NEXT_PUBLIC_STATIC_EXPORT: "true", NEXT_PUBLIC_BASE_PATH: process.env.NEXT_PUBLIC_BASE_PATH ?? "/sb_hackathon", NEXT_TELEMETRY_DISABLED: "1" },
 });
