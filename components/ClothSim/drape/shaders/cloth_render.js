@@ -15,6 +15,8 @@ struct View {
   mats: array<vec4f, 64>,   // 메쉬마다 (원단 종류, 무늬 주기 cm, 광택, 변형)
   surf0: vec4f,             // (무늬 종류, 방향, 폭 cm, 가공)
   surf1: vec4f,             // 둘째 색 rgb, 체크 종류
+  decal0: vec4f,            // 로고: 중심 도면 좌표 x, y (cm), 반폭, 반높이 (cm)
+  decal1: vec4f,            // 로고: cos, sin (회전), 메쉬 번호, 켜짐(1)
 };
 @group(0) @binding(0) var<uniform> view: View;
 @group(0) @binding(1) var<storage, read> X: array<f32>;
@@ -23,6 +25,8 @@ struct View {
 @group(0) @binding(4) var<storage, read> tri_dead: array<u32>;
 @group(0) @binding(5) var<storage, read> strain: array<f32>;
 @group(0) @binding(6) var<storage, read> UV: array<f32>;
+@group(0) @binding(7) var logoTex: texture_2d<f32>;
+@group(0) @binding(8) var logoSmp: sampler;
 
 struct VOut {
   @builtin(position) pos: vec4f,
@@ -88,6 +92,7 @@ fn height(kind: i32, q: vec2f, aux: f32) -> f32 {
     case 5: { let g = fract(q + vec2f(0.5 * floor(q.y), 0.0)) - 0.5; return 1.0 - smoothstep(0.15, 0.45, length(g)); } // 피케
     case 6: {                                                                            // 우븐
       if (aux > 0.5 && aux < 1.5) { let b = fract(q * 0.5) - 0.5; return 0.5 + 0.5 * sign(b.x * b.y) * 0.6; }   // 옥스포드 바스켓
+      if (aux > 3.5) { return 0.6 * vnoise(q) + 0.4 * vnoise(q * vec2f(2.3, 0.8) + vec2f(7.1, 3.3)); }   // 나일론 타슬란: 불규칙 잔주름
       return 0.5 + 0.25 * (sin(2.0 * PI * q.x) + sin(2.0 * PI * q.y));
     }
     case 7: { return 0.5 + 0.5 * sin(2.0 * PI * (q.x + q.y)); }                         // 데님 능직 (사선)
@@ -136,11 +141,37 @@ fn fs(i: VOut, @builtin(front_facing) ff: bool) -> @location(0) vec4f {
       let lx = step(0.94, abs(fract(i.uv.x / (6.0 * sw)) - 0.5) * 2.0);
       let ly = step(0.94, abs(fract(i.uv.y / (6.0 * sw)) - 0.5) * 2.0);
       base = mix(base, col2, max(lx, ly));
-    } else {                                             // 깅엄, 타탄, 버펄로: 겹친 곳이 진하게
+    } else if (ck == 1) {                                // 타탄: 굵은 바탕 띠 + 중간 어두운 띠 + 가는 밝은 선 (실 반복 단위 sett)
+      // 한 축의 띠 세기 (0 바탕, 1 둘째 색, 2 가는 선). 반복 = 6 x 폭
+      let ux = fract(i.uv.x / (6.0 * sw)); let uy = fract(i.uv.y / (6.0 * sw));
+      let a2 = clamp(fw / (6.0 * sw), 0.0, 0.05);
+      let dx = smoothstep(0.30 - a2, 0.30 + a2, ux) - smoothstep(0.62 - a2, 0.62 + a2, ux);   // 둘째 색 넓은 띠
+      let dy = smoothstep(0.30 - a2, 0.30 + a2, uy) - smoothstep(0.62 - a2, 0.62 + a2, uy);
+      let lx = smoothstep(0.80 - a2, 0.80 + a2, ux) - smoothstep(0.835 - a2, 0.835 + a2, ux);  // 가는 밝은 선
+      let ly = smoothstep(0.80 - a2, 0.80 + a2, uy) - smoothstep(0.835 - a2, 0.835 + a2, uy);
+      let dark = mix(col2, col2 * 0.55, 0.35);
+      let light = mix(vec3f(0.85, 0.82, 0.72), base, 0.25);
+      // 날실, 씨실 색을 반씩 섞음 (겹친 곳은 진하게, 한쪽만 지나는 곳은 중간색)
+      var cx = mix(base, dark, dx); cx = mix(cx, light, lx);
+      var cy = mix(base, dark, dy); cy = mix(cy, light, ly);
+      base = 0.5 * (cx + cy);
+      base = mix(base, base * 0.7, dx * dy * 0.6);
+    } else {                                             // 깅엄, 버펄로: 두 색 같은 폭, 겹친 곳이 진하게
       let t = (bx + by) * 0.5;
       base = mix(base, col2, t);
-      if (ck == 1) { base = mix(base, base * 0.6, bx * by * 0.5); }   // 타탄: 교차 더 진하게
+      if (ck == 2) { base = mix(base, col2 * 0.8, bx * by * 0.4); }
     }
+  }
+
+  // ---- 로고 (PNG, 도면 좌표에 붙임). 미분은 분기 전에 ----
+  let dc = view.decal1;
+  let rel = i.uv - view.decal0.xy;
+  let loc = vec2f(dc.x * rel.x + dc.y * rel.y, -dc.y * rel.x + dc.x * rel.y) / max(view.decal0.zw, vec2f(1e-3));
+  let ltc = vec2f(loc.x * 0.5 + 0.5, 0.5 - loc.y * 0.5);
+  let lg1 = dpdx(ltc); let lg2 = dpdy(ltc);
+  let lcol = textureSampleGrad(logoTex, logoSmp, ltc, lg1, lg2);
+  if (dc.w > 0.5 && i.mesh == u32(dc.z + 0.5) && abs(loc.x) <= 1.0 && abs(loc.y) <= 1.0) {
+    base = mix(base, pow(lcol.rgb, vec3f(2.2)), lcol.a);
   }
 
   // ---- 원단 질감 ----
@@ -185,7 +216,19 @@ fn fs(i: VOut, @builtin(front_facing) ff: bool) -> @location(0) vec4f {
   } else if ((kind == 6 && aux > 2.5 && aux < 3.5) || kind == 7) {   // 샴브레이, 데님: 흰 씨실이 섞임
     let wv = vnoise(vec2f(i.uv.x * 14.0, i.uv.y * 2.0));
     base = mix(base, base * 1.5 + vec3f(0.05), 0.18 + 0.12 * wv * detail);
-    if (kind == 7) { base = base * mix(0.86, 1.08, vnoise(vec2f(i.uv.x * 0.8, i.uv.y * 0.15))); }   // 데님 세로 얼룩
+    if (kind == 7) {
+      base = base * mix(0.8, 1.12, vnoise(vec2f(i.uv.x * 0.8, i.uv.y * 0.15)));   // 데님 세로 얼룩 (굵은 실 고르지 않음)
+      // 멀리서도 보이는 능직 사선: 짜임이 화소보다 작아져도 1cm 주기의 옅은 사선 결은 남김
+      let tw = 0.5 + 0.5 * sin(6.2832 * (i.uv.x + i.uv.y) / 0.9);
+      base = base * mix(1.0, mix(0.93, 1.05, tw), 1.0 - detail);
+      base = mix(base, base * 1.35 + vec3f(0.03), 0.12 * smoothstep(0.6, 0.9, vnoise(i.uv * vec2f(3.0, 0.7))));   // 흰 씨실 점
+    }
+  } else if (kind == 6 && aux > 0.5 && aux < 1.5) {      // 옥스포드: 색 날실 + 흰 씨실 -> 잔 점무늬 (멀리서 살짝 밝고 거침)
+    let sp = hash(floor(i.uv * vec2f(7.0, 5.0)));
+    base = mix(base, base * 0.85 + vec3f(0.12), 0.25 * sp * detail + 0.08 * (1.0 - detail));
+    base = base * mix(0.95, 1.04, vnoise(i.uv * vec2f(1.6, 0.9)));
+  } else if (kind == 6 && aux > 3.5) {                   // 나일론 타슬란: 잔주름 결, 무광에 가까움
+    base = base * mix(0.96, 1.03, vnoise(i.uv * vec2f(5.0, 3.0)));
   }
   // 가공
   let fin = i32(view.surf0.w + 0.5);
@@ -208,7 +251,7 @@ fn fs(i: VOut, @builtin(front_facing) ff: bool) -> @location(0) vec4f {
   let hv = normalize(l1 + v);
   // 또렷한 반사점은 나일론처럼 광택이 큰 우븐만 (sheen >= 0.5). 저지, 면은 무광이라 반사점을 넣으면
   // 어두운 색에서 젖은 얼룩처럼 보임. 넓게 퍼진 약한 반사(지수 12)로 둠
-  c += vec3f(sheen * 0.18) * pow(max(dot(n, hv), 0.0), 12.0) * select(0.0, 1.0, kind == 6 && sheen >= 0.5);
+  c += vec3f(sheen * 0.35) * pow(max(dot(n, hv), 0.0), 10.0) * select(0.0, 1.0, kind == 6 && aux > 3.5);   // 나일론: 넓게 퍼진 은은한 광택
   return vec4f(pow(c, vec3f(1.0 / 2.2)), 1.0);
 }
 `;

@@ -2,7 +2,7 @@
 
 import { useEffect, useImperativeHandle, useRef, useState, type Ref, type ReactNode } from "react";
 // 삭제금지: ClothSim 연동 — 생성 기능은 홈 대신 디자인 화면에서 사용.
-import ClothSim, { type ClothSimDesignerHandle, type Progress } from "../ClothSim";
+import ClothSim, { type ClothLogo, type ClothSimDesignerHandle, type Progress } from "../ClothSim";
 
 const stages: Record<Progress["stage"], string> = {
   translate: "옷 설명을 읽고 있어요.",
@@ -14,9 +14,14 @@ const stages: Record<Progress["stage"], string> = {
 
 export type ClothSimulationControls = { generate: (text: string) => Promise<boolean>; cancel: () => void };
 
-export default function ClothSimulationPreview({ controllerRef, fallback }: {
+export default function ClothSimulationPreview({ controllerRef, fallback, logo = null, view = "3d", onLogoChange }: {
   controllerRef: Ref<ClothSimulationControls>;
   fallback: ReactNode;
+  /** 업로드한 로고 (이미지 + 도안에서 정한 위치) */
+  logo?: ClothLogo | null;
+  /** "pattern" 이면 3D 대신 재단 도안을 보여 줌 */
+  view?: "3d" | "pattern";
+  onLogoChange?: (logo: ClothLogo | null) => void;
 }) {
   const simulator = useRef<ClothSimDesignerHandle>(null);
   const request = useRef(0);
@@ -70,6 +75,7 @@ export default function ClothSimulationPreview({ controllerRef, fallback }: {
       <div className="studio-cloth-layer" style={{ visibility: ready ? "visible" : "hidden" }} aria-hidden={!ready} inert={!ready}>
         {/* 삭제금지: ClothSim clothRepresentText 전달 — 생성은 외부 폼의 명시적 제출로 실행. */}
         <ClothSim ref={simulator} showInput={false} clothRepresentText={clothRepresentText}
+          logo={logo} view={view} patternEditor="none" onLogoChange={onLogoChange}
           autoplay options={{ strain: false, tear: false }}
           onProgress={progress => setStatus(stages[progress.stage] || "옷을 만들고 있어요.")}
           onReady={() => { setReady(true); setError(""); setStatus("의상 미리보기가 준비됐어요. 드래그해서 돌려보세요."); }}

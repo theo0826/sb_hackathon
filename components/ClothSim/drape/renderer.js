@@ -1,5 +1,6 @@
 // 그리기: 천(계산 버퍼를 그대로 읽음)과 몸. 4x MSAA + 깊이
 import { makeBuffer, shaderModule } from './gpu.js';
+import { buildTrims } from './trims.js';
 
 function hex(c) {
   const s = (c || '#aaaaaa').replace('#', '');
@@ -13,7 +14,7 @@ const FABRIC_LOOK = {
   cotton_jersey: [0, 0.12, 0.15, 0], cotton_interlock: [0, 0.1, 0.2, 0], softshell_knit: [0, 0.1, 0.3, 0],
   french_terry: [1, 1, 0.35, 0], brushed_fleece: [1, 1, 0.5, 0], polyester_fleece: [1, 1, 0.45, 0], heavy_sweat_fleece: [1, 1, 0.4, 0],
   rib_knit: [2, 0.45, 0.2, 0], wool_knit: [3, 0.45, 0.35, 0], thermal_waffle: [4, 0.5, 0.2, 0], pique_cotton: [5, 0.2, 0.2, 0],
-  cotton_poplin: [6, 0.06, 0.25, 0], oxford: [6, 0.14, 0.15, 1], linen: [6, 0.1, 0.1, 2], chambray: [6, 0.08, 0.15, 3], nylon_taslan: [6, 0.06, 0.7, 4],
+  cotton_poplin: [6, 0.06, 0.25, 0], oxford: [6, 0.14, 0.15, 1], linen: [6, 0.1, 0.1, 2], chambray: [6, 0.08, 0.15, 3], nylon_taslan: [6, 0.5, 0.32, 4],
   denim: [7, 0.25, 0.15, 0], corduroy: [8, 0.35, 0.35, 0], flannel_brushed: [9, 1, 0.35, 0],
 };
 function fabricLook(mesh) {
@@ -36,9 +37,12 @@ export class Renderer {
   constructor(device, canvas, solver, derived, offscreen = false, look = {}) {
     this.device = device; this.canvas = canvas; this.solver = solver; this.d = derived; this.offscreen = offscreen;
     this.flags = { strain: true, body: true };
-    const dark = typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
-    this.background = look.background || (dark ? [0.078, 0.078, 0.086, 1] : [0.965, 0.961, 0.949, 1]);
-    this.bodyColor = look.bodyColor || (dark ? '#55555c' : '#d8d4cc');
+    // 배경: 다크 모드와 상관없이 밝은 스튜디오 그라데이션 (위 #f7f6f3 -> 아래 #e4e1db).
+    // look.background = [r,g,b,a] 를 주면 그 단색, look.gradient = [[위 r,g,b],[아래 r,g,b]] 를 주면 그 그라데이션 (0..1, 화면 색 그대로)
+    const hx = (c) => [parseInt(c.slice(1, 3), 16) / 255, parseInt(c.slice(3, 5), 16) / 255, parseInt(c.slice(5, 7), 16) / 255];
+    this.gradient = look.background ? null : (look.gradient || [hx('#f7f6f3'), hx('#e4e1db')]);
+    this.background = look.background || [...this.gradient[0], 1];
+    this.bodyColor = look.bodyColor || '#d8d4cc';
   }
 
   async init() {
@@ -51,7 +55,7 @@ export class Renderer {
       this.format = navigator.gpu.getPreferredCanvasFormat();
       this.ctx.configure({ device: dev, format: this.format, alphaMode: 'opaque' });
     }
-    this.viewData = new ArrayBuffer(64 + 16 + 16 + 64 * 16 + 64 * 16 + 32);
+    this.viewData = new ArrayBuffer(64 + 16 + 16 + 64 * 16 + 64 * 16 + 32 + 32);   // 끝 32: 로고
     this.viewBuf = dev.createBuffer({ size: this.viewData.byteLength, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     const col = new Float32Array(this.viewData, 96, 64 * 4);
     this.solver.scene.meta.meshes.forEach((m, i) => { if (i < 63) col.set([...hex(m.color), 1], 4 * i); });
@@ -75,10 +79,75 @@ export class Renderer {
     this.cloth = await dev.createRenderPipelineAsync({ layout: 'auto', vertex: { module: cm, entryPoint: 'vs' }, fragment: { module: cm, entryPoint: 'fs', targets: [target] }, ...common });
     const bm = await shaderModule(dev, 'body_render', false);
     this.body = await dev.createRenderPipelineAsync({ layout: 'auto', vertex: { module: bm, entryPoint: 'vs' }, fragment: { module: bm, entryPoint: 'fs', targets: [target] }, ...common });
+    if (this.gradient) {
+      const [t, u] = this.gradient, f = (v) => v.map((x) => x.toFixed(4)).join(', ');
+      const code = `struct O { @builtin(position) p: vec4f, @location(0) y: f32 };
+@vertex fn vs(@builtin(vertex_index) i: u32) -> O {
+  var q = array<vec2f, 3>(vec2f(-1.0, -1.0), vec2f(3.0, -1.0), vec2f(-1.0, 3.0));
+  var o: O; o.p = vec4f(q[i], 1.0, 1.0); o.y = q[i].y * 0.5 + 0.5; return o;
+}
+@fragment fn fs(i: O) -> @location(0) vec4f {
+  let k = smoothstep(0.0, 1.0, clamp(i.y, 0.0, 1.0));
+  return vec4f(mix(vec3f(${f(u)}), vec3f(${f(t)}), k), 1.0);
+}`;
+      const gm = dev.createShaderModule({ code });
+      this.bg = await dev.createRenderPipelineAsync({ layout: 'auto', vertex: { module: gm, entryPoint: 'vs' }, fragment: { module: gm, entryPoint: 'fs', targets: [target] },
+        primitive: { topology: 'triangle-list', cullMode: 'none' }, depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'always' }, multisample: { count: this.msaaCount } });
+    }
     const B = this.solver.B;
     const g = (p, list) => dev.createBindGroup({ layout: p.getBindGroupLayout(0), entries: list.map((b, i) => ({ binding: i, resource: { buffer: b } })) });
-    this.clothGroup = g(this.cloth, [this.viewBuf, B.X, B.N, B.tris, B.triDead, B.strain, this.uvBuf]);
+    // 로고 텍스처 (처음에는 1x1 투명) + 샘플러
+    this.logoSampler = dev.createSampler({ magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear', addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge', maxAnisotropy: 4 });
+    this.logoTex = dev.createTexture({ size: [1, 1], format: 'rgba8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST });
+    dev.queue.writeTexture({ texture: this.logoTex }, new Uint8Array([0, 0, 0, 0]), { bytesPerRow: 4 }, [1, 1]);
+    this.logo = null;
+    this.makeClothGroup = () => {
+      this.clothGroup = dev.createBindGroup({ layout: this.cloth.getBindGroupLayout(0), entries: [
+        ...[this.viewBuf, B.X, B.N, B.tris, B.triDead, B.strain, this.uvBuf].map((b, i) => ({ binding: i, resource: { buffer: b } })),
+        { binding: 7, resource: this.logoTex.createView() }, { binding: 8, resource: this.logoSampler }] });
+    };
+    this.makeClothGroup();
     this.bodyGroup = g(this.body, [this.viewBuf, this.bodyVerts, this.bodyIdx]);
+    // 부자재 (단추, 지퍼, 끈, 박음질). 없거나 만들기 실패면 건너뜀 (천 그리기에는 영향 없음)
+    try {
+      const tr = buildTrims(this.solver.scene);
+      if (tr && tr.count) {
+        this.trimBuf = makeBuffer(dev, tr.data);
+        this.trimCount = tr.count;
+        const tm = await shaderModule(dev, 'trim_render', false);
+        this.trim = await dev.createRenderPipelineAsync({ layout: 'auto', vertex: { module: tm, entryPoint: 'vs' }, fragment: { module: tm, entryPoint: 'fs', targets: [target] }, ...common });
+        this.trimGroup = g(this.trim, [this.viewBuf, B.X, B.N, this.trimBuf]);
+      }
+    } catch (e) {
+      console.warn('[ClothSim] 부자재 그리기 준비 실패 (천은 그대로 그림)', e);
+      this.trim = null;
+    }
+  }
+
+  // 로고: { bitmap (ImageBitmap/캔버스), mesh (메쉬 번호), x, y (도면 cm), width (cm), rotation (도), visible }
+  // bitmap 이 바뀌면 텍스처(밉맵 포함)를 새로 만들고, 나머지는 값만 바꿈 (다음 그리기에 반영)
+  setLogo(lg) {
+    if (!lg || !lg.bitmap) { this.logo = null; return; }
+    const dev = this.device;
+    if (!this.logo || this.logo.bitmap !== lg.bitmap) {
+      const src = lg.bitmap, sc = Math.min(1, 1024 / Math.max(src.width, src.height));
+      const w0 = Math.max(1, Math.round(src.width * sc)), h0 = Math.max(1, Math.round(src.height * sc));
+      const levels = Math.floor(Math.log2(Math.max(w0, h0))) + 1;
+      const tex = dev.createTexture({ size: [w0, h0], format: 'rgba8unorm', mipLevelCount: levels,
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT });
+      for (let l = 0; l < levels; l++) {
+        const w = Math.max(1, w0 >> l), h = Math.max(1, h0 >> l);
+        const cv = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), { width: w, height: h });
+        const cx = cv.getContext('2d');
+        cx.clearRect(0, 0, w, h);
+        cx.drawImage(src, 0, 0, w, h);
+        dev.queue.copyExternalImageToTexture({ source: cv }, { texture: tex, mipLevel: l }, [w, h]);
+      }
+      if (this.logoTex) this.logoTex.destroy();
+      this.logoTex = tex;
+      this.makeClothGroup();
+    }
+    this.logo = { ...lg, aspect: lg.bitmap.height / Math.max(1, lg.bitmap.width) };
   }
 
   resize() {
@@ -115,6 +184,8 @@ export class Renderer {
   destroy() {
     this.viewBuf?.destroy();
     this.uvBuf?.destroy();
+    this.trimBuf?.destroy();
+    this.logoTex?.destroy();
     this.bodyVerts?.destroy();
     this.bodyIdx?.destroy();
     this.msaa?.destroy();
@@ -128,6 +199,11 @@ export class Renderer {
     new Float32Array(this.viewData, 0, 16).set(vp);
     new Float32Array(this.viewData, 64, 4).set([...camera.eye(), 1]);
     new Uint32Array(this.viewData, 80, 4).set([this.flags.strain ? 1 : 0, 0, 0, 0]);
+    const lg = this.logo, dv = new Float32Array(this.viewData, 96 + 128 * 16 + 32, 8);
+    if (lg && lg.visible !== false && lg.mesh >= 0) {
+      const w = lg.width || 10, r = (lg.rotation || 0) * Math.PI / 180;
+      dv.set([lg.x || 0, lg.y || 0, w / 2, w * lg.aspect / 2, Math.cos(r), Math.sin(r), lg.mesh, 1]);
+    } else dv.set([0, 0, 1, 1, 1, 0, -1, 0]);
     this.device.queue.writeBuffer(this.viewBuf, 0, this.viewData);
     const bg = this.background;
     const enc = this.device.createCommandEncoder();
@@ -135,8 +211,10 @@ export class Renderer {
       colorAttachments: [{ view: this.msaa.createView(), resolveTarget: (this.offscreen ? this.target : this.ctx.getCurrentTexture()).createView(), clearValue: bg, loadOp: 'clear', storeOp: 'discard' }],
       depthStencilAttachment: { view: this.depth.createView(), depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'discard' },
     });
+    if (this.bg) { pass.setPipeline(this.bg); pass.draw(3); }
     if (this.flags.body) { pass.setPipeline(this.body); pass.setBindGroup(0, this.bodyGroup); pass.draw(this.d.bodyIdx.length); }
     pass.setPipeline(this.cloth); pass.setBindGroup(0, this.clothGroup); pass.draw(3 * this.solver.ntri);
+    if (this.trim && this.flags.trims !== false) { pass.setPipeline(this.trim); pass.setBindGroup(0, this.trimGroup); pass.draw(6, this.trimCount); }
     pass.end();
     this.device.queue.submit([enc.finish()]);
   }

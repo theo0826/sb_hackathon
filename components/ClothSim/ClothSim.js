@@ -2,9 +2,15 @@
 //   입력 -> (LLM 에 묻기: Ollama 또는 API) -> C++ 엔진(wasm): 선택, 도면, 3D 배치, 장면 -> WebGPU 시뮬레이션
 // scene 을 직접 주면 그 장면을 보여 준다 (입력칸으로 새로 만들면 바뀜).
 // 입력칸을 밖(페이지)에 둘 때: showInput={false} clothRepresentText={글자} submit={누른 횟수}
+// 로고: logo={이미지 주소 | File | { src, panel, x, y, width, rotation }} (주소나 파일만 주면 앞판 가슴에 놓음)
+//   ref.current.setLogo(같은 값) 도 됨. 재단 도면 편집: 화면 오른쪽 위 '도면 편집' 버튼 (patternEditor="none" 이면 숨김)
+//   view="pattern" 이면 3D 대신 재단 도면을 보여 줌 (3D 계산은 숨긴 채 유지). 밖의 버튼으로 바꿀 때 씀
+//   도면에서 옮기면 onLogoChange(로고 값) 으로 알려 줌
 //   submit 값이 바뀔 때마다 clothRepresentText 로 새로 만든다 (버튼 onClick 에서 +1). ref.current.generate(글자) 도 됨
 import { createElement as h, forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import ClothSimView from './ClothSimView.js';
+import ClothPatternEditor from './pattern/PatternEditor.js';
+import { defaultLogoPlacement } from './pattern/logo.js';
 import { makeLLM, textToScene } from './garment/index.js';
 import { clothError, clothLog } from './garment/clothLog.js';
 
@@ -26,6 +32,7 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
     scene: sceneProp, llm, showInput = true, defaultText = '', placeholder = '만들 옷을 적어 주세요 (예: 오버핏 후드티, 캥거루 주머니)',
     preprocess, fixed, onSpec, onScene, onLog, onProgress, onError,
     clothRepresentText, submit,
+    logo: logoProp, onLogoChange, patternEditor = 'button', view = '3d',
     style, className, ...viewProps
   } = props;
   const viewRef = useRef(null);
@@ -37,6 +44,58 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
   const [status, setStatus] = useState('');
   const [error, setError] = useState(null);
   const [dressReveal, setDressReveal] = useState(false);
+  const [logo, setLogoState] = useState(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const logoChangeRef = useRef(onLogoChange);
+  logoChangeRef.current = onLogoChange;
+  // 로고 값 정리: 주소나 파일만 오면 장면의 앞판 가슴에 기본 위치로
+  const normLogo = (v, sc) => {
+    if (!v) return null;
+    const isObj = typeof v === 'object' && !(typeof Blob !== 'undefined' && v instanceof Blob) && !(typeof ImageBitmap !== 'undefined' && v instanceof ImageBitmap) && !(typeof HTMLImageElement !== 'undefined' && v instanceof HTMLImageElement);
+    const base = isObj ? v : { src: v };
+    if (base.panel && sc && sc.meta && sc.meta.meshes.some(m => m.name === base.panel)) return base;
+    const d = sc && sc.meta ? defaultLogoPlacement(sc, base.src) : null;
+    return d ? { ...d, ...(isObj ? Object.fromEntries(Object.entries(base).filter(([k]) => k !== 'panel' && k !== 'x' && k !== 'y')) : {}) } : base;
+  };
+  const applyLogo = (v, notify) => {
+    const sc = sceneRef.current;
+    const nl = normLogo(v, sc && sc.meta ? sc : null);
+    setLogoState(nl);
+    if (notify && logoChangeRef.current) logoChangeRef.current(nl);
+    return nl;
+  };
+  const sceneRef = useRef(null);
+  sceneRef.current = scene;
+  // 밖에서 주는 로고: 이미지나 위치가 실제로 바뀔 때만 반영 (부모가 매번 새 객체를 줘도 끌던 위치를 덮지 않게)
+  const logoKey = v => {
+    if (!v) return 'none';
+    if (typeof v !== 'object' || (typeof Blob !== 'undefined' && v instanceof Blob)) return `src:${typeof v === 'string' ? v.length + v.slice(-32) : 'obj'}`;
+    const sk = typeof v.src === 'string' ? v.src.length + v.src.slice(-32) : 'obj';
+    return `src:${sk}|${v.panel}|${v.x}|${v.y}|${v.width}|${v.rotation}`;
+  };
+  const lastPropKey = useRef(null);
+  useEffect(() => {
+    if (logoProp === undefined) return;
+    const k = logoKey(logoProp);
+    if (k === lastPropKey.current) return;
+    lastPropKey.current = k;
+    if (k === logoKey(logo)) return;
+    applyLogo(logoProp, false);
+  }, [logoProp]);
+  // 도면에서 끄는 동안은 화면만 바꾸고, 멈추면(0.25초) 밖에 알림 (부모가 매번 다시 그리지 않게)
+  const notifyTimer = useRef(null);
+  const editorChange = nl => {
+    setLogoState(nl);
+    if (notifyTimer.current) clearTimeout(notifyTimer.current);
+    notifyTimer.current = setTimeout(() => {
+      notifyTimer.current = null;
+      lastPropKey.current = logoKey(nl);
+      if (logoChangeRef.current) logoChangeRef.current(nl);
+    }, 250);
+  };
+  useEffect(() => () => notifyTimer.current && clearTimeout(notifyTimer.current), []);
+  // 장면이 바뀌어 붙인 패널이 없어지면 기본 위치로 다시 놓음
+  useEffect(() => { if (logo && scene && scene.meta && !scene.meta.meshes.some(m => m.name === logo.panel)) applyLogo({ ...logo, panel: undefined }, true); }, [scene]);
   const cb = useRef({});
   cb.current = { onSpec, onScene, onLog, onProgress, onError, llm, preprocess, fixed };
 
@@ -110,6 +169,9 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
     set: (k, v) => viewRef.current && viewRef.current.set(k, v),
     stats: () => (viewRef.current ? viewRef.current.stats() : Promise.resolve(null)),
     get sim() { return viewRef.current && viewRef.current.sim; },
+    setLogo: v => applyLogo(v, true),
+    getLogo: () => logo,
+    openPatternEditor: (open = true) => setEditorOpen(!!open),
   }));
 
   const bar = showInput && h('form', {
@@ -149,7 +211,7 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
     bar,
     h('div', { style: { position: 'relative', flex: '1 1 auto', minHeight: 0 } },
       scene
-        ? h(ClothSimView, { ref: viewRef, scene, clothRepresentText, ...viewProps, options: viewOptions })
+        ? h(ClothSimView, { ref: viewRef, scene, clothRepresentText, ...viewProps, options: viewOptions, logo })
         : h('div', { style: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: 14, opacity: 0.6 } },
           busy ? status : (showInput ? '옷을 적고 만들기를 누르세요' : '')),
       dressReveal && showDressReveal && h('div', {
@@ -159,6 +221,19 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
         style: { width: 'min(92%, 220px)', padding: '14px 16px', borderRadius: 20, background: '#fff', boxShadow: '0 18px 48px rgba(23,35,47,.18)', textAlign: 'center' },
       }, h('p', { style: { margin: '0 0 8px', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#56616d' } }, '입기 완료'),
         h('p', { style: { margin: 0, fontSize: 15, fontWeight: 600, lineHeight: 1.4, color: '#17232f' } }, revealLabel))),
+      // 재단 도면 편집 (로고 옮기기, 크기, 회전)
+      scene && scene.meta && patternEditor !== 'none' && !editorOpen && view !== 'pattern' && h('button', {
+        type: 'button', onClick: () => setEditorOpen(true),
+        style: { position: 'absolute', right: 10, top: 10, zIndex: 4, padding: '6px 10px', fontSize: 12, borderRadius: 8, border: '1px solid #0002', background: '#fffd', color: '#17232f', cursor: 'pointer' },
+      }, '도면 편집'),
+      scene && scene.meta && (editorOpen || view === 'pattern') && h('div', {
+        style: { position: 'absolute', inset: 0, zIndex: 5, display: 'flex', flexDirection: 'column', background: '#f6f5f1' },
+      },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', fontSize: 12, color: '#17232f', borderBottom: '1px solid #0001' } },
+          h('span', { style: { flex: 1 } }, logo ? '로고를 끌어 옮기고, 로고 위에서 휠로 크기, Shift+휠로 회전. 빈 곳은 끌기로 이동, 휠로 확대' : '로고 이미지를 먼저 넣어 주세요'),
+          view !== 'pattern' && h('button', { type: 'button', onClick: () => setEditorOpen(false), style: { ...btn, padding: '4px 10px', fontSize: 12 } }, '3D 보기')),
+        h('div', { style: { position: 'relative', flex: '1 1 auto', minHeight: 0 } },
+          h(ClothPatternEditor, { scene, logo, onChange: editorChange }))),
       // 입력칸이 밖에 있을 때 진행 상태와 오류는 화면 위에 작게
       !showInput && (status || error) && h('div', {
         style: { position: 'absolute', left: 8, top: 8, padding: '4px 8px', fontSize: 12, borderRadius: 4, background: '#0008', color: error ? '#f88' : '#fff', maxWidth: 'calc(100% - 16px)' },

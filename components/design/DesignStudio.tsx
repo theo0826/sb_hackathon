@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { ArrowRight, Check, ImagePlus, LoaderCircle, Plus, Save, Sparkles, X } from "lucide-react";
 import { COLORS, defaultClubPlacements, isDesign, mockDesign, type Design } from "@/lib/design";
 import { useDesignSession } from "@/lib/design-session";
@@ -33,6 +33,8 @@ export default function DesignStudio() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [previewVersion, setPreviewVersion] = useState(0);
+  // 미리보기 방식: 3D 옷 또는 재단 도안 (인쇄 면 design.side 와 별개)
+  const [previewMode, setPreviewMode] = useState<"3d" | "pattern">("3d");
   const requestActive = useRef(false);
   const generationId = useRef(0);
   const generationAbort = useRef<AbortController | null>(null);
@@ -151,6 +153,8 @@ export default function DesignStudio() {
   }
   const price = estimate(SUPPLIERS[0], order);
   const designPreview = <Canvas design={design} exportRef={canvas} showArtwork={hasResult || !!design.image}/>;
+  // ClothSim 3D 로고: 업로드한 이미지 + 도안에서 옮긴 위치 (값이 바뀔 때만 새로 만듦)
+  const clothLogo = useMemo(() => design.image ? { src: design.image, ...(design.logoPlacement ?? {}) } : null, [design.image, design.logoPlacement]);
   return <main id="main-content" className="wf-page wf-studio"><FlowSteps current={1} />
     <h1 className="sr-only">디자인 스튜디오</h1>
     <div className="wf-studio-grid">
@@ -172,9 +176,10 @@ export default function DesignStudio() {
         {messages.length > 0 && <details className="wf-chat-history"><summary>AI 대화 내역</summary><div ref={conversation} role="log" aria-label="AI 디자인 대화">{messages.map(item => <p key={item.id}><strong>{item.role === "user" ? "나" : "AI"}</strong>{item.text}</p>)}</div></details>}
       </section>
       <section className="wf-studio-preview ai-stage" aria-label="디자인 미리보기">
-        <div className="wf-preview-toolbar"><div className="wf-segments" role="group" aria-label="인쇄 면"><button aria-pressed={design.side === "front"} onClick={() => patch({ side: "front" })} disabled={busy}>앞면</button><button aria-pressed={design.side === "back"} onClick={() => patch({ side: "back" })} disabled={busy}>뒷면</button></div><button className="text-link" onClick={save} disabled={busy || !(hasResult || design.image)}><Save size={15}/>{saving ? "저장 중…" : "저장"}</button></div>
+        <div className="wf-preview-toolbar"><div className="wf-segments" role="group" aria-label="인쇄 면"><button aria-pressed={design.side === "front"} onClick={() => patch({ side: "front" })} disabled={busy}>앞면</button><button aria-pressed={design.side === "back"} onClick={() => patch({ side: "back" })} disabled={busy}>뒷면</button></div><div className="wf-segments" role="group" aria-label="미리보기 방식"><button aria-pressed={previewMode === "3d"} onClick={() => setPreviewMode("3d")}>3D</button><button aria-pressed={previewMode === "pattern"} onClick={() => setPreviewMode("pattern")}>도안</button></div><button className="text-link" onClick={save} disabled={busy || !(hasResult || design.image)}><Save size={15}/>{saving ? "저장 중…" : "저장"}</button></div>
         <h2 className="studio-preview-heading">디자인 미리보기</h2>
-        <ClothSimulation key={previewVersion} controllerRef={simulation} fallback={designPreview}/>
+        <ClothSimulation key={previewVersion} controllerRef={simulation} fallback={designPreview} logo={clothLogo} view={previewMode}
+          onLogoChange={logo => patch({ logoPlacement: logo ? { panel: logo.panel ?? "front", x: logo.x ?? 0, y: logo.y ?? 0, width: logo.width ?? 10, rotation: logo.rotation ?? 0 } : undefined })}/>
         <div className="wf-colors" role="group" aria-label="의류 색상">{COLORS.map(color => <button key={color.hex} style={{ backgroundColor: color.hex }} aria-label={color.name} aria-pressed={design.color === color.hex} onClick={() => patch({ color: color.hex })} disabled={busy}/>)}</div>
         <div className="wf-variants" role="group" aria-label="시안 배치 선택">{["A 클래식","B 미니멀","C 스트리트"].map((label,index) => <button key={label} aria-pressed={variant === index && hasResult} disabled={busy} onClick={() => { patch(variantDesign(index)); setHasResult(true); }}><DesignThumbnail design={variantDesign(index)}/><span><strong>{label}</strong><small>{index === variant && hasResult ? "적용 중" : ["가슴 로고","앞면 중앙","가슴 + 등판"][index]}</small></span></button>)}</div>
         <p className="wf-muted wf-variant-note">시안 카드는 같은 디자인의 스타일·배치 예시예요.</p>

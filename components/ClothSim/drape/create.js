@@ -293,6 +293,13 @@ async function createClothSimImpl(canvas, options = {}) {
     get options() { return { ...opts }; },
     get lastStats() { return lastStats; },
     camera,
+    // 로고 붙이기: { bitmap (ImageBitmap), panel (메쉬 이름, 예 'front'), x, y (도면 cm), width (cm), rotation (도), visible }
+    // null 이면 지움. 값만 바뀌면 다음 화면에 바로 반영 (다시 계산하지 않음)
+    setLogo(lg) {
+      if (!lg || !lg.bitmap) { renderer.setLogo(null); return; }
+      const mesh = scene.meta.meshes.findIndex(m => m.name === lg.panel);
+      renderer.setLogo({ ...lg, mesh });
+    },
     play() { playing = true; },
     pause() { playing = false; },
     reset() {

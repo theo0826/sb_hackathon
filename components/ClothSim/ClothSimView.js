@@ -3,12 +3,14 @@
 import { createElement, forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { createClothSim, DEFAULT_OPTIONS } from './drape/create.js';
 import { clothError, clothLog } from './garment/clothLog.js';
+import { loadLogoBitmap } from './pattern/logo.js';
 
 const ClothSim = forwardRef(function ClothSim(props, ref) {
-  const { scene, options, autoplay = true, onStats, onError, onReady, style, className, look, clothRepresentText = '' } = props;
+  const { scene, options, autoplay = true, onStats, onError, onReady, style, className, look, clothRepresentText = '', logo = null } = props;
   const canvasRef = useRef(null);
   const simRef = useRef(null);
   const [error, setError] = useState(null);
+  const [simReady, setSimReady] = useState(0);
   const cb = useRef({});
   cb.current = { onStats, onError, onReady };
 
@@ -43,6 +45,7 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
       simRef.current = sim;
       sim.setClothRepresentText(clothRepresentText);
       clothLog('ClothSimView 시뮬 준비 완료');
+      setSimReady(v => v + 1);
       if (cb.current.onReady) cb.current.onReady(sim);
       return sim;
     }).catch(fail);
@@ -68,6 +71,17 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
     if (!sim) return;
     sim.setClothRepresentText(clothRepresentText);
   }, [clothRepresentText]);
+
+  // 로고: 이미지가 바뀌면 불러오고, 위치만 바뀌면 값만 넘김 (3D 에 바로 반영)
+  useEffect(() => {
+    let alive = true;
+    const sim = simRef.current;
+    if (!sim || !sim.setLogo) return undefined;
+    if (!logo || !logo.src) { sim.setLogo(null); return undefined; }
+    loadLogoBitmap(logo.src).then(bitmap => { if (alive && simRef.current === sim) sim.setLogo({ ...logo, bitmap }); })
+      .catch(e => clothError('로고 불러오기 실패', e));
+    return () => { alive = false; };
+  }, [logo, simReady]);
 
   return createElement('div', { className, style: { position: 'relative', width: '100%', height: '100%', ...(style || {}) } },
     createElement('canvas', { ref: canvasRef, style: { width: '100%', height: '100%', display: 'block', touchAction: 'none' } }),

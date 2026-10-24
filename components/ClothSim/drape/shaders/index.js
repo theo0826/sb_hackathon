@@ -14,11 +14,13 @@ import push_apply from './push_apply.js';
 import strain from './strain.js';
 import tear from './tear.js';
 import tri_dead from './tri_dead.js';
+import trim_render from './trim_render.js';
 import shell_side from './shell_side.js';
 import velocity from './velocity.js';
 import weld from './weld.js';
 import xpbd from './xpbd.js';
 export const SHADERS = {
+  trim_render,
   bind,
   body_push,
   body_render,

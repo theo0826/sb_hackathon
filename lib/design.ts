@@ -2,6 +2,8 @@ export type ArtStyle = "campus" | "type" | "wave";
 export type Side = "front" | "back";
 export type Garment = "tee" | "hoodie" | "varsity";
 export type PrintPlacement = { id: string; side: Side; x: number; y: number; widthCm: number; heightCm: number; rotation: number; content?: "artwork"|"text"; text?: string; ink?: string };
+// ClothSim 3D 로고 위치: 패널(메쉬) 이름, 그 패널 도면 좌표 cm, 가로 cm, 회전 도 (재단 도면 편집에서 정함)
+export type LogoPlacement = { panel: string; x: number; y: number; width: number; rotation: number };
 export type FabricStyle = { pattern: "solid"|"stripes"|"hoops"|"diagonal"|"checker"|"gradient"|"custom"; secondaryColor: string; trimColor: string; density: number; sleeveColor?: string|null };
 export const GARMENTS: { id: Garment; label: string; name: string }[] = [
   { id: "tee", label: "반팔티", name: "스탠다드 반팔" },
@@ -19,6 +21,7 @@ export type Design = {
   scale: number;
   rotation: number;
   image: string | null;
+  logoPlacement?: LogoPlacement;
   placements?: PrintPlacement[];
   fabric?: FabricStyle;
   fabricImage?: string | null;
@@ -94,7 +97,14 @@ export function isDesign(value: unknown): value is Design {
     && typeof d.rotation === "number" && d.rotation >= -180 && d.rotation <= 180
     && (d.image === null || (typeof d.image === "string" && ((/^data:image\/(png|jpeg|webp);base64,/.test(d.image) && d.image.length <= 3_000_000) || /^\/api\/assets\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(d.image))))
     && (d.placements === undefined || (Array.isArray(d.placements) && d.placements.length >= 1 && d.placements.length <= 4 && d.placements.every(isPrintPlacement) && new Set(d.placements.map(p=>p.id)).size === d.placements.length))
-    && (d.fabric === undefined || isFabricStyle(d.fabric)) && (d.fabricImage === undefined || isImageSource(d.fabricImage));
+    && (d.fabric === undefined || isFabricStyle(d.fabric)) && (d.fabricImage === undefined || isImageSource(d.fabricImage))
+    && (d.logoPlacement === undefined || isLogoPlacement(d.logoPlacement));
+}
+export function isLogoPlacement(value: unknown): value is LogoPlacement {
+  if (!value || typeof value !== "object") return false;
+  const p = value as LogoPlacement;
+  return typeof p.panel === "string" && /^[a-z][a-z0-9_]{0,39}$/.test(p.panel) && [p.x, p.y, p.width, p.rotation].every(Number.isFinite)
+    && Math.abs(p.x) <= 200 && Math.abs(p.y) <= 200 && p.width >= 1 && p.width <= 60 && p.rotation >= -360 && p.rotation <= 360;
 }
 export function isPrintPlacement(value: unknown): value is PrintPlacement {
   if (!value || typeof value !== "object") return false;

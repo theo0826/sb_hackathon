@@ -32,9 +32,10 @@ export function releaseGPU() {
 // GPUBufferUsage 는 WebGPU 없는 환경(서버 렌더링)에서 없으므로 값으로 둠: STORAGE | COPY_DST | COPY_SRC
 export const STORAGE = 0x80 | 0x08 | 0x04;
 
-// 빈 배열도 최소 16 바이트 버퍼로 (WebGPU 는 0 크기 바인딩 불가)
+// 빈 배열도 최소 64 바이트 버퍼로 (WebGPU 는 0 크기 바인딩 불가. 또 구조체 배열은 구조체 하나 크기 이상이어야 함:
+// 전에는 16 바이트라 덧붙이는 부분이 없는 옷에서 binds(32 바이트 구조체) 묶음이 검증 오류로 실패했음)
 export function makeBuffer(device, data, usage = STORAGE, label = '') {
-  const bytes = Math.max(16, Math.ceil(data.byteLength / 4) * 4);
+  const bytes = Math.max(64, Math.ceil(data.byteLength / 4) * 4);
   const buf = device.createBuffer({ size: bytes, usage, label, mappedAtCreation: true });
   new Uint8Array(buf.getMappedRange()).set(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
   buf.unmap();
@@ -42,7 +43,7 @@ export function makeBuffer(device, data, usage = STORAGE, label = '') {
 }
 
 export function emptyBuffer(device, bytes, usage = STORAGE, label = '') {
-  return device.createBuffer({ size: Math.max(16, Math.ceil(bytes / 4) * 4), usage, label });
+  return device.createBuffer({ size: Math.max(64, Math.ceil(bytes / 4) * 4), usage, label });
 }
 
 export async function shaderModule(device, name, withCommon) {

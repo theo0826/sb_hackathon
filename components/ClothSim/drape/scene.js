@@ -286,6 +286,23 @@ function colorConstraints(meta, A, opts = {}) {
   const cons = new Uint32Array(8 * nc);
   cons.set(E, 0);
   const f = new Float32Array(cons.buffer), i32 = new Int32Array(cons.buffer);
+  // 처음 모양을 정지 각으로 유지하는 메쉬: 셔츠 칼라 (심지 넣고 다려 접힌 모양). 나머지는 평평(0)이 정지
+  const X0 = A.X;
+  const keepShape = new Uint8Array(meta.meshes.length);
+  meta.meshes.forEach((mm, i) => { if (/^collar_(leaf|stand)/.test(mm.name)) keepShape[i] = 1; });
+  const dihedral0 = (i1, i2, i3, i4) => {   // xpbd.js solve_bend 와 같은 식
+    const p = i => [X0[3 * i], X0[3 * i + 1], X0[3 * i + 2]];
+    const sub = (u, v) => [u[0] - v[0], u[1] - v[1], u[2] - v[2]];
+    const crs = (u, v) => [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+    const x1 = p(i1), x2 = p(i2), x3 = p(i3), x4 = p(i4);
+    const e = sub(x4, x3), le = Math.sqrt(dot(e, e));
+    const n1 = crs(sub(x1, x3), sub(x1, x4)), n2 = crs(sub(x2, x4), sub(x2, x3));
+    const q1 = dot(n1, n1), q2 = dot(n2, n2);
+    if (le < 1e-6 || q1 < 1e-12 || q2 < 1e-12) return 0;
+    const a = n1.map(v => v / Math.sqrt(q1)), b = n2.map(v => v / Math.sqrt(q2));
+    return Math.atan2(dot(crs(a, b), e) / le, dot(a, b));
+  };
   // 패널 안 굽힘: 거리 방식 -> 이면각 (정지 각 0 = 평평, 유연도 = 1 / k)
   let nb = 0;
   for (let e = nst; e < ne; e++) {
@@ -293,7 +310,7 @@ function colorConstraints(meta, A, opts = {}) {
     if (link < 0 || E[o + 7] !== 1) continue;
     const w1 = E[o], w2 = E[o + 1], h0 = E[8 * link], h1 = E[8 * link + 1];
     const k = hingeK(h0, h1, w1, w2, meshB[meshOf[w1]]);
-    f[o + 2] = 0;
+    f[o + 2] = keepShape[meshOf[w1]] && keepShape[meshOf[w2]] ? dihedral0(w1, w2, h0, h1) : 0;
     f[o + 6] = k > 0 ? 1 / k : 1e3;
     nb++;
   }
@@ -305,7 +322,8 @@ function colorConstraints(meta, A, opts = {}) {
   }
   for (let x = 0; x < nx; x++) {
     const o = 8 * (ne + ns + x), [w1, w2, h, comp] = cross[x];
-    cons[o] = w1; cons[o + 1] = w2; f[o + 2] = 0; f[o + 3] = 0; i32[o + 4] = h; f[o + 5] = 0; f[o + 6] = comp; cons[o + 7] = 3;
+    const r0 = keepShape[meshOf[w1]] && keepShape[meshOf[w2]] ? dihedral0(w1, w2, E[8 * h], E[8 * h + 1]) : 0;   // 칼라대-날개 접힘
+    cons[o] = w1; cons[o + 1] = w2; f[o + 2] = r0; f[o + 3] = 0; i32[o + 4] = h; f[o + 5] = 0; f[o + 6] = comp; cons[o + 7] = 3;
   }
 
   const lo = new Uint32Array(n), hi = new Uint32Array(n);   // 점마다 쓴 색 (64 색까지)

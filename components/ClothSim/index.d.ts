@@ -1,5 +1,5 @@
 // ClothSim 타입 (TypeScript 프로젝트용)
-import type { CSSProperties, ForwardRefExoticComponent, RefAttributes } from 'react';
+import type { CSSProperties, ForwardRefExoticComponent, ReactElement, RefAttributes } from 'react';
 
 export interface ClothSimOptions {
   strain: boolean;     // 늘어남 색
@@ -59,6 +59,11 @@ export interface CreateClothSimParams extends Partial<ClothSimOptions>, DressOpt
   clothRepresentText?: string;
 }
 
+/** 로고 이미지 원본: 주소(data:, blob:, http), 파일, 이미지 요소, ImageBitmap */
+export type LogoSource = string | Blob | HTMLImageElement | ImageBitmap;
+/** 옷에 붙인 로고. panel: 패널(메쉬) 이름, x, y: 그 패널 도면 좌표 cm (y 는 아래 끝 0 에서 위로), width: 가로 cm, rotation: 도 */
+export interface ClothLogo { src: LogoSource; panel?: string; x?: number; y?: number; width?: number; rotation?: number; visible?: boolean; }
+
 export interface ClothSim {
   readonly frame: number;
   readonly playing: boolean;
@@ -75,6 +80,8 @@ export interface ClothSim {
   stats(): Promise<ClothSimStats>;
   step(frames?: number): Promise<ClothSimStats & { X: Float32Array }>;
   draw(): Promise<void>;
+  /** 로고 붙이기 (bitmap 은 불러온 이미지). null 이면 지움 */
+  setLogo(logo: (ClothLogo & { bitmap: ImageBitmap }) | null): void;
   destroy(): void;
 }
 
@@ -94,6 +101,8 @@ export interface ClothSimProps {
   onReady?: (sim: ClothSim) => void;
   /** 임시: 옷에 표현할 문구 (추후 텍스처/장면 갱신용) */
   clothRepresentText?: string;
+  /** 로고 (위치까지 정한 값) */
+  logo?: ClothLogo | null;
   style?: CSSProperties;
   className?: string;
 }
@@ -171,10 +180,29 @@ export interface ClothSimDesignerProps extends Omit<ClothSimProps, 'scene'> {
   clothRepresentText?: string;
   /** 밖의 전달 버튼: 이 값이 바뀔 때마다 clothRepresentText 로 새로 만듦 (onClick 에서 +1) */
   submit?: number;
+  /** 로고: 이미지만 주면 앞판 가슴에 놓음, 위치까지 주면 그대로 */
+  logo?: LogoSource | ClothLogo | null;
+  /** 재단 도면에서 로고를 옮기거나 크기, 회전을 바꿀 때 */
+  onLogoChange?: (logo: ClothLogo | null) => void;
+  /** 화면 오른쪽 위 '도면 편집' 버튼 ('none' 이면 숨김) */
+  patternEditor?: 'button' | 'none';
+  /** 'pattern' 이면 3D 대신 재단 도면을 보여 줌 (3D 계산은 숨긴 채 유지) */
+  view?: '3d' | 'pattern';
 }
 export interface ClothSimDesignerHandle extends ClothSimHandle {
   generate(text?: string): Promise<{ spec: Spec; scene: Scene } | null>;
   cancel(): void;
+  /** 로고 넣기 (이미지만 주면 앞판 가슴에) */
+  setLogo(logo: LogoSource | ClothLogo | null): ClothLogo | null;
+  getLogo(): ClothLogo | null;
+  /** 재단 도면 편집 화면 열기, 닫기 */
+  openPatternEditor(open?: boolean): void;
 }
+
+/** <ClothPatternEditor>: 재단 도면 위에서 로고 옮기기 (따로 배치할 때) */
+export interface ClothPatternEditorProps { scene: Scene | null; logo: ClothLogo | null; onChange?: (logo: ClothLogo) => void; style?: CSSProperties; className?: string; background?: string; }
+export declare function ClothPatternEditor(props: ClothPatternEditorProps): ReactElement;
+export function loadLogoBitmap(src: LogoSource): Promise<ImageBitmap | null>;
+export function defaultLogoPlacement(scene: Scene, src?: LogoSource): ClothLogo | null;
 declare const ClothSimDesigner: ForwardRefExoticComponent<ClothSimDesignerProps & RefAttributes<ClothSimDesignerHandle>>;
 export default ClothSimDesigner;

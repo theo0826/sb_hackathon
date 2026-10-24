@@ -130,6 +130,37 @@ function surfaceFromSpec(spec) {
   return out;
 }
 
+
+/** spec 의 여밈, 단추, 지퍼, 끈 토큰 -> 그리기용 부자재 정보 (drape/trims.js 가 읽음) */
+const NUM = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9 };
+function shade(hex, k) {
+  const s = (hex || '#aaaaaa').replace('#', '');
+  const c = [0, 2, 4].map(i => Math.max(0, Math.min(255, Math.round(parseInt(s.slice(i, i + 2), 16) * k))));
+  return '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
+}
+function trimsFromSpec(spec) {
+  const tok = {};
+  for (const [p, t] of Object.entries(spec?.tokens || {})) tok[p.split('/').pop()] = t;
+  const v = k => tok[k]?.value;
+  const body = tok.color?.meta?.hex || tok.upper_color?.meta?.hex || '#a9aaad';
+  const out = { neck: v('neck') || 'crew', closure: v('closure') || 'none', bodyColor: body };
+  const bc = v('button_color') || 'tonal';
+  out.buttonColor = { tonal: shade(body, 0.82), contrast: shade(body, 0.45), white: '#f4f3ee', black: '#1c1c1e', natural: '#c8b48a' }[bc] || shade(body, 0.82);
+  out.buttonMaterial = v('button_material') || 'plastic';
+  out.buttonCount = NUM[v('button_count')] || 0;
+  out.collarStyle = v('collar_style') || null;
+  out.placket = v('placket_style') || 'standard';
+  const zc = v('zipper_color') || 'tonal';
+  out.zipColor = { tonal: shade(body, 0.75), black: '#1c1c1e', white: '#f2f1ec', silver: '#b8bbc0', gold: '#c9a54a', contrast: shade(body, 0.4) }[zc] || shade(body, 0.75);
+  out.zipType = v('zipper_type') || 'coil';
+  out.threadColor = v('thread_color') === 'contrast' ? shade(body, 0.4) : shade(body, 0.7);
+  const ds = v('drawstring');
+  if (out.neck === 'hood' && ds && ds !== 'no') {
+    out.drawcord = { flat: ds === 'flat', color: tok.drawstring_color?.meta?.hex || '#f2f1ec', tip: v('drawstring_tip') || 'metal_aglet', eyelet: v('eyelet') || 'metal_grommet' };
+  }
+  return out;
+}
+
 export async function textToScene(text, o = {}) {
   clothLog('textToScene 시작', text.slice(0, 80));
   const eng = await loadEngine();
@@ -175,6 +206,7 @@ export async function textToScene(text, o = {}) {
   }
   scene.meta.garment_size = size;
   scene.meta.surface = surfaceFromSpec(spec);
+  scene.meta.trims = trimsFromSpec(spec);
   scene.meta.body_pose = bodyPose;
   clothLog('textToScene 완료', { size, bodyPose, verts: scene.meta?.sim?.n });
   step({ stage: 'done' });
