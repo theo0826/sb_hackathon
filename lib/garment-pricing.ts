@@ -7,13 +7,15 @@ export const GARMENT_PRICING = [
   { id: "sweatshirt", label: "맨투맨", adjustment: 15000 },
   { id: "varsity", label: "과잠", adjustment: 45000 },
   { id: "windbreaker", label: "바람막이", adjustment: 20000 },
-  { id: "puffer", label: "패딩", adjustment: 65000 },
 ] as const;
 
-export type PricingGarment = (typeof GARMENT_PRICING)[number]["id"];
+// Read old saved orders without offering this retired choice for new designs.
+const LEGACY_PUFFER = { id: "puffer", label: "패딩", adjustment: 65000 } as const;
+export type PricingGarment = (typeof GARMENT_PRICING)[number]["id"] | "puffer";
 export function isPricingGarment(value: unknown): value is PricingGarment {
-  return GARMENT_PRICING.some(item => item.id === value);
+  return value === LEGACY_PUFFER.id || GARMENT_PRICING.some(item => item.id === value);
 }
 export function pricingGarment(value?: PricingGarment) {
+  if (value === LEGACY_PUFFER.id) return LEGACY_PUFFER;
   return GARMENT_PRICING.find(item => item.id === value) || GARMENT_PRICING[0];
 }

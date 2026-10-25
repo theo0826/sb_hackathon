@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
+import StorageNotice from "@/components/layout/StorageNotice";
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { ArrowRight, Check, ImagePlus, LoaderCircle, Plus, Save, Sparkles, X } from "lucide-react";
 import { isDesign, mockDesign, type Design } from "@/lib/design";
@@ -170,5 +171,6 @@ export default function DesignStudio() {
       <aside className="wf-studio-summary"><h2>이 디자인, 얼마에 만들 수 있을까?</h2><section className="wf-price"><div><span>예상 단가 · 1벌</span><span>수량 <b>{totalQuantity(order)}벌</b></span></div><strong aria-live="polite" aria-atomic="true">{won(price.unit)} ~ {won(price.unit + 5000)}</strong><p>의류·수량·제작 방식에 따른 시연용 예상 금액</p><dl><div><dt>선택 의류</dt><dd>{selectedGarment.label}</dd></div><div><dt>비교할 수 있는 예시 업체</dt><dd>{SUPPLIERS.length}곳</dd></div><div><dt>예상 제작 기간</dt><dd>7–14일</dd></div></dl></section><div className="wf-trust-note"><Check size={16}/><span>주문서와 도안을 한 번에 확인해요</span></div><div className="wf-studio-next">{hasResult || design.image ? <Link id="design-next" className="primary wide" href="/quotes/new" aria-disabled={busy} onClick={e => { if (busy) e.preventDefault(); }}>주문서와 도안 확인하기 <ArrowRight size={16}/></Link> : <button className="primary wide" disabled>시안을 먼저 선택해주세요</button>}<p className="wf-muted">명단 · 납기 · 수령 정보를 다음 화면에서 입력해요.</p><Link href="/my" className="text-link">저장한 디자인 보기</Link></div></aside>
     </div>
     <div className="wf-feedback" aria-live="polite">{error && <p className="wf-alert" role="alert">{error}</p>}{message && <p className="wf-success"><Check size={16}/>{message}</p>}</div>
+    <StorageNotice compact />
   </main>;
 }

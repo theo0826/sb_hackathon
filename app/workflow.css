@@ -281,3 +281,10 @@ input[type=checkbox] { accent-color:var(--blue); width:16px; height:16px; flex-s
   .motion-home { padding:0 16px; }.motion-home .motion-hero { margin-top:16px; padding:30px 22px 22px; border-radius:14px; }.motion-home .motion-hero h1 { font-size:clamp(30px,8.2vw,39px); }.motion-home .motion-button { font-size:14px; min-height:46px; }.motion-home .motion-end { margin:24px 0 32px; }.motion-home .motion-end-link { padding:28px 22px; min-height:130px; }.motion-home .motion-end-link>span { font-size:23px; }.motion-home .motion-stack-panel { padding:26px 22px; }
 }
 @media(prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } *,*::before,*::after { animation:none!important; transition:none!important; }.primary:hover:not(:disabled),.outline:hover:not(:disabled),.motion-button:hover { transform:none; } }
+.storage-notice{display:flex;align-items:flex-start;gap:12px;margin:20px 0 28px;padding:18px 20px;background:var(--pale);color:var(--ink);border-radius:var(--wf-radius)}
+.storage-notice>svg{flex-shrink:0;margin-top:3px;color:var(--blue)}
+.storage-notice strong{display:block;font-size:16px;line-height:1.5}
+.storage-notice p{margin:6px 0 0;font-size:14px;line-height:1.7;overflow-wrap:anywhere}
+.storage-notice summary{display:flex;align-items:center;min-height:44px;color:var(--blue);font-size:14px;cursor:pointer;list-style:none}
+.storage-notice summary::after{content:"+";margin-left:10px;font-size:18px}
+.storage-notice details[open] summary::after{content:"−"}

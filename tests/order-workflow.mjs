@@ -23,6 +23,19 @@ assert(flow.reviewIssues({ ...validOrder, desiredDeliveryDate: '2030-02-30' }, v
 assert(flow.reviewIssues(validOrder, { ...validDetails, useRoster: true, roster: [] }).some(s => s.includes('명단')));
 assert(flow.reviewIssues(validOrder, { ...validDetails, useRoster: true, requireInitials: true, roster: [{ id: 'a', name: '김성북', size: 'M', initials: '' }] }).some(s => s.includes('명단')));
 const price = flow.estimate(SUPPLIERS[0], validOrder);
+const { GARMENT_PRICING, pricingGarment } = await loadTS('lib/garment-pricing.ts');
+const { isOrderDraft } = await loadTS('lib/quote.ts');
+assert.equal(GARMENT_PRICING.length, 6);
+assert(!GARMENT_PRICING.some(item => item.id === 'puffer'));
+const historicalPufferOrder = { ...validOrder, pricingGarment: 'puffer' };
+assert(isOrderDraft(historicalPufferOrder), 'Removing a choice must not discard existing orders');
+assert.equal(flow.estimate(SUPPLIERS[0], historicalPufferOrder).unit, price.unit + 65000);
+for (const item of GARMENT_PRICING) {
+  assert.equal(pricingGarment(item.id).label, item.label);
+  const estimate = flow.estimate(SUPPLIERS[0], { ...validOrder, pricingGarment: item.id });
+  assert.equal(estimate.unit, price.unit + item.adjustment);
+  assert.equal(estimate.total, estimate.unit * 25);
+}
 assert.equal(price.total, price.unit * 25);
 assert(flow.estimate(SUPPLIERS[0], { ...validOrder, sizes: { S: 50, M: 0, L: 0, XL: 0 } }).unit < price.unit);
 console.log('PASS roster CSV quoting/BOM/limits, quantities, missing initials, date/address/confirmation guards, demo price arithmetic; no network or AI calls');
