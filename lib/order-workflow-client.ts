@@ -1,7 +1,8 @@
 "use client";
 import { useMemo, useSyncExternalStore } from "react";
-import { EMPTY_DETAILS, isDemoOrder, isOrderDetails, reviewedOrderIssues, type DemoOrder, type OrderDetails, type OrderInput } from "./order-workflow";
+import { EMPTY_DETAILS, isDemoOrder, isOrderDetails, reviewedOrderIssues, sameOrderInput, type DemoOrder, type OrderDetails, type OrderInput } from "./order-workflow";
 import type { QuoteRecord } from "./quote";
+import { deliveryOrder } from "./order-delivery";
 
 const detailsKey = "seongbuk-fit:order-details:v1", ordersKey = "seongbuk-fit:demo-orders:v1";
 const listeners = new Set<() => void>();
@@ -45,5 +46,19 @@ export function createDemoOrder(input: OrderInput, review: { quote: QuoteRecord;
   const record: DemoOrder = structuredClone({ ...input, preparedQuote: review.quote, id: `demo_${crypto.randomUUID()}`, createdAt: new Date().toISOString(), received: false });
   const next = JSON.stringify([record, ...parseOrders(ordersSnapshot())]);
   try { sessionStorage.setItem(ordersKey, next); } catch { throw new Error("이 브라우저의 저장 공간이 부족해요. 첨부 이미지 크기를 줄인 뒤 다시 시도해주세요."); }
+  ordersMemory = next; emit(); return record;
+}
+
+export function recordDelivery(input: OrderInput, requestKey: string, confirmed: boolean) {
+  const record = deliveryOrder(input, requestKey, confirmed);
+  const orders = getDemoOrders();
+  const existing = orders.find(order => order.id === record.id);
+  if (existing) {
+    if (existing.deliveryStatus !== "recorded" || !sameOrderInput(existing, input)) throw new Error("주문 정보가 바뀌었어요. 전달 화면을 다시 열어 확인해주세요.");
+    return existing;
+  }
+  const next = JSON.stringify([record, ...orders]);
+  try { sessionStorage.setItem(ordersKey, next); }
+  catch { throw new Error("주문과 도안을 저장하지 못했어요. 브라우저 저장 공간을 확인한 뒤 다시 시도해주세요."); }
   ordersMemory = next; emit(); return record;
 }

@@ -6,12 +6,17 @@ import { pricingGarment } from "./garment-pricing";
 export type Participant = { id: string; name: string; size: string; initials: string };
 export type OrderDetails = { roster: Participant[]; useRoster: boolean; requireInitials: boolean; phone: string; delivery: "shipping" | "pickup"; address: string; payment: "group" | "individual"; confirmed: boolean };
 export const EMPTY_DETAILS: OrderDetails = { roster: [], useRoster: false, requireInitials: false, phone: "", delivery: "shipping", address: "", payment: "group", confirmed: false };
-export type DemoOrder = { id: string; createdAt: string; supplierId: string; design: Design; order: OrderDraft; details: OrderDetails; filename: string; received: boolean; quoteTrashedAt?: string | null; preparedQuote?: QuoteRecord };
+export type DemoOrder = { id: string; createdAt: string; supplierId: string; design: Design; order: OrderDraft; details: OrderDetails; filename: string; received: boolean; quoteTrashedAt?: string | null; preparedQuote?: QuoteRecord; deliveryStatus?: "recorded" };
 export type OrderInput = Pick<DemoOrder, "supplierId" | "design" | "order" | "details" | "filename">;
 
 function stableJSON(value: unknown): string {
   return JSON.stringify(value, (_key, item) => item && typeof item === "object" && !Array.isArray(item)
     ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
+}
+
+export function sameOrderInput(first: OrderInput, second: OrderInput) {
+  const values = (input: OrderInput) => [input.supplierId, input.design, input.order, input.details, input.filename];
+  return stableJSON(values(first)) === stableJSON(values(second));
 }
 
 /** The actual order-creation boundary must require the exact generated document the user approved. */
@@ -42,6 +47,7 @@ export function isDemoOrder(value: unknown): value is DemoOrder {
   if (!value || typeof value !== "object") return false;
   const d = value as DemoOrder;
   return typeof d.id === "string" && /^demo_[a-f0-9-]{36}$/.test(d.id) && typeof d.createdAt === "string" && Number.isFinite(Date.parse(d.createdAt)) && !!getSupplier(d.supplierId) && isDesign(d.design) && isOrderDraft(d.order) && isOrderDetails(d.details) && typeof d.filename === "string" && typeof d.received === "boolean"
+    && (d.deliveryStatus === undefined || (d.deliveryStatus === "recorded" && isQuoteRecord(d.preparedQuote) && isQuoteDocument(d.preparedQuote.document)))
     && (d.preparedQuote === undefined || (isQuoteRecord(d.preparedQuote) && isQuoteDocument(d.preparedQuote.document)));
 }
 export function rosterIssues(row: Participant, initials: boolean) {

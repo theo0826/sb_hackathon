@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, CheckCheck, Download, FileText, MapPin, Send, ShieldCheck } from "lucide-react";
 import { useDesignSession } from "@/lib/design-session";
-import { useOrderDetails } from "@/lib/order-workflow-client";
+import { recordDelivery, useOrderDetails } from "@/lib/order-workflow-client";
 import { SIZES, totalQuantity } from "@/lib/quote";
 import { pricingGarment } from "@/lib/garment-pricing";
 import { getSupplier } from "@/lib/suppliers";
@@ -16,11 +16,21 @@ export default function QuoteForm() {
   const [reviewed, setReviewed] = useState(false);
   const [delivered, setDelivered] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const deliveryKey = useRef<string | null>(null);
   const completionHeading = useRef<HTMLHeadingElement>(null);
 
   function confirmDelivery() {
     if (!reviewed) return;
-    // Frontend demonstration only; wire the team's delivery API here when available.
+    if (!supplier || delivered) return;
+    setSaveError("");
+    try {
+      deliveryKey.current ??= crypto.randomUUID();
+      recordDelivery({ supplierId: supplier.id, design, order, details, filename }, deliveryKey.current, reviewed);
+    } catch (cause) {
+      setSaveError(cause instanceof Error ? cause.message : "주문과 도안을 저장하지 못했어요. 다시 시도해주세요.");
+      return;
+    }
     setDelivered(true);
     window.scrollTo({ top: 0, behavior: "instant" });
     requestAnimationFrame(() => completionHeading.current?.focus());
@@ -73,8 +83,8 @@ export default function QuoteForm() {
         <h1 id="delivery-complete-title" ref={completionHeading} tabIndex={-1}>도안 전달을 마쳤어요.</h1>
         <p>선택한 업체와 주문 내용을 다시 확인하고, 요청서를 보관해주세요.</p>
         <div className="delivery-receipt-sheet"><div className="delivery-sheet-heading"><FileText size={20} /><h2>{supplier.name} 제작 요청서</h2><span>전달 완료</span></div>{summary}</div>
-        <div className="delivery-demo-note"><ShieldCheck size={20} /><p>실제 업체 발송·결제·마이페이지 주문 저장은 이루어지지 않았어요. 이 완료 화면도 탭을 닫으면 사라져요.</p></div>
-        <div className="delivery-receipt-actions"><button type="button" className="primary" onClick={downloadOrder}><Download size={17} />주문 정보 내려받기</button><Link href="/my" className="outline">마이페이지 <ArrowRight size={16} /></Link></div>
+        <div className="delivery-demo-note"><ShieldCheck size={20} /><p>주문과 도안 전달 내역을 마이페이지에 저장했어요. 현재 탭을 닫으면 사라지니 중요한 자료는 내려받아주세요. 실제 업체 발송·결제는 별도예요.</p></div>
+        <div className="delivery-receipt-actions"><button type="button" className="primary" onClick={downloadOrder}><Download size={17} />주문 정보 내려받기</button><Link href="/my?tab=orders" className="outline">마이페이지에서 주문 보기 <ArrowRight size={16} /></Link></div>
         <Link href="/suppliers" className="text-link"><ArrowLeft size={15} />업체 목록으로 돌아가기</Link>
       </section> : <>
         <header className="delivery-page-heading"><Link href="/suppliers" className="text-link"><ArrowLeft size={15} />업체 비교로 돌아가기</Link><div><h1>제작 요청서 최종 확인</h1><p>도안과 주문 조건을 살펴보고, 업체 전달 과정을 체험해보세요.</p></div></header>
@@ -89,7 +99,7 @@ export default function QuoteForm() {
           </div>
           <aside className="delivery-order-column" aria-label="전달할 주문 조건">
             <section className="delivery-order-sheet"><div className="delivery-supplier"><span className="delivery-supplier-icon"><Send size={20} /></span><div><p>선택한 제작 업체</p><h2>{supplier.name}</h2><span><MapPin size={13} />성북구 {supplier.region} · 예시 업체</span></div></div><h3>주문 요약</h3>{summary}<Link href="/quotes/new" className="text-link">주문 정보 수정 <ArrowRight size={14} /></Link></section>
-            <section className="delivery-confirm"><label><input type="checkbox" checked={reviewed} onChange={event => setReviewed(event.target.checked)} /><span>도안 영역과 주문 조건을 확인했어요.</span></label><button type="button" className="primary wide" disabled={!reviewed} onClick={confirmDelivery}><Send size={17} />도안 전달하기</button><p>전달 버튼은 시연용이에요. 실제 발송이나 주문 저장은 이루어지지 않아요.</p></section>
+            <section className="delivery-confirm"><label><input type="checkbox" checked={reviewed} onChange={event => setReviewed(event.target.checked)} /><span>도안 영역과 주문 조건을 확인했어요.</span></label><button type="button" className="primary wide" disabled={!reviewed} onClick={confirmDelivery}><Send size={17} />도안 전달하기</button><p>확인한 주문과 도안은 마이페이지에 보관해요. 실제 업체 발송·결제는 별도예요.</p>{saveError && <p className="error" role="alert">{saveError}</p>}</section>
             <button type="button" className="delivery-backup text-link" onClick={downloadOrder}><Download size={16} />주문 정보 내려받기</button>
           </aside>
         </div>

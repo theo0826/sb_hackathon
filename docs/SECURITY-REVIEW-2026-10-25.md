@@ -1,5 +1,7 @@
 # 2026-10-25 보안 및 저장 동작 검토
 
+> 후속 수정: 전달 버튼에 마이페이지 기록 저장을 연결했습니다. 현재는 주문과 디자인 원본을 sessionStorage에 함께 기록한 뒤 완료 화면을 보여줍니다. 저장 실패는 완료로 처리하지 않으며 같은 전달 키는 중복 저장하지 않습니다. 실제 외부 발송·결제·생성된 의상 장면 저장은 연결하지 않았습니다. 아래 ‘마이페이지 주문 저장이 이루어지지 않음’은 이 수정 전 상태입니다.
+
 ## 변경과 확인
 
 - npm 공식 레지스트리 감사에서 Next.js 16.4.0의 보안 권고 3개를 확인했습니다. Next.js와 eslint-config-next를 16.4.3으로 고정하고 lockfile을 함께 갱신했습니다. 설치 후 감사 결과는 등록 취약점 0건입니다. 참고: [이미지 최적화 API](https://github.com/advisories/GHSA-2464-fhr4-w9xw), [Server Actions 서비스 거부](https://github.com/advisories/GHSA-p3m5-59mp-jv5r), [use cache 반환값 처리](https://github.com/advisories/GHSA-673q-mjm6-r5xr). 실제 공격을 시도하지 않았으며 사이트의 악용 여부를 확정하는 검사는 아닙니다.

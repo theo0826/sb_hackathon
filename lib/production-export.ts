@@ -1,4 +1,5 @@
 "use client";
+import { DELIVERY_DOCUMENT_VERSION } from "./order-delivery";
 
 import type { Design } from "./design";
 import { orderRows, type OrderDraft, type QuoteDocument } from "./quote";
@@ -76,7 +77,7 @@ export async function exportProductionPDF({ supplier, design, order, artworkSVG,
   }
   y += 10; paragraph("추가 요청 사항", 24); paragraph(order.memo.trim() || "없음", 20);
   if (aiDocument) {
-    y += 12; paragraph(aiDocument.production?.converter === "sample" ? "목업 패턴 변환 설명 · 업체 검토용 초안" : "AI 제작 설명 · 업체 검토용 초안", 24); paragraph(aiDocument.summary, 20);
+    y += 12; paragraph(aiDocument.templateVersion === DELIVERY_DOCUMENT_VERSION ? "도안 전달 기록 · 주문 정보 보관본" : aiDocument.production?.converter === "sample" ? "목업 패턴 변환 설명 · 업체 검토용 초안" : "AI 제작 설명 · 업체 검토용 초안", 24); paragraph(aiDocument.summary, 20);
     aiDocument.productionNotes.forEach(note => paragraph(`• ${note}`, 20));
     paragraph("제작 전 확인할 사항", 24);
     aiDocument.checks.forEach(note => paragraph(`• ${note}`, 20));
@@ -103,7 +104,7 @@ export async function exportProductionPDF({ supplier, design, order, artworkSVG,
     }
   }
   const pdf = new jsPDF({ unit: "mm", format: "a4", compress: true });
-  pdf.setProperties({ title: `Seongbuk Fit - ${supplier.id} production sheet`, subject: aiDocument?.production?.converter === "sample" ? "Mock UV-to-pattern conversion draft" : aiDocument ? "AI-assisted production request draft" : "Production request draft" });
+  pdf.setProperties({ title: `Seongbuk Fit - ${supplier.id} production sheet`, subject: aiDocument?.templateVersion === DELIVERY_DOCUMENT_VERSION ? "Saved design handoff and order snapshot" : aiDocument?.production?.converter === "sample" ? "Mock UV-to-pattern conversion draft" : aiDocument ? "AI-assisted production request draft" : "Production request draft" });
   pages.forEach((canvas, index) => { if (index) pdf.addPage(); pdf.addImage(canvas.toDataURL("image/jpeg", .94), "JPEG", 0, 0, 210, 297); });
   if (download) pdf.save(`seongbuk-fit-${supplier.id}-production.pdf`);
   return pdf.output("blob");
