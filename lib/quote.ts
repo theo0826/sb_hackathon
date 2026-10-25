@@ -1,9 +1,11 @@
 import { COLORS, garmentName, isDesign, placementLabel, type Design } from "./design";
 import { getSupplier, type Supplier } from "./suppliers";
 import type { ProductionPacket } from "./production-mapping";
+import { isPricingGarment, pricingGarment, type PricingGarment } from "./garment-pricing";
 
 export const SIZES = ["S", "M", "L", "XL"] as const;
 export type OrderDraft = {
+  pricingGarment?: PricingGarment;
   group: string;
   contactEmail: string;
   sizes: Record<(typeof SIZES)[number], number>;
@@ -37,6 +39,7 @@ export function isOrderDraft(value: unknown): value is OrderDraft {
   const order = value as Record<string, unknown>;
   const sizes = order.sizes as Record<string, unknown> | undefined;
   return typeof order.group === "string" && order.group.length <= 50
+    && (order.pricingGarment === undefined || isPricingGarment(order.pricingGarment))
     && typeof order.contactEmail === "string" && order.contactEmail.length <= 254
     && typeof order.desiredDeliveryDate === "string" && order.desiredDeliveryDate.length <= 10
     && typeof order.method === "string" && order.method.length <= 30
@@ -72,7 +75,7 @@ export function isQuoteRecord(value: unknown): value is QuoteRecord {
 export function orderRows(supplier: Supplier, design: Design, order: OrderDraft) {
   return [
     ["받는 업체", supplier.name], ["단체 이름", order.group.trim() || "미입력"], ["연락 이메일", order.contactEmail || "미입력"],
-    ["의류 / 원단 색상", `${garmentName(design)} / ${COLORS.find((color) => color.hex === design.color)?.name || design.color}`],
+    ["의류 / 원단 색상", `${order.pricingGarment ? pricingGarment(order.pricingGarment).label : garmentName(design)} / ${COLORS.find((color) => color.hex === design.color)?.name || design.color}`],
     ["인쇄 면 / 제작 방식", `${design.placements ? [...new Set(design.placements.map(p=>p.side==="front"?"앞면":"뒷면"))].join(" + ") : design.side === "front" ? "앞면" : "뒷면"} / ${order.method}`],
     ["인쇄 크기", design.placements ? design.placements.map(p=>`${placementLabel(p)} ${p.widthCm} × ${p.heightCm} cm`).join(" / ") : `${order.printWidthCm} × ${order.printHeightCm} cm`],
     ["배치 참고", design.placements ? design.placements.map(p=>`${p.id}: X ${p.x}, Y ${p.y}, 회전 ${p.rotation}°`).join(" / ") : `미리보기 기준 / 크기 ${design.scale}% / 회전 ${design.rotation}°`],
@@ -88,6 +91,6 @@ export function validateDesignForSupplier(design: Design, supplier: Supplier) {
 
 export function emailTemplate(supplier: Supplier, design: Design, order: OrderDraft, filename: string) {
   const subject = `[단체복 제작 문의] ${order.group.trim() || "단체 이름"} / ${totalQuantity(order)}벌`;
-  const body = `안녕하세요, ${supplier.name} 담당자님.\n${order.group.trim() || "단체 이름"}의 단체티 제작 견적을 문의드립니다.\n\n${orderRows(supplier, design, order).slice(2).map(([label, value]) => `${label}: ${value}`).join("\n")}\n도안: ${design.image ? filename || "첨부 이미지" : design.text || "OUR CLUB"}\n\n추가 요청 사항:\n${order.memo.trim() || "없음"}\n\n첨부 예정 파일:\n- seongbuk-fit-artwork.${design.image ? "png" : "svg"}\n- seongbuk-fit-3d-preview.png\n\n인쇄 규격, 원단, 제작 일정과 최종 견적 확인 부탁드립니다.\n\n[성북핏 체험용 양식 · 실제 업체에 발송되지 않음]`;
+  const body = `안녕하세요, ${supplier.name} 담당자님.\n${order.group.trim() || "단체 이름"}의 단체티 제작 견적을 문의드립니다.\n\n${orderRows(supplier, design, order).slice(2).map(([label, value]) => `${label}: ${value}`).join("\n")}\n도안: ${design.image ? filename || "첨부 이미지" : design.text || "OUR CLUB"}\n\n추가 요청 사항:\n${order.memo.trim() || "없음"}\n\n첨부 예정 파일:\n- seongbuk-fit-artwork.${design.image ? "png" : "svg"}\n\n인쇄 규격, 원단, 제작 일정과 최종 견적 확인 부탁드립니다.\n\n[성북핏 체험용 양식 · 실제 업체에 발송되지 않음]`;
   return { subject, body };
 }

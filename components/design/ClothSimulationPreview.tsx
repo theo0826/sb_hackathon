@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useImperativeHandle, useRef, useState, type Ref, type ReactNode } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 // 삭제금지: ClothSim 연동 — 생성 기능은 홈 대신 디자인 화면에서 사용.
 import ClothSim, { type ClothSimDesignerHandle, type Progress } from "../ClothSim";
 
@@ -14,9 +14,8 @@ const stages: Record<Progress["stage"], string> = {
 
 export type ClothSimulationControls = { generate: (text: string) => Promise<boolean>; cancel: () => void };
 
-export default function ClothSimulationPreview({ controllerRef, fallback }: {
+export default function ClothSimulationPreview({ controllerRef }: {
   controllerRef: Ref<ClothSimulationControls>;
-  fallback: ReactNode;
 }) {
   const simulator = useRef<ClothSimDesignerHandle>(null);
   const request = useRef(0);
@@ -24,7 +23,7 @@ export default function ClothSimulationPreview({ controllerRef, fallback }: {
   // 삭제금지: ClothSim clothRepresentText — 왼쪽 공통 입력창에서 제출한 의상 설명.
   const [clothRepresentText, setClothRepresentText] = useState("");
   const [ready, setReady] = useState(false);
-  const [status, setStatus] = useState("왼쪽 입력창에서 원하는 의상을 설명하고 AI 시안 만들기를 눌러주세요.");
+  const [status, setStatus] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => () => { request.current++; }, []);
@@ -65,21 +64,20 @@ export default function ClothSimulationPreview({ controllerRef, fallback }: {
   useImperativeHandle(controllerRef, () => ({ generate, cancel }));
 
   return <>
-    <div className="wf-stage" data-preview-mode="design">
-      <div style={{ visibility: ready ? "hidden" : "visible" }} aria-hidden={ready}>{fallback}</div>
+    <div className="wf-stage studio-generated-stage" data-preview-mode="design">
       <div className="studio-cloth-layer" style={{ visibility: ready ? "visible" : "hidden" }} aria-hidden={!ready} inert={!ready}>
         {/* 삭제금지: ClothSim clothRepresentText 전달 — 생성은 외부 폼의 명시적 제출로 실행. */}
         <ClothSim ref={simulator} showInput={false} clothRepresentText={clothRepresentText}
           autoplay options={{ strain: false, tear: false }}
           onProgress={progress => setStatus(stages[progress.stage] || "옷을 만들고 있어요.")}
           onReady={() => { setReady(true); setError(""); setStatus("의상 미리보기가 준비됐어요. 드래그해서 돌려보세요."); }}
-          onError={() => { setReady(false); setStatus("현재 디자인 미리보기를 표시하고 있어요."); setError("의상 미리보기를 만들지 못했어요. 생성 연결을 확인하고 다시 시도해주세요. 디자인 미리보기는 계속 사용할 수 있어요."); }}
+          onError={() => { setReady(false); setStatus(""); setError("의상 미리보기를 만들지 못했어요. 생성 연결을 확인하고 다시 시도해주세요."); }}
           style={{ width: "100%", height: "100%" }} />
       </div>
     </div>
-    <div className="studio-simulation-controls" aria-label="디자인 생성 상태">
-      <p className="wf-muted" role="status">{status}</p>
+    {(status || error) && <div className="studio-simulation-controls" aria-label="디자인 생성 상태">
+      {status && <p className="wf-muted" role="status">{status}</p>}
       {error && <p className="wf-alert" role="alert">{error}</p>}
-    </div>
+    </div>}
   </>;
 }

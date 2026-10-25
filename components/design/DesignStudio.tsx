@@ -5,27 +5,23 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { ArrowRight, Check, ImagePlus, LoaderCircle, Plus, Save, Sparkles, X } from "lucide-react";
-import { COLORS, defaultClubPlacements, isDesign, mockDesign, type Design } from "@/lib/design";
+import { isDesign, mockDesign, type Design } from "@/lib/design";
 import { useDesignSession } from "@/lib/design-session";
 import { saveLibraryItem } from "@/lib/library";
 import { generateAIDesign } from "@/lib/ai-client";
 import { totalQuantity } from "@/lib/quote";
 import { estimate, won } from "@/lib/order-workflow";
 import { SUPPLIERS } from "@/lib/suppliers";
+import { GARMENT_PRICING, pricingGarment } from "@/lib/garment-pricing";
 import { resetOrderDetails, useOrderDetails } from "@/lib/order-workflow-client";
-import { DesignThumbnail } from "@/components/quote/DesignSummary";
 import FlowSteps from "@/components/layout/FlowSteps";
-import DesignSettings from "./DesignSettings";
-import type { CanvasHandle } from "./DesignCanvas";
 import type { ClothSimulationControls } from "./ClothSimulationPreview";
 
-const Canvas = dynamic(() => import("./GarmentPreview3D"), { ssr: false, loading: () => <div className="canvas-loading"><LoaderCircle className="animate-spin" size={24} /><span>미리보기를 준비하고 있어요</span></div> });
 const ClothSimulation = dynamic(() => import("./ClothSimulationPreview"), { ssr: false });
 
 export default function DesignStudio() {
-  const { design, setDesign, prompt, setPrompt, filename, setFilename, messages, setMessages, resetSession, hasResult, setHasResult, order } = useDesignSession();
+  const { design, setDesign, prompt, setPrompt, filename, setFilename, messages, setMessages, resetSession, hasResult, setHasResult, order, setOrder } = useDesignSession();
   const { update: updateDetails } = useOrderDetails();
-  const variant = design.style === "type" ? 1 : design.style === "wave" ? 2 : 0;
   const [generating, setGenerating] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -41,7 +37,6 @@ export default function DesignStudio() {
   const fileInput = useRef<HTMLInputElement>(null);
   const promptInput = useRef<HTMLTextAreaElement>(null);
   const conversation = useRef<HTMLDivElement>(null);
-  const canvas = useRef<CanvasHandle>(null);
   const patch = (value: Partial<Design>) => { setDesign((current) => ({ ...current, ...value })); setMessage(""); updateDetails({ confirmed: false }); };
   const lastPrompt = [...messages].reverse().find((item) => item.role === "user")?.text || prompt;
 
@@ -129,9 +124,7 @@ export default function DesignStudio() {
     if (saveActive.current || generating || uploading) return;
     saveActive.current = true; setSaving(true); setError(""); setMessage("");
     try {
-      const preview = canvas.current?.previewPNG();
-      if (!preview) throw new Error("미리보기가 준비된 뒤 다시 저장해주세요.");
-      await saveLibraryItem({ kind: "design", design, prompt: lastPrompt, filename, title: design.text || filename || "우리 단체티", preview });
+      await saveLibraryItem({ kind: "design", design, prompt: lastPrompt, filename, title: design.text || filename || "우리 단체티" });
       setMessage("디자인을 저장했어요.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "저장하지 못했어요."); }
     finally { saveActive.current = false; setSaving(false); }
@@ -139,26 +132,25 @@ export default function DesignStudio() {
   function newDesign() { if (!generating && !uploading && !saving) { resetSession(); resetOrderDetails(); setPreviewVersion(current => current + 1); setMessage(""); setError(""); } }
 
   const busy = generating || uploading || saving;
-  function variantDesign(index: number): Design {
-    const [chest, back] = defaultClubPlacements();
-    const placements = index === 0 ? [chest] : index === 1 ? [{ ...back, id: "front-main", side: "front" as const, widthCm: 18, heightCm: 18 }] : [chest, back];
-    return { ...design, style: (["campus", "type", "wave"] as const)[index], placements, side: "front" };
-  }
   function sample() {
     setDesign(current => ({ ...current, ...mockDesign(prompt || '문구는 "OUR CLUB"', current) }));
     setHasResult(true); setShowResult(true); updateDetails({ confirmed: false }); setError("");
-    setMessage("예시 디자인을 적용했어요. 아래 시안을 선택하고 색상과 배치를 바꿔보세요.");
+    setMessage("예시 디자인을 적용했어요. 주문서와 도안을 확인할 수 있어요.");
   }
   const price = estimate(SUPPLIERS[0], order);
-  const designPreview = <Canvas design={design} exportRef={canvas} showArtwork={hasResult || !!design.image}/>;
+  const selectedGarment = pricingGarment(order.pricingGarment);
   return <main id="main-content" className="wf-page wf-studio"><FlowSteps current={1} />
     <h1 className="sr-only">디자인 스튜디오</h1>
     <div className="wf-studio-grid">
       <section className="wf-studio-input" aria-label="디자인 입력">
-        <div className="wf-input-top"><h2>의류 선택</h2><button className="wf-icon" aria-label="새 디자인" onClick={newDesign} disabled={busy}><Plus size={17}/></button></div>
-        <div className="wf-garments">{["과잠","후드","맨투맨","반팔","바람막이","패딩"].map(label => <button key={label} type="button" disabled={label !== "반팔" || busy} aria-pressed={label === "반팔"} title={label !== "반팔" ? "지원 준비 중" : "스탠다드 반팔"}>{label}</button>)}</div>
-        <p className="wf-muted">현재 반팔 디자인을 지원해요.</p>
-        <h2>로고 / 참고 이미지</h2>
+        <div className="studio-garment-pricing">
+          <h2 id="pricing-garment-label">의류 종류</h2>
+          <div className="wf-garments" role="group" aria-labelledby="pricing-garment-label">
+            {GARMENT_PRICING.map(item => <button type="button" key={item.id} aria-pressed={selectedGarment.id === item.id} disabled={busy} onClick={() => { setOrder(current => ({ ...current, pricingGarment: item.id })); updateDetails({ confirmed: false }); }}>{item.label}</button>)}
+          </div>
+          <p className="wf-muted">예상 가격을 비교할 의류를 선택해주세요.</p>
+        </div>
+        <div className="wf-input-top"><h2>로고 / 참고 이미지</h2><button className="wf-icon" aria-label="새 디자인" onClick={newDesign} disabled={busy}><Plus size={17}/></button></div>
         <button className="wf-upload" onClick={() => fileInput.current?.click()} disabled={busy}>{design.image ? <Image src={design.image} width={64} height={64} alt="첨부한 로고" unoptimized/> : <ImagePlus size={26}/>}<span>{uploading ? "이미지 준비 중…" : filename || "모임 로고 · 참고 이미지"}</span></button>
         <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" hidden aria-label="참고 이미지 선택" onChange={upload}/>
         <div className="wf-upload-note"><span>PNG · JPG · WEBP / 최대 8MB</span>{design.image && <button className="text-link" disabled={busy} onClick={() => { patch({ image: null }); setFilename(""); }}><X size={13}/>삭제</button>}</div>
@@ -168,18 +160,14 @@ export default function DesignStudio() {
           {generating && <button type="button" className="outline wide" onClick={cancelGeneration}>생성 취소</button>}
           <button type="button" className="outline wide" onClick={sample} disabled={busy}>예시 시안으로 시작</button>
         </form>
-        <DesignSettings design={design} onChange={patch} disabled={busy}/>
         {messages.length > 0 && <details className="wf-chat-history"><summary>AI 대화 내역</summary><div ref={conversation} role="log" aria-label="AI 디자인 대화">{messages.map(item => <p key={item.id}><strong>{item.role === "user" ? "나" : "AI"}</strong>{item.text}</p>)}</div></details>}
       </section>
       <section className="wf-studio-preview ai-stage" aria-label="디자인 미리보기">
         <div className="wf-preview-toolbar"><div className="wf-segments" role="group" aria-label="인쇄 면"><button aria-pressed={design.side === "front"} onClick={() => patch({ side: "front" })} disabled={busy}>앞면</button><button aria-pressed={design.side === "back"} onClick={() => patch({ side: "back" })} disabled={busy}>뒷면</button></div><button className="text-link" onClick={save} disabled={busy || !(hasResult || design.image)}><Save size={15}/>{saving ? "저장 중…" : "저장"}</button></div>
         <h2 className="studio-preview-heading">디자인 미리보기</h2>
-        <ClothSimulation key={previewVersion} controllerRef={simulation} fallback={designPreview}/>
-        <div className="wf-colors" role="group" aria-label="의류 색상">{COLORS.map(color => <button key={color.hex} style={{ backgroundColor: color.hex }} aria-label={color.name} aria-pressed={design.color === color.hex} onClick={() => patch({ color: color.hex })} disabled={busy}/>)}</div>
-        <div className="wf-variants" role="group" aria-label="시안 배치 선택">{["A 클래식","B 미니멀","C 스트리트"].map((label,index) => <button key={label} aria-pressed={variant === index && hasResult} disabled={busy} onClick={() => { patch(variantDesign(index)); setHasResult(true); }}><DesignThumbnail design={variantDesign(index)}/><span><strong>{label}</strong><small>{index === variant && hasResult ? "적용 중" : ["가슴 로고","앞면 중앙","가슴 + 등판"][index]}</small></span></button>)}</div>
-        <p className="wf-muted wf-variant-note">시안 카드는 같은 디자인의 스타일·배치 예시예요.</p>
+        <ClothSimulation key={previewVersion} controllerRef={simulation}/>
       </section>
-      <aside className="wf-studio-summary"><h2>이 디자인, 얼마에 만들 수 있을까?</h2><section className="wf-price"><div><span>예상 단가 · 1벌</span><span>수량 <b>{totalQuantity(order)}벌</b></span></div><strong>{won(price.unit)} ~ {won(price.unit + 5000)}</strong><p>수량·제작 방식에 따라 달라지는 시연용 예상 금액</p><dl><div><dt>비교할 수 있는 예시 업체</dt><dd>{SUPPLIERS.length}곳</dd></div><div><dt>예상 제작 기간</dt><dd>7–14일</dd></div></dl></section><div className="wf-trust-note"><Check size={16}/><span>주문서와 도안을 한 번에 확인해요</span></div><div className="wf-studio-next">{hasResult || design.image ? <Link id="design-next" className="primary wide" href="/quotes/new" aria-disabled={busy} onClick={e => { if (busy) e.preventDefault(); }}>주문서와 도안 확인하기 <ArrowRight size={16}/></Link> : <button className="primary wide" disabled>시안을 먼저 선택해주세요</button>}<p className="wf-muted">명단 · 납기 · 수령 정보를 다음 화면에서 입력해요.</p><Link href="/my" className="text-link">저장한 디자인 보기</Link></div></aside>
+      <aside className="wf-studio-summary"><h2>이 디자인, 얼마에 만들 수 있을까?</h2><section className="wf-price"><div><span>예상 단가 · 1벌</span><span>수량 <b>{totalQuantity(order)}벌</b></span></div><strong aria-live="polite" aria-atomic="true">{won(price.unit)} ~ {won(price.unit + 5000)}</strong><p>의류·수량·제작 방식에 따른 시연용 예상 금액</p><dl><div><dt>선택 의류</dt><dd>{selectedGarment.label}</dd></div><div><dt>비교할 수 있는 예시 업체</dt><dd>{SUPPLIERS.length}곳</dd></div><div><dt>예상 제작 기간</dt><dd>7–14일</dd></div></dl></section><div className="wf-trust-note"><Check size={16}/><span>주문서와 도안을 한 번에 확인해요</span></div><div className="wf-studio-next">{hasResult || design.image ? <Link id="design-next" className="primary wide" href="/quotes/new" aria-disabled={busy} onClick={e => { if (busy) e.preventDefault(); }}>주문서와 도안 확인하기 <ArrowRight size={16}/></Link> : <button className="primary wide" disabled>시안을 먼저 선택해주세요</button>}<p className="wf-muted">명단 · 납기 · 수령 정보를 다음 화면에서 입력해요.</p><Link href="/my" className="text-link">저장한 디자인 보기</Link></div></aside>
     </div>
     <div className="wf-feedback" aria-live="polite">{error && <p className="wf-alert" role="alert">{error}</p>}{message && <p className="wf-success"><Check size={16}/>{message}</p>}</div>
   </main>;

@@ -1,6 +1,31 @@
 /* User-requested translucent surfaces and visible shadows; green identity retained. */
+.studio-garment-pricing { margin-bottom:26px; }
+.studio-garment-pricing .wf-garments { margin-top:0; }
+.studio-garment-pricing .wf-garments button { min-height:44px; }
+.studio-garment-pricing p { margin:10px 0 0; }
+.supplier-design-content { max-width:1440px; padding:32px; margin:0 auto; }
+.supplier-generated-design { width:100%; min-height:clamp(360px,56svh,640px); background:var(--glass-surface); border-radius:14px; }
+.supplier-design-confirmation { display:flex; align-items:center; justify-content:space-between; gap:32px; padding:36px 0 24px; }
+.supplier-design-confirmation h1,.supplier-design-complete h1 { font-size:clamp(25px,2.5vw,36px); line-height:1.4; letter-spacing:-.045em; font-weight:750; margin:0; text-wrap:balance; }
+.supplier-design-confirmation p { margin:12px 0 0; font-size:18px; line-height:1.6; }
+.supplier-design-actions { display:flex; gap:12px; flex-shrink:0; }
+.supplier-design-actions .primary,.supplier-design-actions .outline { min-height:48px; padding:12px 22px; font-size:16px; }
+.supplier-design-complete { min-height:calc(100svh - 68px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:28px; padding:48px 20px; text-align:center; }
+.supplier-delivery-check { display:grid; place-items:center; width:76px; height:76px; border-radius:50%; color:var(--blue); background:var(--pale); }
+.supplier-design-complete .primary { min-width:160px; min-height:48px; font-size:16px; }
+@media (max-width:640px) {
+  .supplier-design-content { padding:20px 18px; }
+  .supplier-generated-design { min-height:clamp(300px,43svh,420px); }
+  .supplier-design-confirmation { flex-direction:column; align-items:stretch; gap:24px; padding-top:28px; }
+  .supplier-design-confirmation p { font-size:16px; margin-top:10px; }
+  .supplier-design-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .supplier-design-actions .primary,.supplier-design-actions .outline { padding:12px 10px; font-size:15px; }
+  .supplier-design-complete { min-height:calc(100svh - 62px); }
+}
 .studio-preview-heading { margin:0 0 12px; font-size:16px; font-weight:600; }
 .studio-cloth-layer { position:absolute; inset:0; z-index:1; background:var(--wf-stage); }
+.studio-generated-stage { min-height:clamp(350px,51svh,570px); }
+@media (max-width:640px) { .studio-generated-stage { min-height:340px; } }
 .studio-simulation-controls { margin-top:16px; display:grid; gap:8px; }
 .studio-simulation-controls p { margin:0; }
 .studio-simulation-controls .wf-alert { overflow-wrap:anywhere; }

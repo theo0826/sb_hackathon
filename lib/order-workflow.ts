@@ -1,6 +1,7 @@
 import { isDesign, type Design } from "./design";
 import { isOrderDraft, isQuoteRecord, isQuoteDocument, validateOrder, validateDesignForSupplier, SIZES, todayKST, totalQuantity, type OrderDraft, type QuoteRecord } from "./quote";
 import { getSupplier, type Supplier } from "./suppliers";
+import { pricingGarment } from "./garment-pricing";
 
 export type Participant = { id: string; name: string; size: string; initials: string };
 export type OrderDetails = { roster: Participant[]; useRoster: boolean; requireInitials: boolean; phone: string; delivery: "shipping" | "pickup"; address: string; payment: "group" | "individual"; confirmed: boolean };
@@ -67,7 +68,7 @@ export function reviewIssues(order: OrderDraft, details: OrderDetails): string[]
 export function estimate(supplier: Supplier, order: OrderDraft) {
   const index = { jangwi: 0, wolgok: 1, jongam: 2 }[supplier.id] ?? 0;
   const quantity = totalQuantity(order);
-  const unit = [24500, 27800, 22900][index] + (order.method === "자수" ? 3500 : 0) - (quantity >= 50 ? 1500 : 0);
+  const unit = [24500, 27800, 22900][index] + pricingGarment(order.pricingGarment).adjustment + (order.method === "자수" ? 3500 : 0) - (quantity >= 50 ? 1500 : 0);
   const days = Math.max(...(supplier.leadDays.match(/\d+/g) || ["14"]).map(Number));
   return { unit, total: unit * quantity, days, shipping: 0 };
 }
