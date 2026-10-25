@@ -14,8 +14,9 @@ const stages: Record<Progress["stage"], string> = {
 
 export type ClothSimulationControls = { generate: (text: string) => Promise<boolean>; cancel: () => void };
 
-export default function ClothSimulationPreview({ controllerRef }: {
+export default function ClothSimulationPreview({ controllerRef, active = true }: {
   controllerRef: Ref<ClothSimulationControls>;
+  active?: boolean;
 }) {
   const simulator = useRef<ClothSimDesignerHandle>(null);
   const request = useRef(0);
@@ -28,9 +29,9 @@ export default function ClothSimulationPreview({ controllerRef }: {
 
   useEffect(() => () => { request.current++; }, []);
   useEffect(() => {
-    if (ready) simulator.current?.play();
+    if (ready && active) simulator.current?.play();
     else simulator.current?.pause();
-  }, [ready]);
+  }, [ready, active]);
 
   async function generate(text: string) {
     if (running.current || !text.trim() || !simulator.current) return false;

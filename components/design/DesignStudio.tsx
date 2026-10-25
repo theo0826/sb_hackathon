@@ -17,6 +17,7 @@ import { GARMENT_PRICING, pricingGarment } from "@/lib/garment-pricing";
 import { resetOrderDetails, useOrderDetails } from "@/lib/order-workflow-client";
 import FlowSteps from "@/components/layout/FlowSteps";
 import type { ClothSimulationControls } from "./ClothSimulationPreview";
+import Artwork from "./Artwork";
 
 const ClothSimulation = dynamic(() => import("./ClothSimulationPreview"), { ssr: false });
 
@@ -30,6 +31,7 @@ export default function DesignStudio() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [previewVersion, setPreviewVersion] = useState(0);
+  const [previewMode, setPreviewMode] = useState<"design" | "artwork">("design");
   const requestActive = useRef(false);
   const generationId = useRef(0);
   const generationAbort = useRef<AbortController | null>(null);
@@ -58,6 +60,7 @@ export default function DesignStudio() {
     if (!instruction) { setError("원하는 의상을 한 문장으로 입력해주세요."); promptInput.current?.focus(); return; }
     if (!simulation.current) { setError("미리보기를 준비하고 있어요. 잠시 후 다시 눌러주세요."); return; }
     const id = ++generationId.current;
+    setPreviewMode("design");
     const controller = new AbortController(); generationAbort.current = controller;
     requestActive.current = true; setError(""); setMessage(""); setGenerating(true); setShowResult(false);
     setMessages(current => [...current, { id: crypto.randomUUID(), role: "user", text: instruction }]);
@@ -130,7 +133,7 @@ export default function DesignStudio() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "저장하지 못했어요."); }
     finally { saveActive.current = false; setSaving(false); }
   }
-  function newDesign() { if (!generating && !uploading && !saving) { resetSession(); resetOrderDetails(); setPreviewVersion(current => current + 1); setMessage(""); setError(""); } }
+  function newDesign() { if (!generating && !uploading && !saving) { resetSession(); resetOrderDetails(); setPreviewVersion(current => current + 1); setPreviewMode("design"); setMessage(""); setError(""); } }
 
   const busy = generating || uploading || saving;
   function sample() {
@@ -165,8 +168,26 @@ export default function DesignStudio() {
       </section>
       <section className="wf-studio-preview ai-stage" aria-label="디자인 미리보기">
         <div className="wf-preview-toolbar"><div className="wf-segments" role="group" aria-label="인쇄 면"><button aria-pressed={design.side === "front"} onClick={() => patch({ side: "front" })} disabled={busy}>앞면</button><button aria-pressed={design.side === "back"} onClick={() => patch({ side: "back" })} disabled={busy}>뒷면</button></div><button className="text-link" onClick={save} disabled={busy || !(hasResult || design.image)}><Save size={15}/>{saving ? "저장 중…" : "저장"}</button></div>
-        <h2 className="studio-preview-heading">디자인 미리보기</h2>
-        <ClothSimulation key={previewVersion} controllerRef={simulation}/>
+        <div className="studio-preview-modes wf-segments" role="tablist" aria-label="디자인과 도안 보기" onKeyDown={event => {
+          if (busy || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+          event.preventDefault();
+          const next = event.key === "Home" ? "design" : event.key === "End" ? "artwork" : previewMode === "design" ? "artwork" : "design";
+          setPreviewMode(next); document.getElementById(`studio-${next}-tab`)?.focus();
+        }}>
+          <button id="studio-design-tab" type="button" role="tab" aria-selected={previewMode === "design"} aria-controls="studio-design-panel" tabIndex={previewMode === "design" ? 0 : -1} disabled={busy} onClick={() => setPreviewMode("design")}>디자인</button>
+          <button id="studio-artwork-tab" type="button" role="tab" aria-selected={previewMode === "artwork"} aria-controls="studio-artwork-panel" tabIndex={previewMode === "artwork" ? 0 : -1} disabled={busy} onClick={() => setPreviewMode("artwork")}>도안</button>
+        </div>
+        <div id="studio-design-panel" className="studio-preview-panel" role="tabpanel" aria-labelledby="studio-design-tab" tabIndex={0} hidden={previewMode !== "design"}>
+          <h2 className="studio-preview-heading">디자인 미리보기</h2>
+          <ClothSimulation key={previewVersion} controllerRef={simulation} active={previewMode === "design"}/>
+        </div>
+        <div id="studio-artwork-panel" className="studio-preview-panel" role="tabpanel" aria-labelledby="studio-artwork-tab" tabIndex={0} hidden={previewMode !== "artwork"}>
+          <h2 className="studio-preview-heading">도안 미리보기</h2>
+          {/* The backend team's logo-position editor connects to this dedicated surface. */}
+          <div id="studio-artwork-editor" className="wf-stage studio-artwork-stage" aria-label="도안 화면" style={{ backgroundColor: hasResult || design.image ? design.color : undefined }}>
+            {design.image ? <Image src={design.image} width={800} height={800} alt={filename || "첨부한 도안"} unoptimized className="studio-artwork-image"/> : hasResult ? <Artwork design={design}/> : null}
+          </div>
+        </div>
       </section>
       <aside className="wf-studio-summary"><h2>이 디자인, 얼마에 만들 수 있을까?</h2><section className="wf-price"><div><span>예상 단가 · 1벌</span><span>수량 <b>{totalQuantity(order)}벌</b></span></div><strong aria-live="polite" aria-atomic="true">{won(price.unit)} ~ {won(price.unit + 5000)}</strong><p>의류·수량·제작 방식에 따른 시연용 예상 금액</p><dl><div><dt>선택 의류</dt><dd>{selectedGarment.label}</dd></div><div><dt>비교할 수 있는 예시 업체</dt><dd>{SUPPLIERS.length}곳</dd></div><div><dt>예상 제작 기간</dt><dd>7–14일</dd></div></dl></section><div className="wf-trust-note"><Check size={16}/><span>주문서와 도안을 한 번에 확인해요</span></div><div className="wf-studio-next">{hasResult || design.image ? <Link id="design-next" className="primary wide" href="/quotes/new" aria-disabled={busy} onClick={e => { if (busy) e.preventDefault(); }}>주문서와 도안 확인하기 <ArrowRight size={16}/></Link> : <button className="primary wide" disabled>시안을 먼저 선택해주세요</button>}<p className="wf-muted">명단 · 납기 · 수령 정보를 다음 화면에서 입력해요.</p><Link href="/my" className="text-link">저장한 디자인 보기</Link></div></aside>
     </div>
