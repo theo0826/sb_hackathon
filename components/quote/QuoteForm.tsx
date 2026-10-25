@@ -8,7 +8,6 @@ import { useOrderDetails } from "@/lib/order-workflow-client";
 import { SIZES, totalQuantity } from "@/lib/quote";
 import { pricingGarment } from "@/lib/garment-pricing";
 import { getSupplier } from "@/lib/suppliers";
-import StorageNotice from "@/components/layout/StorageNotice";
 
 export default function QuoteForm() {
   const { design, order, filename, supplierId, hasResult } = useDesignSession();
@@ -71,9 +70,9 @@ export default function QuoteForm() {
     <div className="delivery-workspace">
       {delivered ? <section className="delivery-receipt" aria-labelledby="delivery-complete-title">
         <span className="supplier-delivery-check" aria-hidden="true"><CheckCheck size={34} strokeWidth={2} /></span>
-        <h1 id="delivery-complete-title" ref={completionHeading} tabIndex={-1}>도안 전달 시연을 마쳤어요.</h1>
+        <h1 id="delivery-complete-title" ref={completionHeading} tabIndex={-1}>도안 전달을 마쳤어요.</h1>
         <p>선택한 업체와 주문 내용을 다시 확인하고, 요청서를 보관해주세요.</p>
-        <div className="delivery-receipt-sheet"><div className="delivery-sheet-heading"><FileText size={20} /><h2>{supplier.name} 제작 요청서</h2><span>시연 완료</span></div>{summary}</div>
+        <div className="delivery-receipt-sheet"><div className="delivery-sheet-heading"><FileText size={20} /><h2>{supplier.name} 제작 요청서</h2><span>전달 완료</span></div>{summary}</div>
         <div className="delivery-demo-note"><ShieldCheck size={20} /><p>실제 업체 발송·결제·마이페이지 주문 저장은 이루어지지 않았어요. 이 완료 화면도 탭을 닫으면 사라져요.</p></div>
         <div className="delivery-receipt-actions"><button type="button" className="primary" onClick={downloadOrder}><Download size={17} />주문 정보 내려받기</button><Link href="/my" className="outline">마이페이지 <ArrowRight size={16} /></Link></div>
         <Link href="/suppliers" className="text-link"><ArrowLeft size={15} />업체 목록으로 돌아가기</Link>
@@ -87,7 +86,6 @@ export default function QuoteForm() {
               <div id="supplier-generated-design" className="supplier-generated-design" aria-label="AI 생성 맞춤 도안" data-supplier-id={supplier.id} />
               <div className="delivery-artwork-caption"><span>도안 미리보기 영역</span><p>현재는 전달 흐름을 확인하는 시연이에요. 실제 생성 도안 연결을 준비 중이에요.</p></div>
             </section>
-            <section className="delivery-materials" aria-labelledby="delivery-materials-title"><h2 id="delivery-materials-title">업체에 필요한 자료</h2><p>제작 상담 시 아래 자료를 함께 준비해주세요.</p><ul>{supplier.attachmentTypes.map(type => <li key={type}><FileText size={17} /><span>{type}</span><span>별도 준비</span></li>)}</ul><div className="delivery-print-note"><Check size={17} /><p>인쇄 가능 크기 {supplier.maxPrintWidthCm} × {supplier.maxPrintHeightCm}cm 이내 · 최종 색상과 위치는 제작 전 업체와 확인해주세요.</p></div></section>
           </div>
           <aside className="delivery-order-column" aria-label="전달할 주문 조건">
             <section className="delivery-order-sheet"><div className="delivery-supplier"><span className="delivery-supplier-icon"><Send size={20} /></span><div><p>선택한 제작 업체</p><h2>{supplier.name}</h2><span><MapPin size={13} />성북구 {supplier.region} · 예시 업체</span></div></div><h3>주문 요약</h3>{summary}<Link href="/quotes/new" className="text-link">주문 정보 수정 <ArrowRight size={14} /></Link></section>
@@ -95,7 +93,6 @@ export default function QuoteForm() {
             <button type="button" className="delivery-backup text-link" onClick={downloadOrder}><Download size={16} />주문 정보 내려받기</button>
           </aside>
         </div>
-        <StorageNotice compact />
       </>}
       {downloaded && <p className="delivery-download-feedback" role="status"><Check size={16} />주문 정보 다운로드를 요청했어요. 도안 원본은 별도로 보관해주세요.</p>}
     </div>

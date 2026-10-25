@@ -7,22 +7,17 @@
 .delivery-review-layout{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(300px,1fr);gap:28px;align-items:start}
 .delivery-document-column,.delivery-order-column{display:grid;gap:22px;min-width:0}
 .delivery-order-column{position:sticky;top:88px}
-.delivery-artwork,.delivery-materials,.delivery-order-sheet,.delivery-receipt-sheet{background:var(--glass-surface);border-radius:var(--wf-radius);overflow:hidden}
+.delivery-artwork,.delivery-order-sheet,.delivery-receipt-sheet{background:var(--glass-surface);border-radius:var(--wf-radius);overflow:hidden}
 .delivery-sheet-heading{display:flex;align-items:center;gap:10px;padding:20px 24px;background:var(--pale);color:var(--blue)}
 .delivery-sheet-heading h2{font-size:17px;line-height:1.5;color:var(--ink)}
 .delivery-sheet-heading>span{margin-left:auto;font-size:13px;white-space:nowrap}
-.delivery-artwork .supplier-generated-design{border-radius:0;min-height:380px;background:var(--wf-surface)}
+.delivery-artwork .supplier-generated-design{border-radius:0;min-height:clamp(580px,72svh,820px);background:var(--wf-surface)}
 .delivery-artwork-caption{padding:20px 24px;background:var(--pale)}
 .delivery-artwork-caption>span{font-size:14px;font-weight:700}
 .delivery-artwork-caption p{font-size:14px;line-height:1.7;margin-top:6px;color:var(--sub)}
-.delivery-materials,.delivery-order-sheet{padding:24px}
-.delivery-materials h2,.delivery-order-sheet h3{font-size:18px;line-height:1.5}
-.delivery-materials>p{font-size:14px;color:var(--sub);margin-top:6px;line-height:1.7}
-.delivery-materials ul{padding:0;margin:18px 0;list-style:none;display:grid;gap:10px}
-.delivery-materials li{display:flex;align-items:center;gap:10px;font-size:14px;padding:12px;background:var(--bg);border-radius:6px}
-.delivery-materials li>span:last-child{margin-left:auto;color:var(--sub);white-space:nowrap;font-size:12px}
-.delivery-print-note,.delivery-demo-note{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.7;color:var(--sub)}
-.delivery-print-note svg{color:var(--blue);margin-top:3px}
+.delivery-order-sheet{padding:24px}
+.delivery-order-sheet h3{font-size:18px;line-height:1.5}
+.delivery-demo-note{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.7;color:var(--sub)}
 .delivery-supplier{display:flex;align-items:center;gap:14px;margin-bottom:28px}
 .delivery-supplier-icon{width:46px;height:46px;display:grid;place-items:center;background:var(--pale);color:var(--blue);border-radius:var(--wf-radius)}
 .delivery-supplier p{font-size:13px;color:var(--sub);margin-bottom:4px}
@@ -49,7 +44,7 @@
 .delivery-demo-note svg{margin-top:3px;color:var(--blue)}
 .delivery-receipt-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin:26px 0 22px}
 .delivery-download-feedback{display:flex;align-items:flex-start;justify-content:center;gap:8px;color:var(--blue);font-size:14px;line-height:1.7;margin-top:24px}
-@media(max-width:760px){.delivery-workspace{padding:24px 18px 44px}.delivery-review-layout{grid-template-columns:1fr;gap:22px}.delivery-order-column{position:static}.delivery-artwork .supplier-generated-design{min-height:280px}.delivery-sheet-heading,.delivery-artwork-caption{padding:18px}.delivery-materials,.delivery-order-sheet{padding:20px}.delivery-page-heading p{font-size:15px}.delivery-receipt{margin-top:14px}.delivery-receipt-actions{width:100%;display:grid;grid-template-columns:1fr}.delivery-receipt-sheet .delivery-summary{padding:0 18px}.delivery-sheet-heading h2{font-size:16px}.delivery-sheet-heading>span{font-size:12px}.delivery-confirm label{min-height:44px;align-items:center;margin-bottom:12px}.delivery-confirm input{margin:0}}
+@media(max-width:760px){.delivery-workspace{padding:24px 18px 44px}.delivery-review-layout{grid-template-columns:1fr;gap:22px}.delivery-order-column{position:static}.delivery-artwork .supplier-generated-design{min-height:clamp(380px,56svh,540px)}.delivery-sheet-heading,.delivery-artwork-caption{padding:18px}.delivery-order-sheet{padding:20px}.delivery-page-heading p{font-size:15px}.delivery-receipt{margin-top:14px}.delivery-receipt-actions{width:100%;display:grid;grid-template-columns:1fr}.delivery-receipt-sheet .delivery-summary{padding:0 18px}.delivery-sheet-heading h2{font-size:16px}.delivery-sheet-heading>span{font-size:12px}.delivery-confirm label{min-height:44px;align-items:center;margin-bottom:12px}.delivery-confirm input{margin:0}}
 .studio-garment-pricing { margin-bottom:26px; }
 .studio-garment-pricing .wf-garments { margin-top:0; }
 .studio-garment-pricing .wf-garments button { min-height:44px; }
