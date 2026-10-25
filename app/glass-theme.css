@@ -70,6 +70,7 @@
 }
 .studio-preview-heading { margin:0 0 12px; font-size:16px; font-weight:600; }
 .studio-preview-modes{width:max-content;margin:0 0 18px}
+.wf-preview-toolbar .studio-preview-modes{margin:0}
 .studio-preview-modes button{min-height:44px;min-width:90px}
 .studio-preview-modes button[aria-selected=true]{background:var(--ink);color:var(--wf-surface)}
 .studio-preview-panel[hidden]{display:none}

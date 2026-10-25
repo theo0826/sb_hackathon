@@ -167,7 +167,7 @@ export default function DesignStudio() {
         {messages.length > 0 && <details className="wf-chat-history"><summary>AI 대화 내역</summary><div ref={conversation} role="log" aria-label="AI 디자인 대화">{messages.map(item => <p key={item.id}><strong>{item.role === "user" ? "나" : "AI"}</strong>{item.text}</p>)}</div></details>}
       </section>
       <section className="wf-studio-preview ai-stage" aria-label="디자인 미리보기">
-        <div className="wf-preview-toolbar"><div className="wf-segments" role="group" aria-label="인쇄 면"><button aria-pressed={design.side === "front"} onClick={() => patch({ side: "front" })} disabled={busy}>앞면</button><button aria-pressed={design.side === "back"} onClick={() => patch({ side: "back" })} disabled={busy}>뒷면</button></div><button className="text-link" onClick={save} disabled={busy || !(hasResult || design.image)}><Save size={15}/>{saving ? "저장 중…" : "저장"}</button></div>
+        <div className="wf-preview-toolbar">
         <div className="studio-preview-modes wf-segments" role="tablist" aria-label="디자인과 도안 보기" onKeyDown={event => {
           if (busy || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
           event.preventDefault();
@@ -176,6 +176,8 @@ export default function DesignStudio() {
         }}>
           <button id="studio-design-tab" type="button" role="tab" aria-selected={previewMode === "design"} aria-controls="studio-design-panel" tabIndex={previewMode === "design" ? 0 : -1} disabled={busy} onClick={() => setPreviewMode("design")}>디자인</button>
           <button id="studio-artwork-tab" type="button" role="tab" aria-selected={previewMode === "artwork"} aria-controls="studio-artwork-panel" tabIndex={previewMode === "artwork" ? 0 : -1} disabled={busy} onClick={() => setPreviewMode("artwork")}>도안</button>
+        </div>
+        <button className="text-link" onClick={save} disabled={busy || !(hasResult || design.image)}><Save size={15}/>{saving ? "저장 중…" : "저장"}</button>
         </div>
         <div id="studio-design-panel" className="studio-preview-panel" role="tabpanel" aria-labelledby="studio-design-tab" tabIndex={0} hidden={previewMode !== "design"}>
           <h2 className="studio-preview-heading">디자인 미리보기</h2>
