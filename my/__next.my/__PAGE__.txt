@@ -1,29 +1,29 @@
 1:"$Sreact.fragment"
 2:"static/chunks/7006-de95a9df5fb5dd34.js"
-3:"static/chunks/app/layout-c810f449aef5c41c.js"
+3:"static/chunks/app/layout-16f1a8e0e51267bd.js"
 4:I[9769,["7006","$2","7177","$3"],"default"]
 5:I[99630,[],""]
 6:I[1380,[],""]
 d:"$Sreact.suspense"
 e:"static/chunks/5233-035ecbacaff0e7fa.js"
-f:"static/chunks/2113-369cae7abbb81fef.js"
+f:"static/chunks/7713-4bf93d5d7b57fba5.js"
 10:"static/chunks/1025-6a1dd084b3e0c307.js"
-11:"static/chunks/9728-a45c591a973d7576.js"
-12:"static/chunks/app/my/page-05197605ab716acd.js"
-13:I[21542,["7006","$2","5233","$e","2113","$f","1025","$10","9728","$11","369","$12"],"default"]
+11:"static/chunks/1895-56820bd614d1c676.js"
+12:"static/chunks/app/my/page-b7d60c65e872cf64.js"
+13:I[21542,["7006","$2","5233","$e","7713","$f","1025","$10","1895","$11","369","$12"],"default"]
 14:I[30887,[],"OutletBoundary"]
 17:"ViewportBoundary"
 18:I[30887,[],"$17"]
 19:"MetadataBoundary"
 1a:I[30887,[],"$19"]
-:HL["/sb_hackathon/_next/static/css/eb8b5482f11ecc6e.css","style"]
-:HL["/sb_hackathon/_next/static/css/caa70973ee432573.css","style"]
+:HL["/sb_hackathon/_next/static/css/d39e2476a0f3db52.css","style"]
+:HL["/sb_hackathon/_next/static/css/0dd9b8a724ae6642.css","style"]
 8:X
 b:X
 b:C
 c:[["children",{"s":"__PAGE__","h":160,"d":{"r":["$","$1","c",{"children":[["$","$d",null,{"fallback":["$","main",null,{"id":"main-content","children":"마이페이지를 불러오는 중…"}],"children":["$","$L13",null,{}]}],null,["$","$L14",null,{"children":["$","$d",null,{"name":"Next.MetadataOutlet","children":"$@15"}]}]]}],"p":"$@16","v":null,"s":"$8"}}]]
 9:[["children",{"s":"my","h":96,"d":{"r":["$","$1","c",{"children":[null,["$","$L5",null,{"parallelRouterKey":"children","template":["$","$L6",null,{}]}]]}],"p":"$@a","v":"$b","s":"$8"},"c":"$Qc"}]]
-0:{"t":{"t":{"s":"","h":80,"d":{"r":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/sb_hackathon/_next/static/css/eb8b5482f11ecc6e.css","precedence":"next"}],["$","link","1",{"rel":"stylesheet","href":"/sb_hackathon/_next/static/css/caa70973ee432573.css","precedence":"next"}]],["$","html",null,{"lang":"ko","data-scroll-behavior":"smooth","children":["$","body",null,{"children":[["$","a",null,{"className":"skip-link","href":"#main-content","children":"본문 바로가기"}],["$","$L4",null,{}],["$","$L5",null,{"parallelRouterKey":"children","template":["$","$L6",null,{}],"notFound":[[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]],[]]}],["$","footer",null,{"className":"site-footer shell","children":[["$","span",null,{"children":[["$","b",null,{"children":"성북핏"}],["$","span",null,{"className":"footer-copy","children":"성북구의 이웃과 지역의 제작을 연결해요."}]]}],["$","span",null,{"children":"우리다운 단체티의 시작 · SEONGBUK FIT"}]]}]]}]}]]}],"p":"$@7","v":null,"s":"$8"},"c":"$Q9"},"h":{"r":["$","$1","h",{"children":[null,["$","$L18",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]}],["$","$L1a",null,{"children":[["$","div",null,{"hidden":true,"children":["$","$d",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"마이페이지 | 성북핏"}],["$","meta","1",{"name":"description","content":"성북구 주민의 모임과 지역의 제작을 연결하는 단체티 디자인 플랫폼. 동호회, 가족 행사, 이웃 모임의 옷을 만들어보세요."}]]}]}],null]}],null]}],"p":"$@1b","v":null,"s":"$8"}},"a":"$@1c","u":"$@1d","b":"2FjcTKeLN6014wGpWi73w"}
+0:{"t":{"t":{"s":"","h":80,"d":{"r":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/sb_hackathon/_next/static/css/d39e2476a0f3db52.css","precedence":"next"}],["$","link","1",{"rel":"stylesheet","href":"/sb_hackathon/_next/static/css/0dd9b8a724ae6642.css","precedence":"next"}]],["$","html",null,{"lang":"ko","data-scroll-behavior":"smooth","children":["$","body",null,{"children":[["$","a",null,{"className":"skip-link","href":"#main-content","children":"본문 바로가기"}],["$","$L4",null,{}],["$","$L5",null,{"parallelRouterKey":"children","template":["$","$L6",null,{}],"notFound":[[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]],[]]}],["$","footer",null,{"className":"site-footer shell","children":[["$","span",null,{"children":[["$","b",null,{"children":"성북핏"}],["$","span",null,{"className":"footer-copy","children":"성북구의 이웃과 지역의 제작을 연결해요."}]]}],["$","span",null,{"children":"우리다운 단체티의 시작 · SEONGBUK FIT"}]]}]]}]}]]}],"p":"$@7","v":null,"s":"$8"},"c":"$Q9"},"h":{"r":["$","$1","h",{"children":[null,["$","$L18",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]}],["$","$L1a",null,{"children":[["$","div",null,{"hidden":true,"children":["$","$d",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"마이페이지 | 성북핏"}],["$","meta","1",{"name":"description","content":"성북구 주민의 모임과 지역의 제작을 연결하는 단체티 디자인 플랫폼. 동호회, 가족 행사, 이웃 모임의 옷을 만들어보세요."}]]}]}],null]}],null]}],"p":"$@1b","v":null,"s":"$8"}},"a":"$@1c","u":"$@1d","b":"-d0XzSoVvQg_L_-6h2K9v"}
 15:null
 8:300
 1d:true
