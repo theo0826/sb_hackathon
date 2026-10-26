@@ -1,4 +1,4 @@
-name: Validate cloth demo branch
+name: Deploy cloth demo branch to GitHub Pages
 
 on:
   push:
@@ -7,6 +7,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
 
 jobs:
   preview:
@@ -31,3 +35,21 @@ jobs:
           path: out/
           include-hidden-files: true
           retention-days: 7
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: out/
+
+  deploy:
+    if: github.ref == 'refs/heads/codex/clothdata-demo-integration'
+    needs: preview
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - uses: actions/deploy-pages@v4
+        id: deployment

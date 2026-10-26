@@ -1,7 +1,8 @@
 # ClothSim 프론트 시연
 
 작업 브랜치: `codex/clothdata-demo-integration`. 시작 기준은 main의 `7fb86fc`입니다.
-이 브랜치를 push하면 검사와 정적 미리보기 artifact만 생성합니다. 운영 GitHub Pages 배포는 기존 main 워크플로에서 관리합니다.
+이 브랜치를 push하면 검사한 정적 빌드를 GitHub Pages에 배포합니다. main 코드에 병합하지 않고 작업 브랜치를 직접 빌드합니다.
+시연 주소: https://theo0826.github.io/sb_hackathon/design/
 
 ## 실행
 
@@ -45,4 +46,5 @@ npm.cmd run preview:pages
 주소: `http://127.0.0.1:3000/sb_hackathon/design/`.
 기본 4173번 미리보기는 레이아웃 점검용이며, 현재 팀 Worker의 허용 Origin 목록에 포함되어 있지 않습니다.
 
-브랜치를 운영 사이트에 반영하려면 검토 후 별도로 main에 병합해야 합니다. 저장소 Settings → Pages의 Source는 GitHub Actions를 사용해야 Next.js 빌드 결과가 게시됩니다.
+저장소 Settings → Pages의 Source는 GitHub Actions를 사용합니다. 소스 브랜치의 루트를 직접 게시하면 Next.js 앱 대신 README가 표시될 수 있습니다.
+작업 브랜치의 `Deploy cloth demo branch to GitHub Pages`가 이 시연 빌드를 배포합니다. 기존 main 배포 워크플로도 남아 있으므로 이후 main에 push해 배포하면 사이트 내용이 main 빌드로 바뀔 수 있습니다.
