@@ -13,5 +13,7 @@ for(const headers of [{Host:'public.example'},{Host:'127.0.0.1:3000','X-Forwarde
 }
 for(const file of ['/.env.local','/.git/config','/lib/server/ai.ts']) assert.equal((await fetch(base+file)).status,404);
 assert.equal((await fetch(base+'/api/session',{method:'POST',headers:{'Content-Type':'application/json',Origin:'https://public.example'},body:'{}'})).status,403);
-assert.equal((await fetch(base+'/api/designs')).status,401);
-console.log('PASS AI off, private response headers, external Host/forwarded Host rejection, secret/source file protection, CSRF and guest ownership');
+const designs = await fetch(base+'/api/designs');
+assert.equal(designs.status,503,'The retired personal backend must fail closed');
+assert.match((await designs.json()).error,/기존 개인 백엔드/);
+console.log('PASS AI off, private response headers, external Host/forwarded Host rejection, secret/source file protection, CSRF and retired backend disabled');

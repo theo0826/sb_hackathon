@@ -1,4 +1,5 @@
 "use client";
+import { DELIVERY_DOCUMENT_VERSION } from "./order-delivery";
 
 import type { Design } from "./design";
 import { orderRows, type OrderDraft, type QuoteDocument } from "./quote";
@@ -18,12 +19,12 @@ async function bitmap(source: string) {
   return image;
 }
 
-export async function exportProductionPDF({ supplier, design, order, artworkSVG, previewPNG, previewBackPNG, download = true, document: aiDocument, patternPNGs }: { supplier: Supplier; design: Design; order: OrderDraft; artworkSVG: string | null; previewPNG: string; previewBackPNG?:string; download?: boolean; document?: QuoteDocument; patternPNGs?: {uvPNG:string;patternPNG:string} }) {
+export async function exportProductionPDF({ supplier, design, order, artworkSVG, previewPNG, previewBackPNG, download = true, document: aiDocument, patternPNGs }: { supplier: Supplier; design: Design; order: OrderDraft; artworkSVG: string | null; previewPNG?: string; previewBackPNG?:string; download?: boolean; document?: QuoteDocument; patternPNGs?: {uvPNG:string;patternPNG:string} }) {
   const { jsPDF } = await import("jspdf");
   await document.fonts.ready;
   const artworkSource = design.image || (artworkSVG ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(artworkSVG)}` : null);
   if (!artworkSource) throw new Error("도안이 준비된 뒤 다시 눌러주세요.");
-  const [artwork, preview] = await Promise.all([bitmap(artworkSource), bitmap(previewPNG)]);
+  const [artwork, preview] = await Promise.all([bitmap(artworkSource), previewPNG ? bitmap(previewPNG) : null]);
   const pages: HTMLCanvasElement[] = [];
   const width = 1240, height = 1754, margin = 70;
   // page()가 첫 그리기 전에 동기적으로 캔버스와 컨텍스트를 준비합니다.
@@ -65,8 +66,8 @@ export async function exportProductionPDF({ supplier, design, order, artworkSVG,
   paragraph(supplier.documentTitle, 36, "#191f28");
   paragraph(`제출 양식: PDF  /  도안: ${design.image ? "첨부 이미지" : design.text || "OUR CLUB"}`, 20, "#6b7684");
   y += 20;
-  context.font = '700 22px "Malgun Gothic", Arial, sans-serif'; context.fillStyle = "#191f28"; context.fillText("도안 파일 (티셔츠 배경 제외)", margin, y); context.fillText("티셔츠 위의 배치", 640, y);
-  y += 20; imageBox(artwork, margin, y, design.color); imageBox(preview, 640, y, "#f1f4f8"); y += 365;
+  context.font = '700 22px "Malgun Gothic", Arial, sans-serif'; context.fillStyle = "#191f28"; context.fillText("도안 파일 (티셔츠 배경 제외)", margin, y); if (preview) context.fillText("티셔츠 위의 배치", 640, y);
+  y += 20; imageBox(artwork, margin, y, design.color); if (preview) imageBox(preview, 640, y, "#f1f4f8"); y += 365;
   for (const [label, value] of orderRows(supplier, design, order)) {
     context.font = '22px "Malgun Gothic", Arial, sans-serif'; const wrapped = lines(value, 840);
     room(Math.max(48, wrapped.length * 30 + 12));
@@ -76,7 +77,7 @@ export async function exportProductionPDF({ supplier, design, order, artworkSVG,
   }
   y += 10; paragraph("추가 요청 사항", 24); paragraph(order.memo.trim() || "없음", 20);
   if (aiDocument) {
-    y += 12; paragraph(aiDocument.production?.converter === "sample" ? "목업 패턴 변환 설명 · 업체 검토용 초안" : "AI 제작 설명 · 업체 검토용 초안", 24); paragraph(aiDocument.summary, 20);
+    y += 12; paragraph(aiDocument.templateVersion === DELIVERY_DOCUMENT_VERSION ? "도안 전달 기록 · 주문 정보 보관본" : aiDocument.production?.converter === "sample" ? "목업 패턴 변환 설명 · 업체 검토용 초안" : "AI 제작 설명 · 업체 검토용 초안", 24); paragraph(aiDocument.summary, 20);
     aiDocument.productionNotes.forEach(note => paragraph(`• ${note}`, 20));
     paragraph("제작 전 확인할 사항", 24);
     aiDocument.checks.forEach(note => paragraph(`• ${note}`, 20));
@@ -84,7 +85,7 @@ export async function exportProductionPDF({ supplier, design, order, artworkSVG,
   y += 12; paragraph("업체별 확인 사항", 24);
   supplier.requirements.forEach((requirement) => paragraph(`• ${requirement}`, 20, "#6b7684"));
   paragraph("첨부 이미지는 최대 800px의 편집용 파일입니다. 실제 인쇄 규격·해상도·납기는 제작 전에 확인해야 합니다.", 18, "#6b7684");
-  if(previewBackPNG){
+  if(preview && previewBackPNG){
     const back=await bitmap(previewBackPNG);page();paragraph("앞면 · 등판의 배치",32,"#191f28");
     paragraph("같은 디자인의 모든 배치를 확인하세요.",20);const top=y+30;
     imageBox(preview,margin,top,"#f1f4f8");imageBox(back,640,top,"#f1f4f8");
@@ -103,7 +104,7 @@ export async function exportProductionPDF({ supplier, design, order, artworkSVG,
     }
   }
   const pdf = new jsPDF({ unit: "mm", format: "a4", compress: true });
-  pdf.setProperties({ title: `Seongbuk Fit - ${supplier.id} production sheet`, subject: aiDocument?.production?.converter === "sample" ? "Mock UV-to-pattern conversion draft" : aiDocument ? "AI-assisted production request draft" : "Production request draft" });
+  pdf.setProperties({ title: `Seongbuk Fit - ${supplier.id} production sheet`, subject: aiDocument?.templateVersion === DELIVERY_DOCUMENT_VERSION ? "Saved design handoff and order snapshot" : aiDocument?.production?.converter === "sample" ? "Mock UV-to-pattern conversion draft" : aiDocument ? "AI-assisted production request draft" : "Production request draft" });
   pages.forEach((canvas, index) => { if (index) pdf.addPage(); pdf.addImage(canvas.toDataURL("image/jpeg", .94), "JPEG", 0, 0, 210, 297); });
   if (download) pdf.save(`seongbuk-fit-${supplier.id}-production.pdf`);
   return pdf.output("blob");

@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const staticSite = process.env.NEXT_PUBLIC_STATIC_EXPORT === "true";
+const scriptExecution = process.env.NODE_ENV === "development" ? "'unsafe-eval'" : "'wasm-unsafe-eval'";
 const aiOrigins = [process.env.NEXT_PUBLIC_AI_DESIGN_URL, process.env.NEXT_PUBLIC_AI_QUOTE_URL]
   .flatMap(value => {
     if (!value || value.startsWith("/")) return [];
@@ -19,7 +20,7 @@ const nextConfig: NextConfig = {
       { key: "Referrer-Policy", value: "no-referrer" },
       { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
       { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
-      { key: "Content-Security-Policy", value: `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:* http://localhost:11434 http://127.0.0.1:11434 ${[...new Set(aiOrigins)].join(" ")}; worker-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'` },
+      { key: "Content-Security-Policy", value: `default-src 'self'; script-src 'self' 'unsafe-inline' ${scriptExecution}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:* http://localhost:11434 http://127.0.0.1:11434 ${[...new Set(aiOrigins)].join(" ")}; worker-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'` },
     ] }];
   } }),
 };

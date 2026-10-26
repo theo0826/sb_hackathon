@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useImperativeHandle, useRef, useState, type Ref, type ReactNode } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type Ref } from "react";
 // 삭제금지: ClothSim 연동 — 생성 기능은 홈 대신 디자인 화면에서 사용.
 import ClothSim, { type ClothLogo, type ClothSimDesignerHandle, type Progress } from "../ClothSim";
 
@@ -14,12 +14,18 @@ const stages: Record<Progress["stage"], string> = {
 
 export type ClothSimulationControls = { generate: (text: string) => Promise<boolean>; cancel: () => void };
 
-export default function ClothSimulationPreview({ controllerRef, fallback, logo = null, view = "3d", onLogoChange }: {
+export default function ClothSimulationPreview({
+  controllerRef,
+  active = true,
+  fallback,
+  logo = null,
+  view = "3d",
+  onLogoChange,
+}: {
   controllerRef: Ref<ClothSimulationControls>;
-  fallback: ReactNode;
-  /** 업로드한 로고 (이미지 + 도안에서 정한 위치) */
+  active?: boolean;
+  fallback?: ReactNode;
   logo?: ClothLogo | null;
-  /** "pattern" 이면 3D 대신 재단 도안을 보여 줌 */
   view?: "3d" | "pattern";
   onLogoChange?: (logo: ClothLogo | null) => void;
 }) {
@@ -29,14 +35,14 @@ export default function ClothSimulationPreview({ controllerRef, fallback, logo =
   // 삭제금지: ClothSim clothRepresentText — 왼쪽 공통 입력창에서 제출한 의상 설명.
   const [clothRepresentText, setClothRepresentText] = useState("");
   const [ready, setReady] = useState(false);
-  const [status, setStatus] = useState("왼쪽 입력창에서 원하는 의상을 설명하고 AI 시안 만들기를 눌러주세요.");
+  const [status, setStatus] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => () => { request.current++; }, []);
   useEffect(() => {
-    if (ready) simulator.current?.play();
+    if (ready && active) simulator.current?.play();
     else simulator.current?.pause();
-  }, [ready]);
+  }, [ready, active]);
 
   async function generate(text: string) {
     if (running.current || !text.trim() || !simulator.current) return false;
@@ -70,8 +76,8 @@ export default function ClothSimulationPreview({ controllerRef, fallback, logo =
   useImperativeHandle(controllerRef, () => ({ generate, cancel }));
 
   return <>
-    <div className="wf-stage" data-preview-mode="design">
-      <div style={{ visibility: ready ? "hidden" : "visible" }} aria-hidden={ready}>{fallback}</div>
+    <div className="wf-stage studio-generated-stage" data-preview-mode="design">
+      {fallback && <div style={{ visibility: ready ? "hidden" : "visible" }} aria-hidden={ready}>{fallback}</div>}
       <div className="studio-cloth-layer" style={{ visibility: ready ? "visible" : "hidden" }} aria-hidden={!ready} inert={!ready}>
         {/* 삭제금지: ClothSim clothRepresentText 전달 — 생성은 외부 폼의 명시적 제출로 실행. */}
         <ClothSim ref={simulator} showInput={false} clothRepresentText={clothRepresentText}
@@ -79,13 +85,19 @@ export default function ClothSimulationPreview({ controllerRef, fallback, logo =
           autoplay options={{ strain: false, tear: false }}
           onProgress={progress => setStatus(stages[progress.stage] || "옷을 만들고 있어요.")}
           onReady={() => { setReady(true); setError(""); setStatus("의상 미리보기가 준비됐어요. 드래그해서 돌려보세요."); }}
-          onError={() => { setReady(false); setStatus("현재 디자인 미리보기를 표시하고 있어요."); setError("의상 미리보기를 만들지 못했어요. 생성 연결을 확인하고 다시 시도해주세요. 디자인 미리보기는 계속 사용할 수 있어요."); }}
+          onError={() => {
+            setReady(false);
+            setStatus(fallback ? "현재 디자인 미리보기를 표시하고 있어요." : "");
+            setError(fallback
+              ? "의상 미리보기를 만들지 못했어요. 생성 연결을 확인하고 다시 시도해주세요. 디자인 미리보기는 계속 사용할 수 있어요."
+              : "의상 미리보기를 만들지 못했어요. 생성 연결을 확인하고 다시 시도해주세요.");
+          }}
           style={{ width: "100%", height: "100%" }} />
       </div>
     </div>
-    <div className="studio-simulation-controls" aria-label="디자인 생성 상태">
-      <p className="wf-muted" role="status">{status}</p>
+    {(status || error) && <div className="studio-simulation-controls" aria-label="디자인 생성 상태">
+      {status && <p className="wf-muted" role="status">{status}</p>}
       {error && <p className="wf-alert" role="alert">{error}</p>}
-    </div>
+    </div>}
   </>;
 }
