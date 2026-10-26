@@ -105,13 +105,16 @@ export interface ClothData {
   /** 엔진이 고른 값 (경로 마지막 이름 -> 값), 예 { neck: 'hood', sleeve_length: 'long' } */
   tokens: Record<string, string | number | boolean> | null;
   logo: { panel: string; x: number; y: number; width: number; rotation: number } | null;
-  /** 1벌당 제작 단가(원). 결정 모델 연결 뒤 채움 */
-  price: number | null;
+  /** 1벌당 제작 단가(인쇄 포함) 가격대. 결정 모델이 7개 가격대 중 가장 확률 높은 것을 고름. 실패하면 null */
+  price: ClothPrice | null;
   text: string;
   updatedAt: string | null;
   /** 저장 공간이 모자라 이미지가 메모리에만 있을 때 true (새로 고치면 이미지 없음) */
   imagesInMemoryOnly?: boolean;
 }
+/** 가격대: label '1만원 미만' | '1~1.5만원' | '1.5~2만원' | '2~3만원' | '3~4만원' | '4~6만원' | '6만원 이상', max 는 마지막만 null */
+export interface ClothPrice { label: string; min: number; max: number | null; probability: number; }
+export const PRICE_BANDS: { label: string; min: number; max: number | null; text: string }[];
 export function getClothData(): ClothData;
 export function setClothData(next: Partial<ClothData>): ClothData;
 export function updateClothData(patch: Partial<ClothData>): ClothData;

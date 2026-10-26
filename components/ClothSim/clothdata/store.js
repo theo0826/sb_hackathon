@@ -10,7 +10,7 @@
 // category: { id: 'hoodie' | 'tee' | 'long-sleeve' | 'sweatshirt' | 'windbreaker' | 'shirt', label: '후드' ... } 또는 null
 // tokens: 엔진이 고른 값 { 'neck': 'hood', 'sleeve_length': 'long', ... } (경로 마지막 이름 -> 값)
 // logo: 로고 위치 { panel, x, y, width, rotation } (이미지는 넣지 않음) 또는 null
-// price: 1벌당 제작 단가 (결정 모델 연결 뒤 채움, 지금은 null)
+// price: 1벌당 제작 단가(인쇄 포함) 가격대 { label: '1~1.5만원', min: 10000, max: 15000, probability } (6만원 이상은 max null), 실패하면 null
 // 메모리와 sessionStorage 두 곳에 둔다 (페이지를 옮기거나 새로 고쳐도 같은 탭이면 남음)
 import { useSyncExternalStore } from 'react';
 

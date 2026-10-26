@@ -18,6 +18,7 @@ import { clothError, clothLog } from './garment/clothLog.js';
 import { clearClothData, setClothData, getClothData } from './clothdata/store.js';
 import { categoryFromTokens, tokensFromSpec } from './clothdata/category.js';
 import { imageDataToDataURL } from './clothdata/image.js';
+import { estimatePrice } from './clothdata/price.js';
 
 const STAGE = { translate: '번역', choose: '보기 고르기', number: '치수 정하기', build: '옷 만드는 중', done: '' };
 
@@ -109,7 +110,8 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
   const reqTextRef = useRef('');
   const logoRef = useRef(null);
   logoRef.current = logo;
-  const capturedRef = useRef(false);   // 지금 장면을 한 번이라도 찍었는지 (로고를 옮길 때 다시 찍을지 판단)
+  const capturedRef = useRef(false);
+  const priceRef = useRef(null);       // 가격대 질문 (옷 사양이 나오자마자 시작, 캡처 때 기다림)   // 지금 장면을 한 번이라도 찍었는지 (로고를 옮길 때 다시 찍을지 판단)
   const captureSeq = useRef(0);
   async function doCapture(reason) {
     const v = viewRef.current;
@@ -121,13 +123,19 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
       const [front, back] = await Promise.all([imageDataToDataURL(shot.front), imageDataToDataURL(shot.back)]);
       if (seq !== captureSeq.current) return null;
       const tokens = specRef.current ? tokensFromSpec(specRef.current) : null;
+      // 가격대: 이미 시작한 질문을 최대 30초 기다림 (실패하거나 늦으면 null)
+      let price = null;
+      if (priceRef.current) {
+        price = await Promise.race([priceRef.current, new Promise(r => setTimeout(() => r(null), 30000))]);
+        if (seq !== captureSeq.current) return null;
+      }
       const lg = logoRef.current;
       const rec = setClothData({
         completed: 1, front, back,
         category: tokens ? categoryFromTokens(tokens) : null,
         tokens,
         logo: lg && lg.panel ? { panel: lg.panel, x: lg.x ?? 0, y: lg.y ?? 0, width: lg.width ?? 10, rotation: lg.rotation ?? 0 } : null,
-        price: getClothData().price ?? null,
+        price,
         text: reqTextRef.current,
         updatedAt: new Date().toISOString(),
       });
@@ -166,7 +174,7 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
     const ctl = new AbortController();
     abortRef.current = ctl;
     setBusy(true); setError(null); setStatus('준비');
-    captureSeq.current++; capturedRef.current = false; specRef.current = null; reqTextRef.current = req;
+    captureSeq.current++; capturedRef.current = false; specRef.current = null; reqTextRef.current = req; priceRef.current = null;
     clearClothData({ text: req });
     const c = cb.current;
     clothLog('generate 시작', req);
@@ -195,6 +203,14 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
       });
       if (ctl.signal.aborted) return null;
       specRef.current = spec;
+      {
+        // 가격대 질문은 옷이 내려앉는 동안 미리 보냄 (배포 사이트: Worker, 내 컴퓨터: Ollama)
+        const tk = tokensFromSpec(spec);
+        const priceLLM = makeLLM({ ...(c.llm || {}), onLog: line => { if (c.onLog) c.onLog(line); } });
+        priceRef.current = estimatePrice(priceLLM, tk, categoryFromTokens(tk), req, ctl.signal)
+          .then(r => { clothLog('가격대', r); return r; })
+          .catch(e => { if (!ctl.signal.aborted) clothError('가격대 질문 실패', e); return null; });
+      }
       setScene(sc); setStatus('');
       setGarmentSize(sizeFromSpec(spec));
       if (c.onSpec) c.onSpec(spec);

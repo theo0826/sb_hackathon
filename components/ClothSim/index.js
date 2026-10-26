@@ -11,5 +11,6 @@ export { loadLogoBitmap, defaultLogoPlacement, panelOutlines, layoutPanels } fro
 export { createClothSim, DEFAULT_OPTIONS } from './drape/create.js';
 export { getClothData, setClothData, updateClothData, clearClothData, subscribeClothData, useClothData, clothData } from './clothdata/store.js';
 export { categoryFromTokens, tokensFromSpec, CATEGORY_LABELS } from './clothdata/category.js';
+export { PRICE_BANDS } from './clothdata/price.js';
 export { textToScene, makeLLM, LLM_DEFAULTS, loadEngine, parseIntent, logFinalSpecTokens, specTokenRows } from './garment/index.js';
 export { BODY_POSES, loadBody, unpackBodyVertices } from './anny/index.js';
