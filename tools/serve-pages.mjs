@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../out");
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "/sb_hackathon";
+const port = Number(process.env.PORT || 4173);
 const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".txt": "text/plain", ".webp": "image/webp", ".png": "image/png", ".svg": "image/svg+xml", ".glb": "model/gltf-binary" };
 const server = createServer(async (request, response) => {
   try {
@@ -22,4 +23,4 @@ const server = createServer(async (request, response) => {
     createReadStream(file).pipe(response);
   } catch { response.writeHead(404); response.end("Not found"); }
 });
-server.listen(4173, "127.0.0.1", () => console.log(`Pages preview: http://127.0.0.1:4173${basePath}/`));
+server.listen(port, "127.0.0.1", () => console.log(`Pages preview: http://127.0.0.1:${port}${basePath}/`));

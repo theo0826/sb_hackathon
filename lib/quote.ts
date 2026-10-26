@@ -2,6 +2,7 @@ import { COLORS, garmentName, isDesign, placementLabel, type Design } from "./de
 import { getSupplier, type Supplier } from "./suppliers";
 import type { ProductionPacket } from "./production-mapping";
 import { isPricingGarment, pricingGarment, type PricingGarment } from "./garment-pricing";
+import { isClothCapture } from "./cloth-capture";
 
 export const SIZES = ["S", "M", "L", "XL"] as const;
 export type OrderDraft = {
@@ -25,7 +26,7 @@ export function isQuoteDocument(value: unknown): value is QuoteDocument {
     && [document.productionNotes, document.checks].every(items => Array.isArray(items) && items.every(item => typeof item === "string"))
     && Array.isArray(document.verifiedRows) && document.verifiedRows.every(row => Array.isArray(row) && row.every(item => typeof item === "string"));
 }
-export type QuoteRecord = { id: string; sourceOrderId?: string; mode: "mock" | "live"; status: "prepared"; createdAt: string; supplierId: string; design: Design; filename: string; order: OrderDraft; quantity: number; format: "pdf" | "email"; document?: QuoteDocument; trashedAt?: string | null };
+export type QuoteRecord = { id: string; sourceOrderId?: string; mode: "mock" | "live"; status: "prepared"; createdAt: string; supplierId: string; design: Design; filename: string; order: OrderDraft; quantity: number; format: "pdf" | "email"; document?: QuoteDocument; trashedAt?: string | null; clothCapture?: import("./cloth-capture").ClothCapture };
 
 export function todayKST(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
@@ -69,7 +70,8 @@ export function isQuoteRecord(value: unknown): value is QuoteRecord {
     && ["mock", "live"].includes(record.mode) && record.status === "prepared" && record.format === supplier.format
     && typeof record.createdAt === "string" && Number.isFinite(Date.parse(record.createdAt))
     && typeof record.filename === "string" && isDesign(record.design) && isOrderDraft(record.order)
-    && record.quantity === totalQuantity(record.order);
+    && record.quantity === totalQuantity(record.order)
+    && (record.clothCapture === undefined || isClothCapture(record.clothCapture));
 }
 
 export function orderRows(supplier: Supplier, design: Design, order: OrderDraft) {

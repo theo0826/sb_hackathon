@@ -36,6 +36,7 @@ export function setClothData(next) {
     sessionStorage.setItem(KEY, JSON.stringify(mem));
   } catch (_) {
     // 저장 공간이 모자라면 이미지는 메모리에만 두고 나머지만 저장
+    mem = { ...mem, imagesInMemoryOnly: true };
     try { sessionStorage.setItem(KEY, JSON.stringify({ ...mem, front: null, back: null, imagesInMemoryOnly: true })); } catch (__) { /* 무시 */ }
   }
   listeners.forEach(f => { try { f(mem); } catch (_) { /* 무시 */ } });

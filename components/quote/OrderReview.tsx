@@ -10,11 +10,16 @@ import { useOrderDetails } from "@/lib/order-workflow-client";
 import { parseRosterCSV, reviewIssues, rosterIssues, rosterSizes, type Participant } from "@/lib/order-workflow";
 import { SIZES, todayKST, totalQuantity, type OrderDraft } from "@/lib/quote";
 import DesignSummary from "./DesignSummary";
+import { getClothData, useClothData } from "@/components/ClothSim/clothdata/store";
+import { readyClothCapture } from "@/lib/cloth-capture";
+import ClothCapturePreview from "@/components/design/ClothCapturePreview";
 
 export default function OrderReview() {
   const router = useRouter();
   const { design, order, setOrder, hasResult } = useDesignSession();
   const { details, update } = useOrderDetails();
+  const clothData = useClothData();
+  const captureReady = readyClothCapture(clothData);
   const [submitted, setSubmitted] = useState(false);
   const errors = submitted ? reviewIssues(order, details) : [];
   const [fileError, setFileError] = useState("");
@@ -35,13 +40,15 @@ export default function OrderReview() {
   }
   function next(event: FormEvent) {
     event.preventDefault(); const issues = reviewIssues(order, details); setSubmitted(true);
+    if (!readyClothCapture(getClothData())) return;
     if (issues.length) { requestAnimationFrame(() => errorBox.current?.focus()); return; }
     router.push("/suppliers");
   }
   return <main id="main-content" className="wf-page"><FlowSteps current={2} />
-    {!hasResult && !design.image ? <section className="wf-empty"><h1>먼저 디자인을 만들어주세요.</h1><p>완성한 시안으로 주문서와 도안을 준비해요.</p><Link href="/design" className="primary">디자인하러 가기 <ArrowRight size={16} /></Link></section> : <form onSubmit={next} noValidate className="wf-content">
+    {!captureReady || (!hasResult && !design.image) ? <section className="wf-empty"><h1>도안 준비를 먼저 마쳐주세요.</h1><p>디자인 화면에서 앞·뒷면 이미지가 준비되면 주문서를 작성할 수 있어요.</p><Link href="/design" className="primary">디자인하러 가기 <ArrowRight size={16} /></Link></section> : <form onSubmit={next} noValidate className="wf-content">
       <div className="wf-title"><h1>디자인은 끝났어요. 3가지만 채워주세요</h1><p>명단 · 납기와 수령 · 대표자와 결제</p></div>
       <StorageNotice compact />
+      <details className="wf-card order-capture-review"><summary>주문할 의류 앞·뒷면 확인</summary><ClothCapturePreview capture={clothData}/></details>
       <div className="wf-two-column"><div className="wf-main-column">
         <section className="wf-card wf-design-ready"><span className="wf-check"><Check size={18} /></span><div><strong>디자인 · AI 작업 완료</strong><p>선택한 시안과 인쇄 위치를 주문서에 담았어요.</p></div><Link href="/design" className="text-link">디자인 수정</Link></section>
         {details.useRoster && invalidRows > 0 && <div className="wf-alert" role="status"><AlertCircle size={18} /><div><strong>명단에서 {invalidRows}개 행을 확인해주세요.</strong><p>이름·사이즈{details.requireInitials ? "·이니셜" : ""}를 채우면 다음 단계로 넘어갈 수 있어요.</p></div></div>}

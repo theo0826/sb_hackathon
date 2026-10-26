@@ -4,6 +4,7 @@ import { useMemo, useSyncExternalStore, type SetStateAction } from "react";
 import { DEFAULT_DESIGN, isDesign, simpleDesign, type Design } from "./design";
 import { DEFAULT_ORDER, isOrderDraft, type OrderDraft } from "./quote";
 import { getSupplier } from "./suppliers";
+import { clearClothData } from "../components/ClothSim/clothdata/store";
 
 export type ChatMessage = { id: string; role: "user" | "assistant"; text: string };
 type DesignSession = { design: Design; prompt: string; filename: string; supplierId: string | null; order: OrderDraft; messages: ChatMessage[]; hasResult: boolean };
@@ -56,7 +57,7 @@ export function useDesignSession() {
     setMessages: (next: SetStateAction<ChatMessage[]>) => updateSession((current) => ({ ...current, messages: (typeof next === "function" ? next(current.messages) : next).slice(-50) })),
     setHasResult: (next: boolean) => updateSession((current) => ({ ...current, hasResult: next })),
     resetSession: () => updateSession(() => ({ ...initialSession, design: { ...DEFAULT_DESIGN }, order: { ...DEFAULT_ORDER, sizes: { ...DEFAULT_ORDER.sizes } } })),
-    loadDesign: (saved: { design: Design; prompt: string; filename: string }) => updateSession((current) => ({ ...current, supplierId: null, order: { ...DEFAULT_ORDER, sizes: { ...DEFAULT_ORDER.sizes } }, design: saved.design, prompt: "", filename: saved.filename, hasResult: true, messages: [{ id: crypto.randomUUID(), role: "assistant", text: `‘${saved.design.text || saved.filename || "저장한 디자인"}’을 불러왔어요. 바꾸고 싶은 부분을 말해주세요.${saved.prompt ? ` 이전 요청: ${saved.prompt}` : ""}` }] })),
+    loadDesign: (saved: { design: Design; prompt: string; filename: string }) => { clearClothData(); updateSession((current) => ({ ...current, supplierId: null, order: { ...DEFAULT_ORDER, sizes: { ...DEFAULT_ORDER.sizes } }, design: saved.design, prompt: "", filename: saved.filename, hasResult: true, messages: [{ id: crypto.randomUUID(), role: "assistant", text: `‘${saved.design.text || saved.filename || "저장한 디자인"}’을 불러왔어요. 바꾸고 싶은 부분을 말해주세요.${saved.prompt ? ` 이전 요청: ${saved.prompt}` : ""}` }] })); },
     setOrder: (next: SetStateAction<OrderDraft>) => updateSession((current) => ({ ...current, order: typeof next === "function" ? next(current.order) : next })),
     selectSupplier: (id: string) => {
       const supplier = getSupplier(id);

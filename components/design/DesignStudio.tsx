@@ -6,7 +6,7 @@ import Link from "next/link";
 import StorageNotice from "@/components/layout/StorageNotice";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { ArrowRight, Check, ImagePlus, LoaderCircle, Plus, Save, Sparkles, X } from "lucide-react";
-import { isDesign, mockDesign, type Design } from "@/lib/design";
+import { isDesign, type Design } from "@/lib/design";
 import { useDesignSession } from "@/lib/design-session";
 import { saveLibraryItem } from "@/lib/library";
 import { generateAIDesign } from "@/lib/ai-client";
@@ -16,11 +16,10 @@ import { SUPPLIERS } from "@/lib/suppliers";
 import { GARMENT_PRICING, pricingGarment } from "@/lib/garment-pricing";
 import { resetOrderDetails, useOrderDetails } from "@/lib/order-workflow-client";
 import FlowSteps from "@/components/layout/FlowSteps";
-import type { CanvasHandle } from "./DesignCanvas";
+import { clearClothData, updateClothData, useClothData } from "@/components/ClothSim/clothdata/store";
+import { readyClothCapture } from "@/lib/cloth-capture";
 import type { ClothSimulationControls } from "./ClothSimulationPreview";
-import Artwork from "./Artwork";
 
-const Canvas = dynamic(() => import("./GarmentPreview3D"), { ssr: false, loading: () => <div className="canvas-loading"><LoaderCircle className="animate-spin" size={24} /><span>미리보기를 준비하고 있어요</span></div> });
 const ClothSimulation = dynamic(() => import("./ClothSimulationPreview"), { ssr: false });
 
 export default function DesignStudio() {
@@ -34,7 +33,8 @@ export default function DesignStudio() {
   const [error, setError] = useState("");
   const [previewVersion, setPreviewVersion] = useState(0);
   const [previewMode, setPreviewMode] = useState<"design" | "artwork">("design");
-  const [clothView, setClothView] = useState<"3d" | "pattern">("3d");
+  const clothData = useClothData();
+  const captureReady = readyClothCapture(clothData);
   const requestActive = useRef(false);
   const generationId = useRef(0);
   const generationAbort = useRef<AbortController | null>(null);
@@ -43,8 +43,10 @@ export default function DesignStudio() {
   const fileInput = useRef<HTMLInputElement>(null);
   const promptInput = useRef<HTMLTextAreaElement>(null);
   const conversation = useRef<HTMLDivElement>(null);
-  const canvas = useRef<CanvasHandle>(null);
-  const patch = (value: Partial<Design>) => { setDesign((current) => ({ ...current, ...value })); setMessage(""); updateDetails({ confirmed: false }); };
+  const patch = (value: Partial<Design>) => {
+    if ("image" in value || "logoPlacement" in value) updateClothData({ completed: 0 });
+    setDesign((current) => ({ ...current, ...value })); setMessage(""); updateDetails({ confirmed: false });
+  };
   const lastPrompt = [...messages].reverse().find((item) => item.role === "user")?.text || prompt;
 
   useEffect(() => { if (conversation.current) conversation.current.scrollTop = conversation.current.scrollHeight; }, [messages, generating]);
@@ -77,6 +79,7 @@ export default function DesignStudio() {
       ]);
       if (id !== generationId.current) return;
       const garmentReady = garment.status === "fulfilled" && garment.value;
+      if (garmentReady) { setHasResult(true); updateDetails({ confirmed: false }); }
       let reply = garmentReady ? "설명한 의상을 디자인 미리보기에 반영했어요." : "";
       if (artwork.status === "fulfilled" && artwork.value) {
         if (!isDesign(artwork.value.design)) throw new Error("생성 결과를 확인할 수 없어요. 다시 요청해주세요.");
@@ -132,7 +135,7 @@ export default function DesignStudio() {
     if (saveActive.current || generating || uploading) return;
     saveActive.current = true; setSaving(true); setError(""); setMessage("");
     try {
-      const preview = canvas.current?.previewPNG();
+      const preview = captureReady ? clothData.front : undefined;
       await saveLibraryItem({
         kind: "design",
         design,
@@ -147,19 +150,18 @@ export default function DesignStudio() {
   }
   function newDesign() {
     if (!generating && !uploading && !saving) {
-      resetSession(); resetOrderDetails(); setPreviewVersion(current => current + 1); setPreviewMode("design"); setClothView("3d"); setMessage(""); setError("");
+      clearClothData(); resetSession(); resetOrderDetails(); setPreviewVersion(current => current + 1); setPreviewMode("design"); setMessage(""); setError("");
     }
   }
 
   const busy = generating || uploading || saving;
   function sample() {
-    setDesign(current => ({ ...current, ...mockDesign(prompt || '문구는 "OUR CLUB"', current) }));
-    setHasResult(true); setShowResult(true); updateDetails({ confirmed: false }); setError("");
-    setMessage("예시 디자인을 적용했어요. 주문서와 도안을 확인할 수 있어요.");
+    setPrompt("초록색 면 소재의 라운드넥 반팔 티셔츠, 기본 핏으로 만들어줘");
+    setError(""); setMessage("예시 설명을 넣었어요. AI 시안 만들기를 눌러주세요.");
+    promptInput.current?.focus();
   }
   const price = estimate(SUPPLIERS[0], order);
   const selectedGarment = pricingGarment(order.pricingGarment);
-  const designPreview = <Canvas design={design} exportRef={canvas} showArtwork={hasResult || !!design.image}/>;
   const clothLogo = useMemo(() => design.image ? { src: design.image, ...(design.logoPlacement ?? {}) } : null, [design.image, design.logoPlacement]);
 
   return <main id="main-content" className="wf-page wf-studio"><FlowSteps current={1} />
@@ -181,7 +183,7 @@ export default function DesignStudio() {
           <div className="wf-prompt-hints">{["클래식","미니멀","스트리트"].map(word => <button type="button" key={word} disabled={busy} onClick={() => setPrompt(current => (current + " " + word + " 느낌으로").trim().slice(0,300))}>{word}</button>)}</div>
           <button className="wf-dark-button wide" type="submit" disabled={busy}>{generating ? <LoaderCircle className="animate-spin" size={16}/> : <Sparkles size={16}/>} {generating ? "시안을 만들고 있어요…" : "AI 시안 만들기"}</button>
           {generating && <button type="button" className="outline wide" onClick={cancelGeneration}>생성 취소</button>}
-          <button type="button" className="outline wide" onClick={sample} disabled={busy}>예시 시안으로 시작</button>
+          <button type="button" className="outline wide" onClick={sample} disabled={busy}>예시 설명 넣기</button>
         </form>
         {messages.length > 0 && <details className="wf-chat-history"><summary>AI 대화 내역</summary><div ref={conversation} role="log" aria-label="AI 디자인 대화">{messages.map(item => <p key={item.id}><strong>{item.role === "user" ? "나" : "AI"}</strong>{item.text}</p>)}</div></details>}
       </section>
@@ -193,31 +195,23 @@ export default function DesignStudio() {
             const next = event.key === "Home" ? "design" : event.key === "End" ? "artwork" : previewMode === "design" ? "artwork" : "design";
             setPreviewMode(next); document.getElementById(`studio-${next}-tab`)?.focus();
           }}>
-            <button id="studio-design-tab" type="button" role="tab" aria-selected={previewMode === "design"} aria-controls="studio-design-panel" tabIndex={previewMode === "design" ? 0 : -1} disabled={busy} onClick={() => setPreviewMode("design")}>디자인</button>
-            <button id="studio-artwork-tab" type="button" role="tab" aria-selected={previewMode === "artwork"} aria-controls="studio-artwork-panel" tabIndex={previewMode === "artwork" ? 0 : -1} disabled={busy} onClick={() => setPreviewMode("artwork")}>도안</button>
+            <button id="studio-design-tab" type="button" role="tab" aria-selected={previewMode === "design"} aria-controls="studio-preview-panel" tabIndex={previewMode === "design" ? 0 : -1} disabled={busy} onClick={() => setPreviewMode("design")}>디자인</button>
+            <button id="studio-artwork-tab" type="button" role="tab" aria-selected={previewMode === "artwork"} aria-controls="studio-preview-panel" tabIndex={previewMode === "artwork" ? 0 : -1} disabled={busy} onClick={() => setPreviewMode("artwork")}>도안</button>
           </div>
           <button className="text-link" onClick={save} disabled={busy || !(hasResult || design.image)}><Save size={15}/>{saving ? "저장 중…" : "저장"}</button>
         </div>
-        <div id="studio-design-panel" className="studio-preview-panel" role="tabpanel" aria-labelledby="studio-design-tab" tabIndex={0} hidden={previewMode !== "design"}>
-          <div className="wf-preview-toolbar studio-design-subtoolbar">
-            <div className="wf-segments" role="group" aria-label="미리보기 방식">
-              <button type="button" aria-pressed={clothView === "3d"} onClick={() => setClothView("3d")} disabled={busy}>3D</button>
-              <button type="button" aria-pressed={clothView === "pattern"} onClick={() => setClothView("pattern")} disabled={busy}>재단 도안</button>
-            </div>
-          </div>
-          <h2 className="studio-preview-heading">디자인 미리보기</h2>
-          <ClothSimulation key={previewVersion} controllerRef={simulation} active={previewMode === "design"}
-            fallback={designPreview} logo={clothLogo} view={clothView}
+        <div id="studio-preview-panel" className="studio-preview-panel" role="tabpanel" aria-labelledby={`studio-${previewMode}-tab`} tabIndex={0}>
+          <h2 className="studio-preview-heading">{previewMode === "design" ? "3D 디자인 미리보기" : "로고 위치 편집"}</h2>
+          <ClothSimulation key={previewVersion} controllerRef={simulation}
+            logo={clothLogo} view={previewMode === "design" ? "3d" : "pattern"}
             onLogoChange={logo => patch({ logoPlacement: logo ? { panel: logo.panel ?? "front", x: logo.x ?? 0, y: logo.y ?? 0, width: logo.width ?? 10, rotation: logo.rotation ?? 0 } : undefined })}/>
-        </div>
-        <div id="studio-artwork-panel" className="studio-preview-panel" role="tabpanel" aria-labelledby="studio-artwork-tab" tabIndex={0} hidden={previewMode !== "artwork"}>
-          <h2 className="studio-preview-heading">도안 미리보기</h2>
-          <div id="studio-artwork-editor" className="wf-stage studio-artwork-stage" aria-label="도안 화면" style={{ backgroundColor: hasResult || design.image ? design.color : undefined }}>
-            {design.image ? <Image src={design.image} width={800} height={800} alt={filename || "첨부한 도안"} unoptimized className="studio-artwork-image"/> : hasResult ? <Artwork design={design}/> : null}
-          </div>
+          {previewMode === "artwork" && design.image && design.logoPlacement && <div className="studio-logo-controls" aria-label="로고 크기와 회전">
+            <label>로고 너비 <output>{design.logoPlacement.width.toFixed(1)}cm</output><input aria-label="로고 너비" type="range" min="1" max="60" step="0.5" value={design.logoPlacement.width} disabled={busy} onChange={event => patch({ logoPlacement: { ...design.logoPlacement!, width: Number(event.target.value) } })}/></label>
+            <label>로고 회전 <output>{Math.round(design.logoPlacement.rotation)}°</output><input aria-label="로고 회전" type="range" min="-180" max="180" step="1" value={design.logoPlacement.rotation > 180 ? design.logoPlacement.rotation - 360 : design.logoPlacement.rotation} disabled={busy} onChange={event => patch({ logoPlacement: { ...design.logoPlacement!, rotation: Number(event.target.value) } })}/></label>
+          </div>}
         </div>
       </section>
-      <aside className="wf-studio-summary"><h2>이 디자인, 얼마에 만들 수 있을까?</h2><section className="wf-price"><div><span>예상 단가 · 1벌</span><span>수량 <b>{totalQuantity(order)}벌</b></span></div><strong aria-live="polite" aria-atomic="true">{won(price.unit)} ~ {won(price.unit + 5000)}</strong><p>의류·수량·제작 방식에 따른 시연용 예상 금액</p><dl><div><dt>선택 의류</dt><dd>{selectedGarment.label}</dd></div><div><dt>비교할 수 있는 예시 업체</dt><dd>{SUPPLIERS.length}곳</dd></div><div><dt>예상 제작 기간</dt><dd>7–14일</dd></div></dl></section><div className="wf-trust-note"><Check size={16}/><span>주문서와 도안을 한 번에 확인해요</span></div><div className="wf-studio-next">{hasResult || design.image ? <Link id="design-next" className="primary wide" href="/quotes/new" aria-disabled={busy} onClick={e => { if (busy) e.preventDefault(); }}>주문서와 도안 확인하기 <ArrowRight size={16}/></Link> : <button className="primary wide" disabled>시안을 먼저 선택해주세요</button>}<p className="wf-muted">명단 · 납기 · 수령 정보를 다음 화면에서 입력해요.</p><Link href="/my" className="text-link">저장한 디자인 보기</Link></div></aside>
+      <aside className="wf-studio-summary"><h2>이 디자인, 얼마에 만들 수 있을까?</h2><section className="wf-price"><div><span>예상 단가 · 1벌</span><span>수량 <b>{totalQuantity(order)}벌</b></span></div><strong aria-live="polite" aria-atomic="true">{won(price.unit)} ~ {won(price.unit + 5000)}</strong><p>의류·수량·제작 방식에 따른 시연용 예상 금액</p><dl><div><dt>선택 의류</dt><dd>{selectedGarment.label}</dd></div><div><dt>비교할 수 있는 예시 업체</dt><dd>{SUPPLIERS.length}곳</dd></div><div><dt>예상 제작 기간</dt><dd>7–14일</dd></div></dl></section><div className="wf-trust-note"><Check size={16}/><span>주문서와 도안을 한 번에 확인해요</span></div><div className="wf-studio-next">{captureReady && !busy ? <Link id="design-next" className="primary wide" href="/quotes/new">주문서와 도안 확인하기 <ArrowRight size={16}/></Link> : <button id="design-next" className="primary wide" disabled>{generating ? "의상을 만들고 있어요…" : clothData.text ? "앞·뒷면 준비 후 진행할 수 있어요" : "의상을 먼저 생성해주세요"}</button>}<p className="wf-muted">앞·뒷면 이미지가 준비되면 명단 · 납기 · 수령 정보를 입력해요.</p><Link href="/my" className="text-link">저장한 디자인 보기</Link></div></aside>
     </div>
     <div className="wf-feedback" aria-live="polite">{error && <p className="wf-alert" role="alert">{error}</p>}{message && <p className="wf-success"><Check size={16}/>{message}</p>}</div>
     <StorageNotice compact />

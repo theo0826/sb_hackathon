@@ -15,7 +15,7 @@ import ClothPatternEditor from './pattern/PatternEditor.js';
 import { defaultLogoPlacement } from './pattern/logo.js';
 import { makeLLM, textToScene } from './garment/index.js';
 import { clothError, clothLog } from './garment/clothLog.js';
-import { clearClothData, setClothData, getClothData } from './clothdata/store.js';
+import { clearClothData, setClothData, getClothData, updateClothData } from './clothdata/store.js';
 import { categoryFromTokens, tokensFromSpec } from './clothdata/category.js';
 import { imageDataToDataURL } from './clothdata/image.js';
 import { estimatePrice } from './clothdata/price.js';
@@ -65,9 +65,14 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
   };
   const applyLogo = (v, notify) => {
     const sc = sceneRef.current;
+    // 새로고침 후 장면 없이 저장한 이미지만 표시할 때는 완료된 캡처를 보존한다.
+    if (sc) {
+      captureSeq.current++;
+      if (getClothData().completed) updateClothData({ completed: 0 });
+    }
     const nl = normLogo(v, sc && sc.meta ? sc : null);
     setLogoState(nl);
-    if (notify && logoChangeRef.current) logoChangeRef.current(nl);
+    if (notify && sc && logoChangeRef.current) logoChangeRef.current(nl);
     return nl;
   };
   const sceneRef = useRef(null);
@@ -86,11 +91,13 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
     if (k === lastPropKey.current) return;
     lastPropKey.current = k;
     if (k === logoKey(logo)) return;
-    applyLogo(logoProp, false);
+    applyLogo(logoProp, true);
   }, [logoProp]);
   // 도면에서 끄는 동안은 화면만 바꾸고, 멈추면(0.25초) 밖에 알림 (부모가 매번 다시 그리지 않게)
   const notifyTimer = useRef(null);
   const editorChange = nl => {
+    captureSeq.current++;
+    if (getClothData().completed) updateClothData({ completed: 0 });
     setLogoState(nl);
     if (notifyTimer.current) clearTimeout(notifyTimer.current);
     notifyTimer.current = setTimeout(() => {
@@ -107,26 +114,28 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
 
   // 옷이 다 내려앉으면 앞면, 뒷면을 찍어 clothData 에 넣음 (completed 0 -> 1)
   const specRef = useRef(null);
-  const reqTextRef = useRef('');
+  const reqTextRef = useRef(sceneProp ? getClothData().text : '');
   const logoRef = useRef(null);
   logoRef.current = logo;
-  const capturedRef = useRef(false);
-  const priceRef = useRef(null);       // 가격대 질문 (옷 사양이 나오자마자 시작, 캡처 때 기다림)   // 지금 장면을 한 번이라도 찍었는지 (로고를 옮길 때 다시 찍을지 판단)
+  const priceRef = useRef(null);       // 가격대 질문 (옷 사양이 나오자마자 시작, 캡처 때 기다림)
   const captureSeq = useRef(0);
   async function doCapture(reason) {
     const v = viewRef.current;
-    if (!v || !v.captureImages) return null;
+    if (!v || !v.captureImages || !v.sim?.settled || abortRef.current) return null;
     const seq = ++captureSeq.current;
     try {
       const shot = await v.captureImages({ views: ['front', 'back'], size: 1024 });
       if (seq !== captureSeq.current) return null;   // 그 사이 더 새 캡처가 시작됨
       const [front, back] = await Promise.all([imageDataToDataURL(shot.front), imageDataToDataURL(shot.back)]);
       if (seq !== captureSeq.current) return null;
-      const tokens = specRef.current ? tokensFromSpec(specRef.current) : null;
+      const previous = getClothData();
+      const tokens = specRef.current ? tokensFromSpec(specRef.current) : previous.tokens;
       // 가격대: 이미 시작한 질문을 최대 30초 기다림 (실패하거나 늦으면 null)
-      let price = null;
+      let price = previous.price;
       if (priceRef.current) {
-        price = await Promise.race([priceRef.current, new Promise(r => setTimeout(() => r(null), 30000))]);
+        let priceTimer;
+        try { price = await Promise.race([priceRef.current, new Promise(r => { priceTimer = setTimeout(() => r(null), 30000); })]); }
+        finally { clearTimeout(priceTimer); }
         if (seq !== captureSeq.current) return null;
       }
       const lg = logoRef.current;
@@ -139,7 +148,6 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
         text: reqTextRef.current,
         updatedAt: new Date().toISOString(),
       });
-      capturedRef.current = true;
       clothLog('캡처 저장', { reason, category: rec.category && rec.category.id, kb: Math.round((front.length + back.length) / 1024) });
       return rec;
     } catch (e) {
@@ -149,15 +157,15 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
   }
   const onSettledRef = useRef(null);
   onSettledRef.current = () => { doCapture('settled'); };
-  // 로고를 옮긴 뒤 0.8초 멈추면 다시 찍음 (이미 한 번 찍은 장면에서만)
+  // 로고를 옮긴 뒤 0.8초 멈추면 내려앉은 장면을 다시 찍음.
   useEffect(() => {
-    if (!capturedRef.current) return undefined;
-    const t = setTimeout(() => { if (capturedRef.current) doCapture('logo'); }, 800);
+    if (!viewRef.current?.sim?.settled) return undefined;
+    const t = setTimeout(() => doCapture('logo'), 800);
     return () => clearTimeout(t);
   }, [logo && logo.panel, logo && logo.x, logo && logo.y, logo && logo.width, logo && logo.rotation, logo && logo.src]);
 
   useEffect(() => { if (sceneProp) setScene(sceneProp); }, [sceneProp]);
-  useEffect(() => () => abortRef.current && abortRef.current.abort(), []);
+  useEffect(() => () => { captureSeq.current++; abortRef.current?.abort(); }, []);
   // 밖의 전달 버튼: submit 이 바뀌면 그때의 clothRepresentText 로 만들기
   const lastSubmit = useRef(submit);
   useEffect(() => {
@@ -173,8 +181,8 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
     if (abortRef.current) abortRef.current.abort();
     const ctl = new AbortController();
     abortRef.current = ctl;
-    setBusy(true); setError(null); setStatus('준비');
-    captureSeq.current++; capturedRef.current = false; specRef.current = null; reqTextRef.current = req; priceRef.current = null;
+    setBusy(true); setError(null); setStatus('준비'); setScene(null);
+    captureSeq.current++; specRef.current = null; reqTextRef.current = req; priceRef.current = null;
     clearClothData({ text: req });
     const c = cb.current;
     clothLog('generate 시작', req);
@@ -239,7 +247,7 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
     get sim() { return viewRef.current && viewRef.current.sim; },
     setLogo: v => applyLogo(v, true),
     getLogo: () => logo,
-    // 지금 3D 를 앞면, 뒷면으로 찍어 보관함에 넣고 그 값을 돌려줌 (다 내려앉기 전이면 그 순간 모양)
+    // 내려앉은 3D 장면을 앞면, 뒷면으로 찍어 보관함에 넣음. 준비 전에는 null.
     capture: () => doCapture('manual'),
     getClothData,
     openPatternEditor: (open = true) => setEditorOpen(!!open),

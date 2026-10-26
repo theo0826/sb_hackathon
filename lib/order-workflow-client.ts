@@ -3,6 +3,7 @@ import { useMemo, useSyncExternalStore } from "react";
 import { EMPTY_DETAILS, isDemoOrder, isOrderDetails, reviewedOrderIssues, sameOrderInput, type DemoOrder, type OrderDetails, type OrderInput } from "./order-workflow";
 import type { QuoteRecord } from "./quote";
 import { deliveryOrder } from "./order-delivery";
+import { isClothCapture, type ClothCapture } from "./cloth-capture";
 
 const detailsKey = "seongbuk-fit:order-details:v1", ordersKey = "seongbuk-fit:demo-orders:v1";
 const listeners = new Set<() => void>();
@@ -49,12 +50,14 @@ export function createDemoOrder(input: OrderInput, review: { quote: QuoteRecord;
   ordersMemory = next; emit(); return record;
 }
 
-export function recordDelivery(input: OrderInput, requestKey: string, confirmed: boolean) {
-  const record = deliveryOrder(input, requestKey, confirmed);
+export function recordDelivery(input: OrderInput, requestKey: string, confirmed: boolean, capture: ClothCapture) {
+  if (!isClothCapture(capture)) throw new Error("앞·뒷면 이미지가 준비된 뒤 전달해주세요.");
+  const record = deliveryOrder(input, requestKey, confirmed, new Date().toISOString(), capture);
   const orders = getDemoOrders();
   const existing = orders.find(order => order.id === record.id);
   if (existing) {
-    if (existing.deliveryStatus !== "recorded" || !sameOrderInput(existing, input)) throw new Error("주문 정보가 바뀌었어요. 전달 화면을 다시 열어 확인해주세요.");
+    if (existing.deliveryStatus !== "recorded" || !sameOrderInput(existing, input)
+      || JSON.stringify(existing.preparedQuote?.clothCapture) !== JSON.stringify(capture)) throw new Error("주문 정보가 바뀌었어요. 전달 화면을 다시 열어 확인해주세요.");
     return existing;
   }
   const next = JSON.stringify([record, ...orders]);

@@ -1,0 +1,33 @@
+name: Validate cloth demo branch
+
+on:
+  push:
+    branches: [codex/clothdata-demo-integration]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    if: github.ref == 'refs/heads/codex/clothdata-demo-integration'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:unit
+      - run: npm run build:pages
+        env:
+          NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
+          NEXT_PUBLIC_CLOTH_WORKER_URL: https://clothsim-api.set35230.workers.dev
+      - run: npm run test:pages
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cloth-demo-static-preview
+          path: out/
+          include-hidden-files: true
+          retention-days: 7

@@ -83,6 +83,25 @@
 .studio-simulation-controls { margin-top:16px; display:grid; gap:8px; }
 .studio-simulation-controls p { margin:0; }
 .studio-simulation-controls .wf-alert { overflow-wrap:anywhere; }
+.studio-empty-preview{min-height:inherit;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:16px;padding:28px;text-align:center}
+.studio-empty-preview strong{font-size:20px;line-height:1.5}
+.studio-empty-preview p{max-width:34ch;font-size:15px;line-height:1.7;color:var(--sub)}
+.studio-logo-controls{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:20px 0}
+.studio-logo-controls label{display:grid;grid-template-columns:1fr auto;gap:8px;font-size:14px}
+.studio-logo-controls output{color:var(--blue);font-variant-numeric:tabular-nums}
+.studio-logo-controls input{grid-column:1/-1;width:100%;min-height:44px;accent-color:var(--blue)}
+.cloth-capture-pair{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding:24px}
+.cloth-capture-pair figure{margin:0;min-width:0}
+.cloth-capture-pair img{width:100%;height:auto;aspect-ratio:1;object-fit:contain;display:block}
+.cloth-capture-pair figcaption{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:15px;line-height:1.5;padding-top:12px}
+.cloth-capture-pair a{min-height:44px;display:inline-flex;align-items:center}
+.delivery-artwork .supplier-generated-design{display:flex;align-items:center;min-height:clamp(420px,60svh,680px)}
+.delivery-artwork-empty{display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center;padding:40px;width:100%}
+.delivery-artwork-empty h3{font-size:20px}
+.delivery-artwork-empty p{font-size:16px;line-height:1.7;max-width:30ch;color:var(--sub)}
+.order-capture-review{margin-bottom:24px}
+.order-capture-review summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
+@media(max-width:640px){.studio-empty-preview{padding:20px}.studio-logo-controls{gap:16px}.cloth-capture-pair{padding:18px;gap:20px;grid-template-columns:1fr}.studio-empty-preview .cloth-capture-pair{grid-template-columns:1fr 1fr;padding:0;gap:10px}.delivery-artwork .supplier-generated-design{min-height:360px}.delivery-artwork-empty{padding:28px 20px}}
 .wf-offer-actions { display:grid; gap:8px; }
 .wf-offer-actions button { width:100%; min-height:44px; }
 @media(max-width:640px) { .wf-offer-actions { grid-column:1 / -1; width:100%; } }

@@ -2,11 +2,13 @@ import { isDesign } from "./design";
 import { isOrderDetails, reviewIssues, type DemoOrder, type OrderInput } from "./order-workflow";
 import { emailTemplate, isOrderDraft, orderRows, totalQuantity, validateDesignForSupplier, validateOrder, type QuoteRecord } from "./quote";
 import { getSupplier } from "./suppliers";
+import { isClothCapture, type ClothCapture } from "./cloth-capture";
 
 export const DELIVERY_DOCUMENT_VERSION = "browser-handoff-v1";
 
 /** Record the reviewed inputs, without inventing generated patterns or supplier approval. */
-export function deliveryOrder(input: OrderInput, requestKey: string, confirmed: boolean, createdAt = new Date().toISOString()): DemoOrder {
+export function deliveryOrder(input: OrderInput, requestKey: string, confirmed: boolean, createdAt = new Date().toISOString(), capture?: ClothCapture): DemoOrder {
+  if (capture !== undefined && !isClothCapture(capture)) throw new Error("앞·뒷면 이미지를 다시 확인해주세요.");
   if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(requestKey)
     || !isDesign(input.design) || !isOrderDraft(input.order) || !isOrderDetails(input.details)
     || typeof input.filename !== "string" || input.filename.length > 255 || !Number.isFinite(Date.parse(createdAt))) throw new Error("저장할 주문 정보를 확인해주세요.");
@@ -22,6 +24,7 @@ export function deliveryOrder(input: OrderInput, requestKey: string, confirmed: 
     id: `quote_${requestKey}`, mode: "mock", status: "prepared", createdAt,
     supplierId: supplier.id, design: input.design, order: input.order, filename: input.filename,
     quantity: totalQuantity(input.order), format: supplier.format,
+    ...(capture ? { clothCapture: capture } : {}),
     document: {
       title: supplier.documentTitle, templateVersion: DELIVERY_DOCUMENT_VERSION, generatedAt: createdAt,
       summary: "전달 확인 시점의 주문 정보와 디자인 원본을 보관한 기록이에요.",

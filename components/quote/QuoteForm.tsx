@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, CheckCheck, Download, FileText, MapPin, Send, ShieldCheck } from "lucide-react";
 import { useDesignSession } from "@/lib/design-session";
-import { useClothData } from "@/components/ClothSim/clothdata/store";
+import { getClothData, useClothData } from "@/components/ClothSim/clothdata/store";
+import { readyClothCapture, snapshotClothCapture } from "@/lib/cloth-capture";
+import ClothCapturePreview from "@/components/design/ClothCapturePreview";
 import { recordDelivery, useOrderDetails } from "@/lib/order-workflow-client";
 import { SIZES, totalQuantity } from "@/lib/quote";
 import { pricingGarment } from "@/lib/garment-pricing";
@@ -15,7 +17,10 @@ export default function QuoteForm() {
   const clothData = useClothData();
   const { details } = useOrderDetails();
   const supplier = getSupplier(supplierId);
-  const [reviewed, setReviewed] = useState(false);
+  const [reviewedVersion, setReviewedVersion] = useState("");
+  const captureReady = readyClothCapture(clothData);
+  const reviewVersion = JSON.stringify([clothData.updatedAt, design, order, details, supplierId]);
+  const reviewed = captureReady && reviewedVersion === reviewVersion;
   const [delivered, setDelivered] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -28,7 +33,9 @@ export default function QuoteForm() {
     setSaveError("");
     try {
       deliveryKey.current ??= crypto.randomUUID();
-      recordDelivery({ supplierId: supplier.id, design, order, details, filename }, deliveryKey.current, reviewed);
+      const current = getClothData();
+      if (!readyClothCapture(current) || current.updatedAt !== clothData.updatedAt) throw new Error("도안이 바뀌었어요. 앞·뒷면을 다시 확인해주세요.");
+      recordDelivery({ supplierId: supplier.id, design, order, details, filename }, deliveryKey.current, reviewed, snapshotClothCapture(current));
     } catch (cause) {
       setSaveError(cause instanceof Error ? cause.message : "주문과 도안을 저장하지 못했어요. 다시 시도해주세요.");
       return;
@@ -71,7 +78,7 @@ export default function QuoteForm() {
 
   const summary = <dl className="delivery-summary">
     <div><dt>단체 이름</dt><dd>{order.group || "아직 입력하지 않았어요"}</dd></div>
-    <div><dt>의류 · 제작 방식</dt><dd>{pricingGarment(order.pricingGarment).label} · {order.method}</dd></div>
+    <div><dt>의류 · 제작 방식</dt><dd>{clothData.category?.label || pricingGarment(order.pricingGarment).label} · {order.method}</dd></div>
     <div><dt>주문 수량</dt><dd><strong>{totalQuantity(order)}벌</strong><span>{SIZES.filter(size => order.sizes[size] > 0).map(size => `${size} ${order.sizes[size]}`).join(" · ") || "수량 미입력"}</span></dd></div>
     <div><dt>희망 수령일</dt><dd>{order.desiredDeliveryDate || "업체와 일정 확인 필요"}</dd></div>
     <div><dt>수령 방법</dt><dd>{details.delivery === "pickup" ? "방문 수령" : "택배 배송"}</dd></div>
@@ -84,6 +91,7 @@ export default function QuoteForm() {
         <span className="supplier-delivery-check" aria-hidden="true"><CheckCheck size={34} strokeWidth={2} /></span>
         <h1 id="delivery-complete-title" ref={completionHeading} tabIndex={-1}>도안 전달을 마쳤어요.</h1>
         <p>선택한 업체와 주문 내용을 다시 확인하고, 요청서를 보관해주세요.</p>
+        {captureReady && <ClothCapturePreview capture={clothData} downloads/>}
         <div className="delivery-receipt-sheet"><div className="delivery-sheet-heading"><FileText size={20} /><h2>{supplier.name} 제작 요청서</h2><span>전달 완료</span></div>{summary}</div>
         <div className="delivery-demo-note"><ShieldCheck size={20} /><p>주문과 도안 전달 내역을 마이페이지에 저장했어요. 현재 탭을 닫으면 사라지니 중요한 자료는 내려받아주세요. 실제 업체 발송·결제는 별도예요.</p></div>
         <div className="delivery-receipt-actions"><button type="button" className="primary" onClick={downloadOrder}><Download size={17} />주문 정보 내려받기</button><Link href="/my?tab=orders" className="outline">마이페이지에서 주문 보기 <ArrowRight size={16} /></Link></div>
@@ -96,19 +104,14 @@ export default function QuoteForm() {
               <div className="delivery-sheet-heading"><FileText size={20} /><h2 id="delivery-artwork-title">업체 맞춤 도안</h2><span>전달 전 검토</span></div>
               {/* Keep this target available for the backend team's generated artwork. */}
               <div id="supplier-generated-design" className="supplier-generated-design" aria-label="AI 생성 맞춤 도안" data-supplier-id={supplier.id}>
-                {clothData.completed === 1 && clothData.front && clothData.back && (
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <img src={clothData.front} alt="앞면" style={{ width: "calc(50% - 4px)", height: "auto" }} />
-                    <img src={clothData.back} alt="뒷면" style={{ width: "calc(50% - 4px)", height: "auto" }} />
-                  </div>
-                )}
+                {captureReady ? <ClothCapturePreview capture={clothData} downloads/> : <div className="delivery-artwork-empty" role="status"><h3>앞·뒷면 이미지가 필요해요</h3><p>디자인 화면에서 의상과 로고 배치를 마친 뒤 다시 확인해주세요.</p><Link href="/design" className="outline">디자인으로 돌아가기</Link></div>}
               </div>
-              <div className="delivery-artwork-caption"><span>도안 미리보기 영역</span><p>현재는 전달 흐름을 확인하는 시연이에요. 실제 생성 도안 연결을 준비 중이에요.</p></div>
+              <div className="delivery-artwork-caption"><span>{captureReady ? "생성한 의류의 앞·뒷면" : "도안 준비 전"}</span><p>{captureReady ? "로고 위치와 의상 형태를 확인해주세요. 이 이미지는 제작 검토용이며 실제 인쇄 원본과 재단 파일은 업체 확인이 필요해요." : "이미지가 준비되면 도안 확인과 전달 버튼을 사용할 수 있어요."}</p></div>
             </section>
           </div>
           <aside className="delivery-order-column" aria-label="전달할 주문 조건">
             <section className="delivery-order-sheet"><div className="delivery-supplier"><span className="delivery-supplier-icon"><Send size={20} /></span><div><p>선택한 제작 업체</p><h2>{supplier.name}</h2><span><MapPin size={13} />성북구 {supplier.region} · 예시 업체</span></div></div><h3>주문 요약</h3>{summary}<Link href="/quotes/new" className="text-link">주문 정보 수정 <ArrowRight size={14} /></Link></section>
-            <section className="delivery-confirm"><label><input type="checkbox" checked={reviewed} onChange={event => setReviewed(event.target.checked)} /><span>도안 영역과 주문 조건을 확인했어요.</span></label><button type="button" className="primary wide" disabled={!reviewed} onClick={confirmDelivery}><Send size={17} />도안 전달하기</button><p>확인한 주문과 도안은 마이페이지에 보관해요. 실제 업체 발송·결제는 별도예요.</p>{saveError && <p className="error" role="alert">{saveError}</p>}</section>
+            <section className="delivery-confirm"><label><input type="checkbox" checked={reviewed} disabled={!captureReady} onChange={event => setReviewedVersion(event.target.checked ? reviewVersion : "")} /><span>앞·뒷면 도안과 주문 조건을 확인했어요.</span></label><button type="button" className="primary wide" disabled={!reviewed} onClick={confirmDelivery}><Send size={17} />도안 전달하기</button><p>확인한 주문과 앞·뒷면 이미지를 마이페이지에 보관해요. 실제 업체 발송·결제는 별도예요.</p>{saveError && <p className="error" role="alert">{saveError}</p>}</section>
             <button type="button" className="delivery-backup text-link" onClick={downloadOrder}><Download size={16} />주문 정보 내려받기</button>
           </aside>
         </div>

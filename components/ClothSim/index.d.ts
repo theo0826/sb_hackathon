@@ -242,7 +242,7 @@ export interface ClothSimDesignerHandle extends ClothSimHandle {
   getLogo(): ClothLogo | null;
   /** 재단 도면 편집 화면 열기, 닫기 */
   openPatternEditor(open?: boolean): void;
-  /** 지금 3D 를 앞면, 뒷면으로 찍어 보관함에 넣고 돌려줌 */
+  /** 내려앉은 3D 장면의 앞·뒷면을 보관함에 저장. 아직 준비되지 않았으면 null */
   capture(): Promise<ClothData | null>;
   getClothData(): ClothData;
 }
