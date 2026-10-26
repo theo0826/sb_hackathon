@@ -41,6 +41,10 @@ export function createClothSim(canvas, options = {}) {
   return out;
 }
 
+/** 다 내려앉음 판정: 입히기가 끝난 뒤 settleCheckEvery 프레임마다 위치를 읽어 상위 1% 이동량이 settleTol(cm/프레임) 아래면 끝.
+ *  settleMinFrames 전에는 판정하지 않고, settleMaxFrames 가 지나면 움직여도 끝으로 봄 (계속 미세하게 흔들려 끝나지 않는 것 방지) */
+const SETTLE_DEFAULTS = { settleMinFrames: 60, settleMaxFrames: 600, settleTol: 0.004, settleCheckEvery: 30 };
+
 /** 1단계 기본값 */
 const DRESS_DEFAULTS = { clearance: 0.2, dressMaxFrames: 300, dressTol: 0.01, dressCheckEvery: 10, hiddenFramesPerTick: 8 };
 
@@ -223,6 +227,60 @@ async function createClothSimImpl(canvas, options = {}) {
     } finally { dressChecking = false; }
   }
 
+  // 2단계(중력) 뒤 다 내려앉았는지 확인. 한 번 끝나면 onSettled({ reason, frames }) 를 한 번 부름
+  let settled = false, settleStart = -1, settlePrevX = null, settlePrevFrame = 0, settleChecking = false;
+  async function settleCheck() {
+    if (settled || settleChecking || solver.dress || solver.poseDrape) return;
+    if (settleStart < 0) { settleStart = solver.frame; return; }
+    const since = solver.frame - settleStart;
+    const finish = reason => {
+      settled = true;
+      clothLog('다 내려앉음', { reason, frames: solver.frame });
+      if (options.onSettled) {
+        try { options.onSettled({ reason, frames: solver.frame }); } catch (e) { clothError('onSettled 오류', e); }
+      }
+    };
+    if (since >= SETTLE_DEFAULTS.settleMaxFrames) { finish('max_frames'); return; }
+    if (since < SETTLE_DEFAULTS.settleMinFrames) return;
+    if (settlePrevX && solver.frame - settlePrevFrame < SETTLE_DEFAULTS.settleCheckEvery) return;
+    settleChecking = true;
+    try {
+      const frame = solver.frame;
+      const X = await solver.readX();
+      if (!alive) return;
+      if (settlePrevX && frame > settlePrevFrame) {
+        const att = scene.A.attach, moves = [];
+        for (let i = 0; i < solver.n; i++) {
+          if (att[i] === 1) continue;
+          const dx = X[3 * i] - settlePrevX[3 * i], dy = X[3 * i + 1] - settlePrevX[3 * i + 1], dz = X[3 * i + 2] - settlePrevX[3 * i + 2];
+          moves.push(dx * dx + dy * dy + dz * dz);
+        }
+        moves.sort((a, b) => a - b);
+        const p99 = moves.length ? moves[Math.min(moves.length - 1, Math.floor(moves.length * 0.99))] : 0;
+        if (Math.sqrt(p99) / (frame - settlePrevFrame) < SETTLE_DEFAULTS.settleTol) finish('converged');
+      }
+      settlePrevX = X; settlePrevFrame = frame;
+    } catch (e) { clothError('내려앉음 확인 실패', e); } finally { settleChecking = false; }
+  }
+
+  // 캡처용 카메라 (화면 카메라와 따로, 마우스 이벤트 없음). 옷 전체가 정사각 화면에 들어오게 거리 계산
+  async function captureCameras(views) {
+    const X = await solver.readX();
+    const n = scene.meta.shell && scene.meta.shell.n_outer ? scene.meta.shell.n_outer : solver.n;
+    const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+    for (let i = 0; i < n; i++) for (let k = 0; k < 3; k++) { const v = X[3 * i + k]; if (v < lo[k]) lo[k] = v; if (v > hi[k]) hi[k] = v; }
+    const c = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];
+    const fit = Math.max(hi[1] - lo[1], hi[0] - lo[0]) * 1.12;
+    const fov = 32 * Math.PI / 180;
+    const dist = fit / 2 / Math.tan(fov / 2) + (hi[2] - lo[2]) / 2;
+    const YAW = { front: 0, back: Math.PI, left: -Math.PI / 2, right: Math.PI / 2 };
+    return views.map(v => {
+      const cam = Object.create(OrbitCamera.prototype);
+      cam.target = c; cam.dist = dist; cam.yaw = YAW[v] ?? 0; cam.pitch = 0.04; cam.fov = fov;
+      return cam;
+    });
+  }
+
   function finishIntroSettle() {
     if (!poseAnim || poseAnim.mode !== 'intro') return;
     poseAnim.settleFramesLeft = 0;
@@ -280,6 +338,7 @@ async function createClothSimImpl(canvas, options = {}) {
       msPerFrame = 0.9 * msPerFrame + 0.1 * (performance.now() - t0) / nf;
       if (solver.frame % statsEvery === 0) refresh();
       if (dressing) dressCheck();
+      else if (!settled && solver.frame % 10 === 0) settleCheck();
     }
     if (!offscreen && (!dressing || dressOpt.showDressing)) renderer.draw(camera);
     raf = requestAnimationFrame(loop);
@@ -304,7 +363,19 @@ async function createClothSimImpl(canvas, options = {}) {
     pause() { playing = false; },
     reset() {
       solver.dress = dressOpt.dressing; dressPrevX = null; dressPrevFrame = 0; dressLastMove = null;
+      settled = false; settleStart = -1; settlePrevX = null; settlePrevFrame = 0;
       solver.reset(); refresh();
+    },
+    /** 다 내려앉았는지 (onSettled 가 불린 뒤 true) */
+    get settled() { return settled; },
+    // 앞면, 뒷면 캡처: { views: ['front','back'], size: 1024 } -> { front: ImageData, back: ImageData, settled }
+    // 화면 카메라와 늘어남 색은 건드리지 않음. 다 내려앉기 전에 부르면 그 순간 모양
+    async capture({ views = ['front', 'back'], size = 1024 } = {}) {
+      const w = Math.max(64, Math.min(2048, Math.round(size)));
+      const cams = await captureCameras(views);
+      const out = { settled };
+      for (let i = 0; i < views.length; i++) out[views[i]] = await renderer.capture(cams[i], w, w);
+      return out;
     },
     /** 1단계(입히기) 중인지 */
     get dressing() { return solver.dress; },

@@ -20,6 +20,7 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
     reset: () => simRef.current && simRef.current.reset(),
     set: (k, v) => simRef.current && simRef.current.set(k, v),
     stats: () => (simRef.current ? simRef.current.stats() : Promise.resolve(null)),
+    captureImages: o => (simRef.current ? simRef.current.capture(o) : Promise.reject(new Error('시뮬레이션이 아직 준비되지 않았어요'))),
     get sim() { return simRef.current; },
   }), []);
 

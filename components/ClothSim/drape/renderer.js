@@ -195,7 +195,41 @@ export class Renderer {
 
   draw(camera) {
     this.resize();
-    const vp = camera.viewProj(this.canvas.width / this.canvas.height);
+    this.encodeDraw(camera, this.canvas.width / this.canvas.height, this.msaa, this.depth, this.offscreen ? this.target : this.ctx.getCurrentTexture());
+  }
+
+  // 화면과 따로, 주어진 카메라로 w x h 크기 이미지를 그려서 ImageData 로 돌려줌 (앞면, 뒷면 캡처용)
+  // 늘어남 색은 끄고 그림. 화면에 보이는 그림과 카메라는 건드리지 않음
+  async capture(camera, w, h) {
+    const dev = this.device, sc = this.msaaCount || 4, RA = GPUTextureUsage.RENDER_ATTACHMENT;
+    const msaa = dev.createTexture({ size: [w, h], format: this.format, sampleCount: sc, usage: RA });
+    const depth = dev.createTexture({ size: [w, h], format: 'depth24plus', sampleCount: sc, usage: RA });
+    const target = dev.createTexture({ size: [w, h], format: this.format, usage: RA | GPUTextureUsage.COPY_SRC });
+    const row = Math.ceil(w * 4 / 256) * 256;
+    const buf = dev.createBuffer({ size: row * h, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    const strain = this.flags.strain;
+    this.flags.strain = false;
+    try {
+      this.encodeDraw(camera, w / h, msaa, depth, target);
+    } finally { this.flags.strain = strain; }
+    const enc = dev.createCommandEncoder();
+    enc.copyTextureToBuffer({ texture: target }, { buffer: buf, bytesPerRow: row }, [w, h]);
+    dev.queue.submit([enc.finish()]);
+    try {
+      await buf.mapAsync(GPUMapMode.READ);
+      const src = new Uint8Array(buf.getMappedRange()), img = new ImageData(w, h), d = img.data;
+      for (let y = 0; y < h; y++) d.set(src.subarray(y * row, y * row + w * 4), y * w * 4);
+      buf.unmap();
+      if (String(this.format).startsWith('bgra')) for (let i = 0; i < d.length; i += 4) { const t = d[i]; d[i] = d[i + 2]; d[i + 2] = t; }
+      for (let i = 3; i < d.length; i += 4) d[i] = 255;
+      return img;
+    } finally {
+      buf.destroy(); msaa.destroy(); depth.destroy(); target.destroy();
+    }
+  }
+
+  encodeDraw(camera, aspect, msaaTex, depthTex, resolveTex) {
+    const vp = camera.viewProj(aspect);
     new Float32Array(this.viewData, 0, 16).set(vp);
     new Float32Array(this.viewData, 64, 4).set([...camera.eye(), 1]);
     new Uint32Array(this.viewData, 80, 4).set([this.flags.strain ? 1 : 0, 0, 0, 0]);
@@ -208,8 +242,8 @@ export class Renderer {
     const bg = this.background;
     const enc = this.device.createCommandEncoder();
     const pass = enc.beginRenderPass({
-      colorAttachments: [{ view: this.msaa.createView(), resolveTarget: (this.offscreen ? this.target : this.ctx.getCurrentTexture()).createView(), clearValue: bg, loadOp: 'clear', storeOp: 'discard' }],
-      depthStencilAttachment: { view: this.depth.createView(), depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'discard' },
+      colorAttachments: [{ view: msaaTex.createView(), resolveTarget: resolveTex.createView(), clearValue: bg, loadOp: 'clear', storeOp: 'discard' }],
+      depthStencilAttachment: { view: depthTex.createView(), depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'discard' },
     });
     if (this.bg) { pass.setPipeline(this.bg); pass.draw(3); }
     if (this.flags.body) { pass.setPipeline(this.body); pass.setBindGroup(0, this.bodyGroup); pass.draw(this.d.bodyIdx.length); }

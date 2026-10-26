@@ -1,4 +1,5 @@
-// LLM 연결 (브라우저 fetch). 기본은 Ollama (내 컴퓨터 http://localhost:11434), 아니면 OpenAI 형식 API.
+// LLM 연결 (브라우저 fetch). 기본 'auto': 내 컴퓨터(localhost)에서는 Ollama, 배포 사이트에서는 Cloudflare Worker.
+//   Worker (worker/index.js): 결정(choose) -> /decide (Microsoft-Decision-1), 생성(generate) -> /generate (gpt-5-nano). 키는 Worker 에만 있음
 // C++ 엔진이 내주는 질문을 그대로 보내고, 받은 것을 가공 없이 돌려준다 (확률 계산은 C++ 에서).
 //   질문 {kind:"choose", prompt}            -> {tops:[{token, logprob}], content?}
 //   질문 {kind:"generate", prompt, system?, schema?} -> {text} (실패하면 {error})
@@ -9,7 +10,8 @@
 //  - 실패는 console.error 와 onLog 로 남긴다 (Python 의 logs/llm.log 대신)
 
 export const LLM_DEFAULTS = {
-  backend: 'ollama',                         // 'ollama' | 'api'
+  backend: 'auto',                           // 'auto' | 'ollama' | 'api' | 'worker'  (auto: localhost 면 ollama, 아니면 worker)
+  workerUrl: 'https://clothsim-api.set35230.workers.dev',   // Cloudflare Worker 주소
   host: 'http://localhost:11434',            // Ollama 주소
   model: 'qwen3-vl:8b-instruct',             // Ollama 모델
   numCtx: 8192,
@@ -21,9 +23,16 @@ export const LLM_DEFAULTS = {
   apiKey: '',
 };
 
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]', '::1'];
+function resolveBackend(b) {
+  if (b !== 'auto') return b;
+  const host = typeof location !== 'undefined' ? location.hostname : 'localhost';
+  return LOCAL_HOSTS.includes(host) ? 'ollama' : 'worker';
+}
+
 function logFail(cfg, what, err) {
-  const line = `${new Date().toISOString()} [${cfg.backend}] ${cfg.backend === 'api' ? cfg.baseUrl : cfg.host} ` +
-    `${cfg.backend === 'api' ? cfg.apiModel : cfg.model} ${what} 실패: ${err && err.message || err}`;
+  const where = cfg.backend === 'api' ? `${cfg.baseUrl} ${cfg.apiModel}` : cfg.backend === 'worker' ? cfg.workerUrl : `${cfg.host} ${cfg.model}`;
+  const line = `${new Date().toISOString()} [${cfg.backend}] ${where} ${what} 실패: ${err && err.message || err}`;
   console.error(line);
   if (cfg.onLog) cfg.onLog(line);
 }
@@ -51,7 +60,12 @@ async function post(cfg, url, payload, headers, signal) {
 
 export function makeLLM(options) {
   const cfg = { ...LLM_DEFAULTS, ...(options || {}) };
-  const name = cfg.backend === 'api' ? cfg.apiModel : cfg.model;
+  cfg.backend = resolveBackend(cfg.backend);
+  const name = cfg.backend === 'api' ? cfg.apiModel : cfg.backend === 'worker' ? 'worker:decision-1+gpt-5-nano' : cfg.model;
+  const workerPost = (path, payload, signal) => {
+    if (!cfg.workerUrl) throw new Error('Worker 주소(workerUrl)가 비어 있음');
+    return post(cfg, cfg.workerUrl.replace(/\/+$/, '') + path, payload, null, signal);
+  };
 
   async function ollamaChat(prompt, system, extra, signal) {
     const messages = [];
@@ -76,6 +90,15 @@ export function makeLLM(options) {
 
   async function choose(q, signal) {
     try {
+      if (cfg.backend === 'worker') {
+        // 엔진이 맥락, 질문, 보기를 따로 넘김 (보기 순서 = A, B, C ...). 보기별 확률 -> 엔진이 읽는 글자별 logprob
+        if (!Array.isArray(q.options) || !q.options.length) throw new Error('엔진이 보기 목록(options)을 넘기지 않음 (wasm 이 오래됨)');
+        const d = await workerPost('/decide', { context: q.context || '', question: q.question || '', options: q.options }, signal);
+        const pr = d.probabilities || {};
+        const keys = Array.isArray(d.keys) && d.keys.length ? d.keys : q.options.map((_, i) => String.fromCharCode(65 + i));
+        const tops = keys.map(k => ({ token: k, logprob: pr[k] > 0 ? Math.log(pr[k]) : -50 }));
+        return { tops, content: d.choice || '' };
+      }
       if (cfg.backend === 'api') {
         const d = await apiChat(q.prompt, null, { logprobs: true, top_logprobs: 20, max_tokens: 1 }, signal);
         const ch = (d.choices || [])[0] || {};
@@ -93,6 +116,10 @@ export function makeLLM(options) {
 
   async function generate(q, signal) {
     try {
+      if (cfg.backend === 'worker') {
+        const d = await workerPost('/generate', { prompt: q.prompt, system: q.system || null, schema: q.schema || null }, signal);
+        return { text: d.text || '' };
+      }
       if (cfg.backend === 'api') {
         let d;
         if (q.schema) {

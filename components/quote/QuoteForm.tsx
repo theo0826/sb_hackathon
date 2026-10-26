@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, CheckCheck, Download, FileText, MapPin, Send, ShieldCheck } from "lucide-react";
 import { useDesignSession } from "@/lib/design-session";
+import { useClothData } from "@/components/ClothSim/clothdata/store";
 import { recordDelivery, useOrderDetails } from "@/lib/order-workflow-client";
 import { SIZES, totalQuantity } from "@/lib/quote";
 import { pricingGarment } from "@/lib/garment-pricing";
@@ -11,6 +12,7 @@ import { getSupplier } from "@/lib/suppliers";
 
 export default function QuoteForm() {
   const { design, order, filename, supplierId, hasResult } = useDesignSession();
+  const clothData = useClothData();
   const { details } = useOrderDetails();
   const supplier = getSupplier(supplierId);
   const [reviewed, setReviewed] = useState(false);
@@ -93,7 +95,14 @@ export default function QuoteForm() {
             <section className="delivery-artwork" aria-labelledby="delivery-artwork-title">
               <div className="delivery-sheet-heading"><FileText size={20} /><h2 id="delivery-artwork-title">업체 맞춤 도안</h2><span>전달 전 검토</span></div>
               {/* Keep this target available for the backend team's generated artwork. */}
-              <div id="supplier-generated-design" className="supplier-generated-design" aria-label="AI 생성 맞춤 도안" data-supplier-id={supplier.id} />
+              <div id="supplier-generated-design" className="supplier-generated-design" aria-label="AI 생성 맞춤 도안" data-supplier-id={supplier.id}>
+                {clothData.completed === 1 && clothData.front && clothData.back && (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <img src={clothData.front} alt="앞면" style={{ width: "calc(50% - 4px)", height: "auto" }} />
+                    <img src={clothData.back} alt="뒷면" style={{ width: "calc(50% - 4px)", height: "auto" }} />
+                  </div>
+                )}
+              </div>
               <div className="delivery-artwork-caption"><span>도안 미리보기 영역</span><p>현재는 전달 흐름을 확인하는 시연이에요. 실제 생성 도안 연결을 준비 중이에요.</p></div>
             </section>
           </div>

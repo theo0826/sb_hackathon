@@ -71,6 +71,10 @@ export interface ClothSim {
   readonly lastStats: ClothSimStats | null;
   /** 1단계(입히기) 중인지 */
   readonly dressing: boolean;
+  /** 다 내려앉았는지 (onSettled 가 불린 뒤 true) */
+  readonly settled: boolean;
+  /** 화면과 따로 앞면, 뒷면 등을 정사각 이미지로 그림 (늘어남 색 끔) */
+  capture(o?: { views?: CaptureView[]; size?: number }): Promise<Partial<Record<CaptureView, ImageData>> & { settled: boolean }>;
   play(): void;
   pause(): void;
   reset(): void;
@@ -86,6 +90,39 @@ export interface ClothSim {
 }
 
 export const DEFAULT_OPTIONS: ClothSimOptions;
+export type CaptureView = 'front' | 'back' | 'left' | 'right';
+
+/** 큰 카테고리 (팀 가격표 id 에 맞춤, shirt 는 추가) */
+export type ClothCategoryId = 'hoodie' | 'windbreaker' | 'shirt' | 'sweatshirt' | 'long-sleeve' | 'tee';
+export interface ClothCategory { id: ClothCategoryId; label: string; }
+/** 옷 정보 보관함(clothData) 값. completed 0 = 만드는 중(또는 없음), 1 = 다 내려앉은 뒤 캡처 끝 */
+export interface ClothData {
+  completed: 0 | 1;
+  /** 'data:image/jpeg;base64,...' 정사각 1024px */
+  front: string | null;
+  back: string | null;
+  category: ClothCategory | null;
+  /** 엔진이 고른 값 (경로 마지막 이름 -> 값), 예 { neck: 'hood', sleeve_length: 'long' } */
+  tokens: Record<string, string | number | boolean> | null;
+  logo: { panel: string; x: number; y: number; width: number; rotation: number } | null;
+  /** 1벌당 제작 단가(원). 결정 모델 연결 뒤 채움 */
+  price: number | null;
+  text: string;
+  updatedAt: string | null;
+  /** 저장 공간이 모자라 이미지가 메모리에만 있을 때 true (새로 고치면 이미지 없음) */
+  imagesInMemoryOnly?: boolean;
+}
+export function getClothData(): ClothData;
+export function setClothData(next: Partial<ClothData>): ClothData;
+export function updateClothData(patch: Partial<ClothData>): ClothData;
+export function clearClothData(extra?: Partial<ClothData>): ClothData;
+export function subscribeClothData(fn: (c: ClothData) => void): () => void;
+/** React: 보관함이 바뀌면 다시 그림 */
+export function useClothData(): ClothData;
+export const clothData: { get(): ClothData; set(n: Partial<ClothData>): ClothData; update(p: Partial<ClothData>): ClothData; clear(e?: Partial<ClothData>): ClothData; subscribe(fn: (c: ClothData) => void): () => void; readonly completed: 0 | 1; };
+export const CATEGORY_LABELS: Record<ClothCategoryId, string>;
+export function tokensFromSpec(spec: unknown): Record<string, string | number | boolean>;
+export function categoryFromTokens(tokens: Record<string, unknown> | null): ClothCategory | null;
 export function createClothSim(canvas: HTMLCanvasElement, params: CreateClothSimParams): Promise<ClothSim>;
 
 /** <ClothSim> 컴포넌트 속성 */
@@ -115,6 +152,8 @@ export interface ClothSimHandle {
   set<K extends keyof ClothSimOptions>(name: K, value: ClothSimOptions[K]): void;
   stats(): Promise<ClothSimStats | null>;
   readonly sim: ClothSim | null;
+  /** 앞면, 뒷면 이미지 (ImageData) */
+  captureImages?(o?: { views?: CaptureView[]; size?: number }): Promise<Partial<Record<CaptureView, ImageData>> & { settled: boolean }>;
 }
 
 /** <ClothSimView>: 장면만 보여 주기 */
@@ -122,9 +161,12 @@ export declare const ClothSimView: ForwardRefExoticComponent<ClothSimProps & Ref
 
 // ---------- 글자 -> 장면 (서버 없음, C++ 엔진 wasm + LLM) ----------
 
-/** LLM 연결. 기본 Ollama (http://localhost:11434). backend 'api' 면 OpenAI 형식 /chat/completions */
+/** LLM 연결. 기본 'auto': localhost 에서는 Ollama (http://localhost:11434), 배포 사이트에서는 Cloudflare Worker (workerUrl).
+ *  'api' 면 OpenAI 형식 /chat/completions, 'worker' 면 /decide (결정 모델), /generate (생성 모델) */
 export interface LLMOptions {
-  backend?: 'ollama' | 'api';
+  backend?: 'auto' | 'ollama' | 'api' | 'worker';
+  /** Cloudflare Worker 주소 (backend 'worker' 또는 'auto' 의 배포 사이트) */
+  workerUrl?: string;
   host?: string;        // Ollama 주소
   model?: string;       // Ollama 모델 (기본 qwen3-vl:8b-instruct)
   numCtx?: number;
@@ -162,7 +204,7 @@ export function textToScene(text: string, o?: {
 export function loadEngine(): Promise<unknown>;
 
 /** <ClothSim> (기본): 글자 입력칸 + 시뮬레이션 화면 */
-export interface ClothSimDesignerProps extends Omit<ClothSimProps, 'scene'> {
+export interface ClothSimDesignerProps extends Omit<ClothSimProps, 'scene' | 'logo'> {
   /** 처음 보여 줄 장면 (없으면 입력을 기다림) */
   scene?: ClothSimProps['scene'];
   /** LLM 연결 설정 (기본 Ollama localhost) */
@@ -197,6 +239,9 @@ export interface ClothSimDesignerHandle extends ClothSimHandle {
   getLogo(): ClothLogo | null;
   /** 재단 도면 편집 화면 열기, 닫기 */
   openPatternEditor(open?: boolean): void;
+  /** 지금 3D 를 앞면, 뒷면으로 찍어 보관함에 넣고 돌려줌 */
+  capture(): Promise<ClothData | null>;
+  getClothData(): ClothData;
 }
 
 /** <ClothPatternEditor>: 재단 도면 위에서 로고 옮기기 (따로 배치할 때) */
