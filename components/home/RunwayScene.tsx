@@ -43,9 +43,9 @@ export default function RunwayScene({ color, paused }: { color: string; paused: 
       const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; return texture;
     };
     const designs: Design[] = [
-      { ...DEFAULT_DESIGN, color: "#e8e5dd", ink: "#253952", text: "WAVE" },
-      { ...DEFAULT_DESIGN, color: current.current.color, text: "OUR CLUB" },
-      { ...DEFAULT_DESIGN, color: "#236b60", text: "FIT" },
+      { ...DEFAULT_DESIGN, color: "#f1f3f6", ink: "#082348", text: "WAVE" },
+      { ...DEFAULT_DESIGN, color: current.current.color, ink: "#f1f3f6", text: "OUR CLUB" },
+      { ...DEFAULT_DESIGN, color: "#a9b6ca", ink: "#082348", text: "FIT" },
     ];
     const models = designs.map(d => { const model = createGarment(d, makeTexture(d.text, d.ink)); scene.add(model); return model; });
     const centerMaterials: THREE.MeshStandardMaterial[] = [];
@@ -76,7 +76,7 @@ export default function RunwayScene({ color, paused }: { color: string; paused: 
     const resize = () => {
       width = element.clientWidth; height = element.clientHeight;
       renderer.setSize(width, height); camera.aspect = width / Math.max(height, 1);
-      camera.position.set(0, .15, width < 420 ? 10.4 : 9.2); camera.lookAt(0, .08, 0); camera.updateProjectionMatrix();
+      camera.position.set(0, .15, width < 420 ? 6.8 : 7.2); camera.lookAt(0, .08, 0); camera.updateProjectionMatrix();
       syncLoop();
     };
     const observer = new ResizeObserver(resize); observer.observe(element);
@@ -89,7 +89,7 @@ export default function RunwayScene({ color, paused }: { color: string; paused: 
       const scroll = Math.min(1, Math.max(0, -element.getBoundingClientRect().top / innerHeight));
       const smoothing = 1 - Math.exp(-delta * 3.2);
       if (!reduced) { smoothX += (pointerX - smoothX) * smoothing; smoothY += (pointerY - smoothY) * smoothing; smoothScroll += (scroll - smoothScroll) * smoothing; }
-      const spread = width < 420 ? 1.55 : 1.85;
+      const spread = width < 420 ? 1.3 : 1.5;
       models.forEach((model, i) => {
         const side = i - 1;
         if (!current.current.paused || time === 0) {

@@ -53,7 +53,7 @@ export class Renderer {
     } else {
       this.ctx = this.canvas.getContext('webgpu');
       this.format = navigator.gpu.getPreferredCanvasFormat();
-      this.ctx.configure({ device: dev, format: this.format, alphaMode: 'opaque' });
+      this.ctx.configure({ device: dev, format: this.format, alphaMode: this.background[3] === 0 ? 'premultiplied' : 'opaque' });
     }
     this.viewData = new ArrayBuffer(64 + 16 + 16 + 64 * 16 + 64 * 16 + 32 + 32);   // 끝 32: 로고
     this.viewBuf = dev.createBuffer({ size: this.viewData.byteLength, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
@@ -208,10 +208,12 @@ export class Renderer {
     const row = Math.ceil(w * 4 / 256) * 256;
     const buf = dev.createBuffer({ size: row * h, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
     const strain = this.flags.strain;
+    const background = this.background;
+    if (background[3] === 0) this.background = [0.945, 0.953, 0.965, 1];
     this.flags.strain = false;
     try {
       this.encodeDraw(camera, w / h, msaa, depth, target);
-    } finally { this.flags.strain = strain; }
+    } finally { this.flags.strain = strain; this.background = background; }
     const enc = dev.createCommandEncoder();
     enc.copyTextureToBuffer({ texture: target }, { buffer: buf, bytesPerRow: row }, [w, h]);
     dev.queue.submit([enc.finish()]);

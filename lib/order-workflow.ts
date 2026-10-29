@@ -4,7 +4,7 @@ import { getSupplier, type Supplier } from "./suppliers";
 import { pricingGarment } from "./garment-pricing";
 
 export type Participant = { id: string; name: string; size: string; initials: string };
-export type OrderDetails = { roster: Participant[]; useRoster: boolean; requireInitials: boolean; phone: string; delivery: "shipping" | "pickup"; address: string; payment: "group" | "individual"; confirmed: boolean };
+export type OrderDetails = { roster: Participant[]; useRoster: boolean; manualSizes?: OrderDraft["sizes"]; requireInitials: boolean; phone: string; delivery: "shipping" | "pickup"; address: string; payment: "group" | "individual"; confirmed: boolean };
 export const EMPTY_DETAILS: OrderDetails = { roster: [], useRoster: false, requireInitials: false, phone: "", delivery: "shipping", address: "", payment: "group", confirmed: false };
 export type DemoOrder = { id: string; createdAt: string; supplierId: string; design: Design; order: OrderDraft; details: OrderDetails; filename: string; received: boolean; quoteTrashedAt?: string | null; preparedQuote?: QuoteRecord; deliveryStatus?: "recorded" };
 export type OrderInput = Pick<DemoOrder, "supplierId" | "design" | "order" | "details" | "filename">;
@@ -41,6 +41,7 @@ export function reviewedOrderIssues(input: OrderInput, quote: unknown, approved:
 export function isOrderDetails(value: unknown): value is OrderDetails {
   if (!value || typeof value !== "object") return false;
   const d = value as OrderDetails;
+  if (d.manualSizes !== undefined && (!d.manualSizes || !SIZES.every(size => Number.isInteger(d.manualSizes![size]) && d.manualSizes![size] >= 0 && d.manualSizes![size] <= 999))) return false;
   return Array.isArray(d.roster) && d.roster.length <= 500 && d.roster.every(r => r && typeof r.id === "string" && typeof r.name === "string" && typeof r.size === "string" && typeof r.initials === "string") && typeof d.useRoster === "boolean" && typeof d.requireInitials === "boolean" && typeof d.confirmed === "boolean" && typeof d.phone === "string" && typeof d.address === "string" && ["shipping", "pickup"].includes(d.delivery) && ["group", "individual"].includes(d.payment);
 }
 export function isDemoOrder(value: unknown): value is DemoOrder {
@@ -74,7 +75,7 @@ export function reviewIssues(order: OrderDraft, details: OrderDetails): string[]
 export function estimate(supplier: Supplier, order: OrderDraft) {
   const index = { jangwi: 0, wolgok: 1, jongam: 2 }[supplier.id] ?? 0;
   const quantity = totalQuantity(order);
-  const unit = [4500, 7800, 2900][index] + pricingGarment(order.pricingGarment).adjustment + (order.method === "자수" ? 3500 : 0) - (quantity >= 50 ? 1500 : 0);
+  const unit = (supplier.quoteUnitPrice ?? [4500, 7800, 2900][index]) + pricingGarment(order.pricingGarment).adjustment + (order.method === "자수" ? 3500 : 0) - (quantity >= 50 ? 1500 : 0);
   const days = Math.max(...(supplier.leadDays.match(/\d+/g) || ["14"]).map(Number));
   return { unit, total: unit * quantity, days, shipping: 0 };
 }

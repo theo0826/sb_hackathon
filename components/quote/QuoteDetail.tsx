@@ -8,6 +8,8 @@ import { getSupplier } from "@/lib/suppliers";
 import FlowSteps from "@/components/layout/FlowSteps";
 import ProductionDocument from "@/components/supplier/ProductionDocument";
 import { DELIVERY_DOCUMENT_VERSION } from "@/lib/order-delivery";
+import SavedRequestView from "./SavedRequestView";
+import { useDemoOrders } from "@/lib/order-workflow-client";
 import ClothCapturePreview from "@/components/design/ClothCapturePreview";
 const subscribeReady = () => () => {};
 export default function QuoteDetail({ id }: { id: string }) {
@@ -15,7 +17,9 @@ export default function QuoteDetail({ id }: { id: string }) {
   const { records, loading, error } = useQuoteHistoryState();
   const record = records.find(item => item.id === id);
   const supplier = getSupplier(record?.supplierId);
+  const { orders } = useDemoOrders();
   const deliveryRecord = record?.document?.templateVersion === DELIVERY_DOCUMENT_VERSION;
+  if (ready && !loading && record && supplier && deliveryRecord && !record.trashedAt) return <SavedRequestView record={record} details={orders.find(order => order.id === record.sourceOrderId)?.details}/>;
   return <main id="main-content" className="shell studio-main waiting-page">
     {!ready || loading ? <div className="empty-state">요청 내역을 불러오고 있어요.</div> : !record || !supplier ? <section className="empty-state"><Info size={28} /><h1>요청 내역을 찾지 못했어요.</h1><p>{error || "요청서를 만든 브라우저에서 다시 확인해주세요."}</p><Link href="/my?tab=waiting" className="primary">견적 요청서 보기</Link></section> : <>
       <FlowSteps current={4} />

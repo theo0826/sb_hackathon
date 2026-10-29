@@ -1,3 +1,1 @@
-import MotionHome from "@/components/home/MotionHome";
-
-export default function Home() { return <MotionHome />; }
+export { default, metadata } from "./design/page";

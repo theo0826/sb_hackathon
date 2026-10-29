@@ -8,7 +8,8 @@ for (const route of ["", "design", "editor", "my", "my/detail", "orders/detail",
   assert(html.includes(`${base}/_next/`), `Assets should use basePath: ${route}`);
 }
 const home = await fs.readFile("out/index.html", "utf8");
-assert(home.includes(`${base}/design/`), "Home should link to the prefixed design route");
+assert(home.includes("handdam-studio"), "Home should open the design studio directly");
+assert(home.includes(`href="${base}/my/"`), "The studio should link to the repository-prefixed library route");
 await fs.access("out/models/garment-masters-v2.glb");
 await fs.access("out/.nojekyll");
 for (const file of ["api", ".env.local", "lib", "components"]) {

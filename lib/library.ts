@@ -3,6 +3,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { isDesign, STORAGE_KEY, type Design } from "./design";
 import type { OrderDraft } from "./quote";
+import type { SavedClothDesign } from "./cloth-scene-session";
 
 export type LibraryKind = "design" | "artwork" | "document";
 export type LibraryAttachment = { file: Blob; fileName: string; label: string };
@@ -18,6 +19,7 @@ export type LibraryItem = {
   prompt: string;
   filename: string;
   preview: string | null;
+  cloth?: SavedClothDesign;
   file?: Blob;
   fileName?: string;
   format?: string;
@@ -25,7 +27,7 @@ export type LibraryItem = {
   order?: OrderDraft;
   attachments?: LibraryAttachment[];
 };
-type NewItem = Pick<LibraryItem, "kind" | "design" | "prompt" | "filename"> & Partial<Pick<LibraryItem, "title" | "preview" | "file" | "fileName" | "format" | "supplierId" | "order" | "attachments">>;
+type NewItem = Pick<LibraryItem, "kind" | "design" | "prompt" | "filename"> & Partial<Pick<LibraryItem, "title" | "preview" | "cloth" | "file" | "fileName" | "format" | "supplierId" | "order" | "attachments">>;
 type LibraryState = { items: LibraryItem[]; status: "loading" | "ready" | "error"; error: string };
 const serverState: LibraryState = { items: [], status: "loading", error: "" };
 let state = serverState;
@@ -49,7 +51,7 @@ function database() {
     };
     open.onsuccess = () => { open.result.onversionchange = () => { open.result.close(); databasePromise = null; }; resolve(open.result); };
     open.onerror = () => { databasePromise = null; reject(open.error || new Error("브라우저 보관함을 열지 못했어요.")); };
-    open.onblocked = () => reject(new Error("다른 성북핏 탭을 닫고 보관함을 다시 열어주세요."));
+    open.onblocked = () => reject(new Error("다른 한땀 탭을 닫고 보관함을 다시 열어주세요."));
   });
   return databasePromise;
 }
@@ -111,6 +113,11 @@ export async function saveLibraryItem(input: NewItem): Promise<LibraryItem> {
   const transaction = db.transaction("items", "readwrite"); const done = committed(transaction);
   transaction.objectStore("items").add(item); await done;
   await refresh(); channel?.postMessage("changed"); return item;
+}
+export async function getLibraryItem(id: string): Promise<LibraryItem | null> {
+  const db = await database();
+  const item = await request(db.transaction("items", "readonly").objectStore("items").get(id));
+  return valid(item) ? item : null;
 }
 export async function updateLibraryItem(id: string, patch: Pick<Partial<LibraryItem>, "title" | "favorite" | "trashedAt">) {
   if (id.startsWith("cloud_")) throw new Error("이전 개인 서버의 자료는 수정하지 않습니다.");

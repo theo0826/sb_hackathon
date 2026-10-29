@@ -1,32 +1,41 @@
 "use client";
 
-import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type Ref } from "react";
+import Image from "next/image";
 // 삭제금지: 팀 ClothSim 엔진·재단 도안 편집기를 같은 장면으로 사용합니다.
 import ClothSim, { type ClothLogo, type ClothSimDesignerHandle, type Progress, type Scene } from "../ClothSim";
 import { getClothData, useClothData } from "../ClothSim/clothdata/store";
 import { readyClothCapture } from "@/lib/cloth-capture";
 import ClothCapturePreview from "./ClothCapturePreview";
+import GarmentOutline from "./GarmentOutline";
+import { getClothScene, setClothScene } from "@/lib/cloth-scene-session";
 
 const stages: Record<Progress["stage"], string> = {
   translate: "옷 설명을 읽고 있어요.", choose: "형태와 소재를 고르고 있어요.",
   number: "치수를 정하고 있어요.", build: "입체 의상을 만들고 있어요.", done: "옷의 형태를 정리하고 있어요.",
 };
-// 같은 탭에서 주문서를 다녀와도 장면을 다시 편집합니다. 새로고침은 저장한 이미지를 표시합니다.
-let cachedScene: { scene: Scene; text: string } | null = null;
 export type ClothSimulationControls = { generate: (text: string) => Promise<boolean>; cancel: () => void };
 
-export default function ClothSimulationPreview({ controllerRef, logo = null, view = "3d", onLogoChange }: {
+export default function ClothSimulationPreview({ controllerRef, savedPreview = null, logo = null, view = "3d", patternFocus = "all", onLogoChange, onEditableChange, onSceneChange, onFailure, emptyContent, generating = false, refining = false }: {
   controllerRef: Ref<ClothSimulationControls>;
+  savedPreview?: string | null;
   logo?: ClothLogo | null;
   view?: "3d" | "pattern";
+  patternFocus?: "all" | "front" | "back" | "sleeve";
   onLogoChange?: (logo: ClothLogo | null) => void;
+  onEditableChange?: (editable: boolean) => void;
+  onSceneChange?: (scene: Scene | null) => void;
+  emptyContent?: ReactNode;
+  generating?: boolean;
+  refining?: boolean;
+  onFailure?: () => void;
 }) {
   const data = useClothData();
   const simulator = useRef<ClothSimDesignerHandle>(null);
   const request = useRef(0);
   const running = useRef(false);
   const textRef = useRef(getClothData().text);
-  const [initialScene] = useState(() => cachedScene?.text === getClothData().text && getClothData().text ? cachedScene.scene : undefined);
+  const [initialScene] = useState(() => getClothScene(getClothData().text));
   const [hasScene, setHasScene] = useState(!!initialScene);
   const [clothRepresentText, setClothRepresentText] = useState(() => getClothData().text);
   const [ready, setReady] = useState(false);
@@ -35,6 +44,8 @@ export default function ClothSimulationPreview({ controllerRef, logo = null, vie
   const captureReady = readyClothCapture(data);
 
   useEffect(() => () => { request.current++; }, []);
+  useEffect(() => { onEditableChange?.(hasScene && ready && !generating); }, [hasScene, ready, generating, onEditableChange]);
+  useEffect(() => { if (initialScene) onSceneChange?.(initialScene); }, [initialScene, onSceneChange]);
 
   async function generate(text: string) {
     if (running.current || !text.trim() || !simulator.current) return false;
@@ -43,8 +54,9 @@ export default function ClothSimulationPreview({ controllerRef, logo = null, vie
       return false;
     }
     const id = ++request.current;
-    running.current = true; cachedScene = null; textRef.current = text.trim();
-    setHasScene(false); setClothRepresentText(text.trim()); setError(""); setReady(false); setStatus("옷 생성을 시작하고 있어요.");
+    running.current = true; setClothScene(null); textRef.current = text.trim();
+    if (!hasScene) { setHasScene(false); onSceneChange?.(null); setReady(false); }
+    setClothRepresentText(text.trim()); setError(""); setStatus("옷 생성을 시작하고 있어요.");
     try {
       const result = await simulator.current.generate(text.trim());
       if (id !== request.current) return false;
@@ -64,21 +76,25 @@ export default function ClothSimulationPreview({ controllerRef, logo = null, vie
 
   return <>
     <div className="wf-stage studio-generated-stage" data-preview-mode={view} aria-busy={!!status && !captureReady && !error}>
-      {!hasScene && <div className="studio-empty-preview">
-        {captureReady ? <><ClothCapturePreview capture={data}/><p>저장한 앞·뒷면이에요. 로고를 다시 편집하려면 같은 설명으로 의상을 생성해주세요.</p></>
-          : <><strong>{view === "pattern" ? "로고를 놓을 도안을 준비해요" : "우리 모임의 옷을 만들어보세요"}</strong><p>왼쪽에 옷 설명을 입력하고 AI 시안 만들기를 눌러주세요.</p></>}
+      {(!hasScene || !ready || (generating && !refining)) && <div className={`studio-empty-preview${generating ? " is-generating" : ""}`}>
+        {hasScene && !ready && !generating && !error ? <div className="studio-generation-placeholder" role="status"><GarmentOutline shimmer/><strong>저장한 3D 모델을 불러오고 있어요…</strong></div> : captureReady ? <><ClothCapturePreview capture={data}/><p>저장한 앞·뒷면이에요. 로고를 다시 편집하려면 같은 설명으로 의상을 생성해주세요.</p></>
+          : generating ? <div className="studio-generation-placeholder"><GarmentOutline shimmer/><strong>디자인 만드는 중…</strong><p>보통 10초 정도 걸려요</p></div>
+          : savedPreview ? <Image className="studio-saved-preview" src={savedPreview} alt="저장한 디자인" width={1024} height={1024} unoptimized />
+          : emptyContent || <><strong>{view === "pattern" ? "로고를 놓을 도안을 준비해요" : "우리 모임의 옷을 만들어보세요"}</strong><p>아래에 옷 설명을 입력하고 만들기 버튼을 눌러주세요.</p></>}
       </div>}
-      <div id="studio-artwork-editor" className="studio-cloth-layer" style={{ visibility: ready ? "visible" : "hidden" }} aria-hidden={!ready} inert={!ready}>
+      <div id="studio-artwork-editor" className="studio-cloth-layer" style={{ visibility: ready && (!generating || refining) ? "visible" : "hidden" }} aria-hidden={!ready || (generating && !refining)} inert={!ready || generating}>
         <ClothSim ref={simulator} scene={initialScene} showInput={false} clothRepresentText={clothRepresentText}
           llm={{ backend: "worker", workerUrl: process.env.NEXT_PUBLIC_CLOTH_WORKER_URL || "https://clothsim-api.set35230.workers.dev", timeoutMs: 90000 }}
-          logo={logo} view={view} patternEditor="none" onLogoChange={onLogoChange}
-          autoplay options={{ strain: false, tear: false }}
-          onScene={scene => { cachedScene = { scene, text: textRef.current }; setHasScene(true); }}
+          logo={logo} view={view} patternFocus={patternFocus} patternEditor="none" onLogoChange={onLogoChange}
+          autoplay options={{ strain: false, tear: false, body: false }}
+          look={{ background: [0, 0, 0, 0] }}
+          onScene={scene => { setClothScene(scene, textRef.current); setHasScene(true); onSceneChange?.(scene); }}
           onProgress={progress => setStatus(stages[progress.stage])}
           onReady={() => { setHasScene(true); setReady(true); setError(""); setStatus("앞·뒷면 이미지를 준비하고 있어요."); }}
-          onError={() => { setReady(false); setHasScene(false); setStatus(""); setError("의상 미리보기를 만들지 못했어요. 연결과 브라우저의 그래픽 가속 설정을 확인한 뒤 다시 시도해주세요."); }}
+          onError={() => { setReady(false); setHasScene(false); setStatus(""); onFailure?.(); setError("의상 미리보기를 만들지 못했어요. 연결과 브라우저의 그래픽 가속 설정을 확인한 뒤 다시 시도해주세요."); }}
           style={{ width: "100%", height: "100%" }}/>
       </div>
+      {generating && refining && <div className="studio-refining-overlay" role="status"><span/>수정 중…</div>}
     </div>
     <div className="studio-simulation-controls" aria-label="디자인 생성 상태">
       <p className="wf-muted" role="status">{error ? "생성을 완료하지 못했어요." : captureReady ? "앞·뒷면이 준비됐어요. 주문서로 이동할 수 있어요." : status || "생성한 옷은 디자인에서 돌려보고, 도안에서 로고를 배치해요."}</p>

@@ -38,7 +38,7 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
     scene: sceneProp, llm, showInput = true, defaultText = '', placeholder = '만들 옷을 적어 주세요 (예: 오버핏 후드티, 캥거루 주머니)',
     preprocess, fixed, onSpec, onScene, onLog, onProgress, onError,
     clothRepresentText, submit,
-    logo: logoProp, onLogoChange, patternEditor = 'button', view = '3d',
+    logo: logoProp, onLogoChange, patternEditor = 'button', view = '3d', patternFocus = 'all',
     style, className, ...viewProps
   } = props;
   const viewRef = useRef(null);
@@ -130,14 +130,8 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
       if (seq !== captureSeq.current) return null;
       const previous = getClothData();
       const tokens = specRef.current ? tokensFromSpec(specRef.current) : previous.tokens;
-      // 가격대: 이미 시작한 질문을 최대 30초 기다림 (실패하거나 늦으면 null)
-      let price = previous.price;
-      if (priceRef.current) {
-        let priceTimer;
-        try { price = await Promise.race([priceRef.current, new Promise(r => { priceTimer = setTimeout(() => r(null), 30000); })]); }
-        finally { clearTimeout(priceTimer); }
-        if (seq !== captureSeq.current) return null;
-      }
+      // Captures unlock the order form independently of the optional price API.
+      const price = previous.price;
       const lg = logoRef.current;
       const rec = setClothData({
         completed: 1, front, back,
@@ -181,7 +175,8 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
     if (abortRef.current) abortRef.current.abort();
     const ctl = new AbortController();
     abortRef.current = ctl;
-    setBusy(true); setError(null); setStatus('준비'); setScene(null);
+    // 수정 요청 중에는 기존 3D를 유지하고 새 장면이 완성되면 교체합니다.
+    setBusy(true); setError(null); setStatus('준비');
     captureSeq.current++; specRef.current = null; reqTextRef.current = req; priceRef.current = null;
     clearClothData({ text: req });
     const c = cb.current;
@@ -216,7 +211,11 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
         const tk = tokensFromSpec(spec);
         const priceLLM = makeLLM({ ...(c.llm || {}), onLog: line => { if (c.onLog) c.onLog(line); } });
         priceRef.current = estimatePrice(priceLLM, tk, categoryFromTokens(tk), req, ctl.signal)
-          .then(r => { clothLog('가격대', r); return r; })
+          .then(r => {
+            // A late price must never overwrite a newer design or its captures.
+            if (!ctl.signal.aborted && specRef.current === spec && getClothData().text === req) updateClothData({ price: r });
+            clothLog('가격대', r); return r;
+          })
           .catch(e => { if (!ctl.signal.aborted) clothError('가격대 질문 실패', e); return null; });
       }
       setScene(sc); setStatus('');
@@ -310,13 +309,13 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
         style: { position: 'absolute', right: 10, top: 10, zIndex: 4, padding: '6px 10px', fontSize: 12, borderRadius: 8, border: '1px solid #0002', background: '#fffd', color: '#17232f', cursor: 'pointer' },
       }, '도면 편집'),
       scene && scene.meta && (editorOpen || view === 'pattern') && h('div', {
-        style: { position: 'absolute', inset: 0, zIndex: 5, display: 'flex', flexDirection: 'column', background: '#f6f5f1' },
+        className: 'cloth-pattern-workspace', style: { position: 'absolute', inset: 0, zIndex: 5, display: 'flex', flexDirection: 'column', background: '#f3f5f8' },
       },
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', fontSize: 12, color: '#17232f', borderBottom: '1px solid #0001' } },
+        h('div', { className: 'cloth-pattern-instructions', style: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', fontSize: 12, color: '#17232f', borderBottom: '1px solid #0001' } },
           h('span', { style: { flex: 1 } }, logo ? '로고를 끌어 옮기고, 로고 위에서 휠로 크기, Shift+휠로 회전. 빈 곳은 끌기로 이동, 휠로 확대' : '로고 이미지를 먼저 넣어 주세요'),
           view !== 'pattern' && h('button', { type: 'button', onClick: () => setEditorOpen(false), style: { ...btn, padding: '4px 10px', fontSize: 12 } }, '3D 보기')),
         h('div', { style: { position: 'relative', flex: '1 1 auto', minHeight: 0 } },
-          h(ClothPatternEditor, { scene, logo, onChange: editorChange }))),
+          h(ClothPatternEditor, { scene, logo, onChange: editorChange, focus: patternFocus }))),
       // 입력칸이 밖에 있을 때 진행 상태와 오류는 화면 위에 작게
       !showInput && (status || error) && h('div', {
         style: { position: 'absolute', left: 8, top: 8, padding: '4px 8px', fontSize: 12, borderRadius: 4, background: '#0008', color: error ? '#f88' : '#fff', maxWidth: 'calc(100% - 16px)' },

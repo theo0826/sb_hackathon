@@ -114,14 +114,14 @@ body,body:has(.motion-home) { background-color:#edf3ef; background-image:radial-
 .site-header,body:has(.motion-home) .site-header { position:relative; z-index:40; background:rgba(255,255,255,.58); border-bottom:1px solid rgba(255,255,255,.8); backdrop-filter:blur(24px) saturate(1.25); -webkit-backdrop-filter:blur(24px) saturate(1.25); box-shadow:0 4px 24px rgba(37,74,54,.055),inset 0 -1px 0 rgba(255,255,255,.5); }
 .header-inner,body:has(.motion-home) .header-inner { display:flex; justify-content:space-between; max-width:1440px; height:68px; gap:24px; padding:0 32px; }
 .profile-control { position:relative; margin-left:auto; }
-.profile-trigger { display:flex; align-items:center; gap:9px; padding:7px 12px 7px 7px; min-height:44px; border-radius:30px; border:1px solid rgba(255,255,255,.9); background:rgba(255,255,255,.52); box-shadow:var(--glass-soft-shadow); font-size:13px; font-weight:600; }
-.profile-trigger:hover { background:rgba(255,255,255,.85); }
-.profile-trigger>svg:last-child { color:var(--sub); transition:transform .2s; }.profile-trigger>svg.is-open { transform:rotate(180deg); }
-.profile-avatar { width:30px; height:30px; border-radius:50%; display:grid; place-items:center; background:#deebe2; color:var(--blue); box-shadow:inset 0 1px 2px #fff; }
-.site-header nav.profile-menu { position:absolute; top:calc(100% + 12px); right:0; width:264px; height:auto; display:flex; flex-direction:column; align-items:stretch; gap:5px; padding:14px; border:1px solid rgba(255,255,255,.95); border-radius:18px; background:rgba(250,254,251,.96); box-shadow:0 22px 64px rgba(28,59,41,.20),0 4px 12px rgba(28,59,41,.07),inset 0 1px 0 #fff; backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); }
-.profile-menu>p { font-size:11px; color:var(--sub); padding:4px 10px 10px; }
-.site-header nav.profile-menu a,body:has(.motion-home) .site-header nav.profile-menu a { display:flex; align-items:center; gap:12px; padding:12px 10px; min-height:60px; height:auto; border-radius:10px; text-decoration:none; font-size:14px; color:var(--ink); background:transparent; }
-.site-header nav.profile-menu a:hover { background:rgba(211,232,219,.6); }.profile-menu a>svg { color:var(--blue); }.profile-menu a span { display:flex; flex-direction:column; gap:5px; }.profile-menu a small { font-size:11px; font-weight:400; color:var(--sub); }
+.profile-trigger { display:flex; align-items:center; gap:9px; padding:7px 12px 7px 7px; min-height:44px; border-radius:30px; border:1px solid #e4e8ef; background:#fff; color:#041e41; box-shadow:none; font-size:13px; font-weight:600; }
+.profile-trigger:hover { background:#f1f3f6; }
+.profile-trigger>svg:last-child { color:#667286; transition:transform .2s; }.profile-trigger>svg.is-open { transform:rotate(180deg); }
+.profile-avatar { width:30px; height:30px; border-radius:50%; display:grid; place-items:center; background:#f1f3f6; color:#041e41; box-shadow:none; }
+.site-header nav.profile-menu { position:absolute; top:calc(100% + 12px); right:0; width:264px; height:auto; display:flex; flex-direction:column; align-items:stretch; gap:5px; padding:14px; border:1px solid #e4e8ef; border-radius:18px; background:#fff; box-shadow:0 12px 36px #041e411a; backdrop-filter:none; -webkit-backdrop-filter:none; }
+.profile-menu>p { font-size:11px; color:#667286; padding:4px 10px 10px; }
+.site-header nav.profile-menu a,body:has(.motion-home) .site-header nav.profile-menu a { display:flex; align-items:center; gap:12px; padding:12px 10px; min-height:60px; height:auto; border-radius:10px; text-decoration:none; font-size:14px; color:#191f28; background:transparent; }
+.site-header nav.profile-menu a:hover { background:#f1f3f6; }.profile-menu a>svg { color:#041e41; }.profile-menu a span { display:flex; flex-direction:column; gap:5px; }.profile-menu a small { font-size:11px; font-weight:400; color:#667286; }
 .wf-progress { background:rgba(255,255,255,.35); border-bottom-color:rgba(255,255,255,.65); box-shadow:0 4px 14px rgba(37,74,54,.025); }
 .wf-card,.panel,.library-card,.request-card,.production-document,.quote-form,.quote-side,.my-sidebar,.wf-offer { background:var(--glass-surface); border:1px solid var(--glass-rim); box-shadow:var(--glass-shadow); backdrop-filter:blur(18px) saturate(1.15); -webkit-backdrop-filter:blur(18px) saturate(1.15); border-radius:14px; }
 .wf-offer[data-recommended=true] { background:rgba(242,254,246,.76); border-color:rgba(64,135,94,.6); box-shadow:0 14px 40px rgba(37,98,62,.12),inset 0 1px 0 #fff; }

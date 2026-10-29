@@ -1,0 +1,16 @@
+/* Restrained feedback for controls. Disabled controls stay still. */
+:root { --control-ease:cubic-bezier(.2,.8,.2,1); }
+button,.handdam-studio button,a:is(.primary,.outline,.text-link,.studio-primary,.studio-secondary,.studio-account,.handdam-home-start,.handdam-home-saved) { transition:transform .2s var(--control-ease),background-color .2s var(--control-ease),border-color .2s var(--control-ease),color .2s var(--control-ease); transform-origin:center; }
+button > svg:not(.animate-spin),a:is(.primary,.outline,.text-link,.studio-primary,.studio-secondary,.handdam-home-start) > svg { transition:transform .2s var(--control-ease); }
+@media (hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference) {
+ button:not(:disabled):not([aria-disabled=true]):hover,.handdam-studio button:not(:disabled):hover,a:is(.primary,.outline,.text-link,.studio-primary,.studio-secondary,.studio-account,.handdam-home-start,.handdam-home-saved):not([aria-disabled=true]):hover { transform:translateY(-2px); }
+ .studio-primary:hover > svg,.handdam-home-start:hover > svg,a.primary:hover > svg { transform:translateX(3px); }
+ .handdam-studio .studio-submit:not(:disabled):hover > svg { transform:translateY(-2px); }
+ .handdam-studio .studio-header-button:not(:disabled):hover > svg,.studio-attach:not(:disabled):hover > svg { transform:rotate(-7deg); }
+}
+button:not(:disabled):not([aria-disabled=true]):active,.handdam-studio button:not(:disabled):active,a:is(.primary,.outline,.text-link,.studio-primary,.studio-secondary,.studio-account,.handdam-home-start,.handdam-home-saved):not([aria-disabled=true]):active { transform:translateY(1px) scale(.97); transition-duration:.09s; }
+button:focus-visible,a:focus-visible { outline:2px solid #b4d914; outline-offset:4px; }
+@media (prefers-reduced-motion:reduce) {
+ button,a:is(.primary,.outline,.text-link,.studio-primary,.studio-secondary,.studio-account,.handdam-home-start,.handdam-home-saved),button > svg,a > svg { transition:none !important; }
+ button:not(:disabled):hover,button:not(:disabled):active,.handdam-studio button:not(:disabled):hover,.handdam-studio button:not(:disabled):active,a:is(.primary,.outline,.text-link,.studio-primary,.studio-secondary,.studio-account,.handdam-home-start,.handdam-home-saved):hover,a:is(.primary,.outline,.text-link,.studio-primary,.studio-secondary,.studio-account,.handdam-home-start,.handdam-home-saved):active { transform:none !important; }
+}

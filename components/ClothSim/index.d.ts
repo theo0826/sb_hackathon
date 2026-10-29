@@ -233,6 +233,7 @@ export interface ClothSimDesignerProps extends Omit<ClothSimProps, 'scene' | 'lo
   patternEditor?: 'button' | 'none';
   /** 'pattern' 이면 3D 대신 재단 도면을 보여 줌 (3D 계산은 숨긴 채 유지) */
   view?: '3d' | 'pattern';
+  patternFocus?: 'all' | 'front' | 'back' | 'sleeve';
 }
 export interface ClothSimDesignerHandle extends ClothSimHandle {
   generate(text?: string): Promise<{ spec: Spec; scene: Scene } | null>;
@@ -248,7 +249,7 @@ export interface ClothSimDesignerHandle extends ClothSimHandle {
 }
 
 /** <ClothPatternEditor>: 재단 도면 위에서 로고 옮기기 (따로 배치할 때) */
-export interface ClothPatternEditorProps { scene: Scene | null; logo: ClothLogo | null; onChange?: (logo: ClothLogo) => void; style?: CSSProperties; className?: string; background?: string; }
+export interface ClothPatternEditorProps { scene: Scene | null; logo: ClothLogo | null; onChange?: (logo: ClothLogo) => void; style?: CSSProperties; className?: string; background?: string; preview?: boolean; showGrid?: boolean; focus?: 'all' | 'front' | 'back' | 'sleeve'; }
 export declare function ClothPatternEditor(props: ClothPatternEditorProps): ReactElement;
 export function loadLogoBitmap(src: LogoSource): Promise<ImageBitmap | null>;
 export function defaultLogoPlacement(scene: Scene, src?: LogoSource): ClothLogo | null;

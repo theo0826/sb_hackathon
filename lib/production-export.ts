@@ -33,7 +33,7 @@ export async function exportProductionPDF({ supplier, design, order, artworkSVG,
     sheet = document.createElement("canvas"); sheet.width = width; sheet.height = height;
     const next = sheet.getContext("2d"); if (!next) throw new Error("PDF를 만들 수 없는 브라우저예요.");
     context = next; pages.push(sheet); context.fillStyle = "#fff"; context.fillRect(0, 0, width, height);
-    context.font = '700 22px "Malgun Gothic", Arial, sans-serif'; context.fillStyle = "#3182f6"; context.fillText("성북핏  /  SEONGBUK FIT", margin, 65);
+    context.font = '700 22px "Malgun Gothic", Arial, sans-serif'; context.fillStyle = "#3182f6"; context.fillText("한땀  /  HANDDAM", margin, 65);
     context.font = '18px "Malgun Gothic", Arial, sans-serif'; context.fillStyle = "#7b8795"; context.fillText(`업체 검토용 초안 · 발송 전 · ${pages.length}페이지`, margin, height - 42);
     y = 115;
   }
@@ -104,7 +104,7 @@ export async function exportProductionPDF({ supplier, design, order, artworkSVG,
     }
   }
   const pdf = new jsPDF({ unit: "mm", format: "a4", compress: true });
-  pdf.setProperties({ title: `Seongbuk Fit - ${supplier.id} production sheet`, subject: aiDocument?.templateVersion === DELIVERY_DOCUMENT_VERSION ? "Saved design handoff and order snapshot" : aiDocument?.production?.converter === "sample" ? "Mock UV-to-pattern conversion draft" : aiDocument ? "AI-assisted production request draft" : "Production request draft" });
+  pdf.setProperties({ title: `Handdam - ${supplier.id} production sheet`, subject: aiDocument?.templateVersion === DELIVERY_DOCUMENT_VERSION ? "Saved design handoff and order snapshot" : aiDocument?.production?.converter === "sample" ? "Mock UV-to-pattern conversion draft" : aiDocument ? "AI-assisted production request draft" : "Production request draft" });
   pages.forEach((canvas, index) => { if (index) pdf.addPage(); pdf.addImage(canvas.toDataURL("image/jpeg", .94), "JPEG", 0, 0, 210, 297); });
   if (download) pdf.save(`seongbuk-fit-${supplier.id}-production.pdf`);
   return pdf.output("blob");

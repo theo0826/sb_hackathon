@@ -4,9 +4,9 @@
 
 ## 현재 배포 상태
 
-2026-10-24 점검에서 Pages가 `Deploy from a branch → main → /`로 설정되어 Next.js 앱 대신 README를 게시하고 있음을 확인했습니다. Pages의 Source는 **GitHub Actions**로 설정해야 합니다. `main` 루트의 Next.js 소스를 그대로 게시하거나 `out/`을 소스 브랜치에 커밋하지 않습니다.
+2026-10-29 배포 연결에서 Pages의 기존 `codex/clothdata-demo-integration → /` 소스 게시 방식을 **GitHub Actions**로 전환합니다. `main`의 검증된 정적 산출물을 게시합니다. `main` 루트의 Next.js 소스를 그대로 게시하거나 `out/`을 소스 브랜치에 커밋하지 않습니다.
 
-`main`에 push하면 **Deploy main to GitHub Pages**가 단위 검사 → 정적 빌드 → 산출물 검사를 실행하고 검증된 `out/`만 Pages artifact로 배포합니다. 저장소 변수 `PAGES_ENABLED`가 `true`일 때만 deploy 작업을 실행합니다. 다른 브랜치에서는 배포하지 않습니다. 기존 `npm run deploy`는 `gh-pages` 브랜치에 파일을 올리는 별도 방식이므로 이 배포에는 사용하지 않습니다.
+`main`에 push하면 **Deploy main to GitHub Pages**가 단위 검사 → 정적 빌드 → 산출물 검사를 실행하고 검증된 `out/`만 Pages artifact로 배포합니다. 저장소 변수 `PAGES_ENABLED`가 `true`일 때만 deploy 작업을 실행합니다. 다른 브랜치에서는 배포하지 않습니다. 기존 의류 시연 브랜치 워크플로는 배포 권한 없이 미리보기 artifact만 만들고, 운영 배포와 별도의 동시 실행 그룹을 사용합니다. 기존 `npm run deploy`는 `gh-pages` 브랜치에 파일을 올리는 별도 방식이므로 이 배포에는 사용하지 않습니다.
 
 ## 작업과 로컬 확인
 
