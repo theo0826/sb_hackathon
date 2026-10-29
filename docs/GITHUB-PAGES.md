@@ -1,59 +1,52 @@
 # GitHub Pages와 팀 작업
 
-배포 기준 브랜치는 `main`입니다. `components/ClothSim/`의 의상 생성·시뮬레이션 코드는 배포 복구 과정에서 수정하지 않습니다. 현재 데스크톱과 모바일 홈 모두 MotionHome이며, MinimalHome은 자동 전환되지 않는 별도 구현입니다.
+현재 게시 방식은 **Deploy from a branch → main → /docs**입니다. 게시 주소는 https://theo0826.github.io/sb_hackathon/ 입니다.
 
-## 현재 배포 상태
+Next.js 소스와 GitHub Pages에서 실행할 정적 파일을 같은 `main` 브랜치에 함께 보관합니다. Pages는 `docs/index.html`과 `docs/_next/` 등 빌드된 파일을 직접 게시합니다. `.nojekyll`로 Next.js의 밑줄 경로를 유지하며, 기존 Markdown 문서와 `pattern-mockups/`는 보존합니다.
 
-2026-10-29 배포 연결에서 Pages의 기존 `codex/clothdata-demo-integration → /` 소스 게시 방식을 **GitHub Actions**로 전환합니다. `main`의 검증된 정적 산출물을 게시합니다. `main` 루트의 Next.js 소스를 그대로 게시하거나 `out/`을 소스 브랜치에 커밋하지 않습니다.
-
-`main`에 push하면 **Deploy main to GitHub Pages**가 단위 검사 → 정적 빌드 → 산출물 검사를 실행하고 검증된 `out/`만 Pages artifact로 배포합니다. 저장소 변수 `PAGES_ENABLED`가 `true`일 때만 deploy 작업을 실행합니다. 다른 브랜치에서는 배포하지 않습니다. 기존 의류 시연 브랜치 워크플로는 배포 권한 없이 미리보기 artifact만 만들고, 운영 배포와 별도의 동시 실행 그룹을 사용합니다. 기존 `npm run deploy`는 `gh-pages` 브랜치에 파일을 올리는 별도 방식이므로 이 배포에는 사용하지 않습니다.
-
-## 작업과 로컬 확인
+## 수정 후 게시
 
 Node.js 24와 `npm ci`를 사용합니다.
 
 ```sh
 git switch main
 git pull --ff-only origin main
-# 수정·커밋 후
-git push origin main
-
+# 앱 수정 후
 npm run test:unit
-npm run build:pages
-npm run test:pages
+npm run prepare:pages
+git add -A
+git commit -m "Update site"
+git push origin main
+```
+
+`prepare:pages`는 정적 빌드 → 산출물 검사 → `docs/` 갱신 → 게시본 검사를 수행합니다. 소스를 수정하면 이 명령으로 게시본도 갱신한 뒤 함께 커밋하세요. `.pages-export.json`에 기록한 이전 생성 파일만 교체하므로 일반 프로젝트 문서는 삭제하지 않습니다. `out/`, 환경 파일, 서버 API와 서버 전용 코드는 게시본에 포함하지 않습니다.
+
+`main`에 push하면 GitHub의 **pages build and deployment**가 `docs/`를 게시합니다. 별도 **Validate main for GitHub Pages** 워크플로는 단위 검사·소스 빌드·게시본 검사를 수행하고 미리보기 artifact를 남깁니다. Pages 설정을 Actions 방식으로 바꾸거나 다른 브랜치를 게시하지 않습니다. `PAGES_ENABLED` 변수와 수동 artifact 배포는 필요하지 않습니다.
+
+기존 `npm run deploy`는 별도 `gh-pages` 브랜치를 사용하는 예전 명령입니다. 현재 게시 방식에는 `npm run prepare:pages`와 `git push origin main`을 사용합니다.
+
+## 저장소 설정
+
+Settings → Pages에서 다음 값을 유지합니다.
+
+- Source: **Deploy from a branch**
+- Branch: **main**
+- Folder: **/docs**
+
+`main / (root)`를 선택하면 Next.js 소스만 노출되고 앱 경로는 404가 됩니다. Pages의 브랜치 게시 폴더는 `/` 또는 `/docs`만 지원하므로 빌드 결과를 `/docs`에 둡니다. 저장소 루트의 소스 구조는 유지합니다.
+
+## 로컬 확인과 데이터
+
+```sh
 npm run preview:pages
 ```
 
-미리보기: `http://127.0.0.1:4173/sb_hackathon/`. 산출물: `out/`.
+미리보기는 `http://127.0.0.1:4173/sb_hackathon/`이고, 로컬 서버는 `out/`을 사용합니다. 실제 게시 파일은 동일한 내용의 `docs/`입니다. 저장소 이름이 달라지면 `NEXT_PUBLIC_BASE_PATH`도 해당 이름으로 바꿔 빌드합니다.
 
-빌드 스크립트는 `.tools/pages-source/` 복사본에서만 서버 API·서버 코드·런타임 ID 경로를 제외합니다. 환경 파일은 복사하지 않습니다. 정적 배포 빌드는 Webpack을 명시적으로 사용합니다. 원본 서버 소스와 일반 `npm run build`는 보존됩니다. 공개 이미지·3D 모델·장면 파일은 저장소 접두 경로를 사용합니다.
+- 디자인·3D 원본·제작자료는 현재 기기와 브라우저의 IndexedDB에 저장됩니다.
+- 시연 주문과 연락처를 포함한 요청서는 현재 탭의 sessionStorage에 보관됩니다. 새로고침은 유지되며 탭을 닫으면 사라집니다.
+- 상세 화면은 `/quotes/detail/?id=...`, `/orders/detail/?id=...`, `/my/detail/?id=...`로 직접 접근과 새로고침을 지원합니다.
+- 의류 생성은 팀 Cloudflare Worker를 사용하며, 키를 프론트엔드에 포함하지 않습니다. 실제 생성은 Worker 가용성과 WebGPU 지원이 필요합니다.
+- 업체 견적과 요청서 전달은 시연 흐름입니다. 실제 업체 발송·결제·서버 동기화는 구현되어 있지 않습니다.
 
-동료의 새 변경은 `main`에 병합되면 자동 배포됩니다. 충돌 시 기존 UI와 삭제 금지 연동을 함께 보존하고, ClothSim 폴더 내부는 담당 동료에게 맡깁니다.
-
-## 배포 활성화 절차 (현재 적용 완료)
-
-1. 공개 저장소는 무료 Pages를 사용합니다. 비공개라면 이를 지원하는 요금제가 필요합니다.
-2. Settings → Pages → Source를 GitHub Actions로 설정합니다.
-3. Settings → Environments → github-pages의 배포 허용 브랜치에 `main`이 포함되어 있는지 확인합니다. 기존 정책은 유지합니다.
-4. Settings → Secrets and variables → Actions → Variables에 `PAGES_ENABLED=true`를 추가합니다. 비밀 키는 필요하지 않습니다.
-5. main에 push하거나 해당 브랜치를 선택해 Deploy main to GitHub Pages를 수동 실행합니다.
-
-예상 배포 주소는 `https://theo0826.github.io/sb_hackathon/`이며, 성공한 deploy 작업이 반환한 주소를 확인하세요. [GitHub 공식 워크플로 안내](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
-
-## 서버 없이 제공하는 기능
-
-- 예시 시안·직접 편집·로고 첨부·3D 미리보기·업체 비교·PDF 및 도안 다운로드는 브라우저에서 처리합니다.
-- 저장한 디자인과 제작자료는 이 기기·브라우저의 IndexedDB에 보관됩니다. 서버 동기화는 없습니다.
-- 시연 주문과 연락처를 포함한 요청서는 현재 탭의 sessionStorage에 보관합니다. 새로고침은 유지되며 탭을 닫으면 사라집니다.
-- 상세 화면은 `/quotes/detail/?id=...`, `/orders/detail/?id=...`, `/my/detail/?id=...`로 직접 열기와 새로고침을 지원합니다.
-- 유료 AI 생성·AI 변환은 비활성화됩니다. 목업 변환은 브라우저에서 실행하며 실제 결제·업체 발송은 없습니다. 정적 사이트는 Vercel·Supabase·서버 비밀 키를 사용하지 않습니다.
-
-## 동료에게 필요한 파일과 검사 제한
-
-현재 GitHub에는 `public/cloth/scene.json`, `public/cloth/scene.bin`이 없습니다. 담당 동료가 두 파일을 제공하거나 유효한 장면 경로를 알려줘야 ClothSim의 실제 의상이 표시됩니다. 컴포넌트와 장면을 임의로 대체하지 않았습니다. 파일이 준비되지 않았거나 WebGPU를 지원하지 않는 환경에는 부모 UI가 준비 안내를 표시합니다.
-
-전체 ESLint에는 동료의 ClothSim 내부 기존 오류 2건(index.d.ts의 any, solver.js의 module 변수)과 경고가 있습니다. 해당 폴더를 제외한 앱·변경 코드 lint는 통과합니다. 담당 영역은 수정하지 않았습니다.
-
-디자인 inspector는 기존 그림자 버튼·윤곽선·sticky 카드 겹침을 실패로 판정합니다. 사용자가 요청한 글래스 UI와 겹침 효과를 유지하는 병합 작업이므로 재설계하지 않았으며, 실제 화면·기능 검증과 별도로 기록합니다.
-
-최종 검증: 정적 빌드·산출물 검사·TypeScript·단위 검사·ClothSim 외 앱 lint 성공. 실제 Chrome에서 데스크톱/모바일 가로 넘침, 디자인 저장·새로고침·삭제·복원, 로컬 목업 요청서 변환·상세 새로고침·삭제·복원, 서버 API 요청 0건과 런타임 예외 0건을 확인했습니다. 공유 검사에서 비밀 값 일치 항목은 없었으며 기존 이력의 일반 이메일 경고만 남았습니다.
+ClothSim 내부의 기존 lint 경고와 담당 영역은 유지합니다. 변경 코드 lint, 단위 검사, 정적 빌드와 게시본 검사를 배포 전에 확인합니다.

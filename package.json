@@ -14,6 +14,7 @@
     "test:backend": "node tests/backend-api.mjs",
     "test:security": "node tests/local-security.mjs",
     "build:pages": "node tools/build-pages.mjs",
+    "prepare:pages": "npm run build:pages && npm run test:pages && node tools/prepare-pages-branch.mjs && node tests/pages-export.mjs docs",
     "preview:pages": "node tools/serve-pages.mjs",
     "test:pages": "node tests/pages-export.mjs",
     "predeploy": "npm run build:pages",

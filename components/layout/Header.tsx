@@ -7,7 +7,7 @@ import { UserRound, ChevronDown, PenLine, Package, BookOpen } from "lucide-react
 
 
 export default function Header() {
-  const pathname = usePathname();
+  const pathname = usePathname().replace(/\/+$/, "") || "/";
   const [open, setOpen] = useState(false);
   const profile = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
