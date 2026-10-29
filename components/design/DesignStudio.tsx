@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
+import BrandLogo from "@/components/layout/BrandLogo";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from "react";
 import { ArrowRight, ArrowUp, Check, ChevronDown, ImagePlus, LoaderCircle, PenLine, Plus, Save, UserRound, X } from "lucide-react";
 import { isDesign, type Design } from "@/lib/design";
@@ -277,7 +278,7 @@ export default function DesignStudio() {
 
   return <main id="main-content" className="handdam-studio" data-has-design={hasGarment} data-processing={processing} data-first-loading={firstLoading}>
     <header className="handdam-header" inert={modalOpen}>
-      <Link href="/" className="handdam-wordmark" aria-label="한땀 홈">한땀<span/></Link>
+      <BrandLogo/>
       <div className="studio-header-actions">
         <button type="button" className="studio-header-button" onClick={save} disabled={busy || !captureReady}>{saving ? <LoaderCircle size={15} className="animate-spin"/> : <Save size={15}/>}<span>{saving ? "저장 중" : "저장하기"}</span></button>
         <Link href="/my" className="studio-account" aria-label="마이페이지"><UserRound size={19}/></Link>

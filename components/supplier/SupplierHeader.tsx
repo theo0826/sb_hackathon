@@ -1,8 +1,7 @@
 "use client";
-import Image from "next/image";
+import BrandLogo from "@/components/layout/BrandLogo";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { publicPath } from "@/lib/deployment";
 import { useDesignSession } from "@/lib/design-session";
 import { getClothData, useClothData } from "@/components/ClothSim/clothdata/store";
 import { readyClothCapture } from "@/lib/cloth-capture";
@@ -11,7 +10,7 @@ import { getLibraryItem, saveLibraryItem } from "@/lib/library";
 import SupplierAsset from "./SupplierAsset";
 import Asset from "@/components/layout/WorkspaceAsset";
 
-export default function SupplierHeader({ accountMenu = false }: { accountMenu?: boolean }) {
+export default function SupplierHeader({ accountMenu = false, showSave = true }: { accountMenu?: boolean; showSave?: boolean }) {
   const [open, setOpen] = useState(false);
   const profile = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -44,5 +43,5 @@ export default function SupplierHeader({ accountMenu = false }: { accountMenu?: 
     } catch (cause) { setError(true); setFeedback(cause instanceof Error ? cause.message : "저장하지 못했어요."); }
     finally { busy.current = false; setSaving(false); }
   }
-  return <header className="supplier-header"><Link href="/" className="supplier-brand" aria-label="한땀 홈"><Image src={publicPath("/figma/suppliers/1389e.png")} alt="한땀" width={87} height={56} unoptimized /></Link><div className="supplier-header-actions"><button type="button" className="supplier-save" disabled={saving || !readyClothCapture(cloth)} onClick={save}><SupplierAsset name="cb3ac.svg" /><span className="supplier-desktop">{saving ? "저장 중" : "저장하기"}</span><span className="supplier-mobile">{saving ? "저장 중" : "저장"}</span></button>{accountMenu ? <div ref={profile} className="workspace-profile" onBlur={event => { if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}><button ref={trigger} type="button" className="supplier-account" aria-label="마이페이지 메뉴" aria-expanded={open} aria-controls="workspace-profile-menu" onClick={() => setOpen(!open)}><SupplierAsset name="50916.svg" className="supplier-desktop"/><span className="supplier-mobile supplier-mobile-avatar"><SupplierAsset name="5fcd1.svg"/><SupplierAsset name="8452a.svg"/></span></button>{open && <nav id="workspace-profile-menu" className="workspace-profile-menu" aria-label="마이페이지 메뉴"><p>나의 한땀</p>{[["design","디자인","저장한 디자인을 이어서 만들어요","062f7.svg"],["orders","주문","견적과 제작 진행을 확인해요","03f14.svg"],["guide","이용 방법","디자인부터 제작 준비까지","751c5.svg"]].map(([tab,label,description,icon]) => <Link key={tab} href={`/my?tab=${tab}`} onClick={() => setOpen(false)}><Asset name={icon}/><span><strong>{label}</strong><small>{description}</small></span></Link>)}</nav>}</div> : <Link href="/my" className="supplier-account" aria-label="마이페이지"><SupplierAsset name="50916.svg" className="supplier-desktop" /><span className="supplier-mobile supplier-mobile-avatar"><SupplierAsset name="5fcd1.svg" /><SupplierAsset name="8452a.svg" /></span></Link>}</div>{feedback && <p className="supplier-save-feedback" role={error ? "alert" : "status"}>{feedback}</p>}</header>;
+  return <header className="supplier-header"><BrandLogo/><div className="supplier-header-actions">{showSave && <button type="button" className="supplier-save" disabled={saving || !readyClothCapture(cloth)} onClick={save}><SupplierAsset name="cb3ac.svg" /><span className="supplier-desktop">{saving ? "저장 중" : "저장하기"}</span><span className="supplier-mobile">{saving ? "저장 중" : "저장"}</span></button>}{accountMenu ? <div ref={profile} className="workspace-profile" onBlur={event => { if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}><button ref={trigger} type="button" className="supplier-account" aria-label="마이페이지 메뉴" aria-expanded={open} aria-controls="workspace-profile-menu" onClick={() => setOpen(!open)}><SupplierAsset name="50916.svg" className="supplier-desktop"/><span className="supplier-mobile supplier-mobile-avatar"><SupplierAsset name="5fcd1.svg"/><SupplierAsset name="8452a.svg"/></span></button>{open && <nav id="workspace-profile-menu" className="workspace-profile-menu" aria-label="마이페이지 메뉴">{[["design","디자인","저장한 디자인을 이어서 만들어요","062f7.svg"],["orders","주문","견적과 제작 진행을 확인해요","03f14.svg"],["guide","이용 방법","디자인부터 제작 준비까지","751c5.svg"]].map(([tab,label,,icon]) => <Link key={tab} href={`/my?tab=${tab}`} onClick={() => setOpen(false)}><Asset name={icon}/><span><strong>{label}</strong></span></Link>)}</nav>}</div> : <Link href="/my" className="supplier-account" aria-label="마이페이지"><SupplierAsset name="50916.svg" className="supplier-desktop" /><span className="supplier-mobile supplier-mobile-avatar"><SupplierAsset name="5fcd1.svg" /><SupplierAsset name="8452a.svg" /></span></Link>}</div>{feedback && <p className="supplier-save-feedback" role={error ? "alert" : "status"}>{feedback}</p>}</header>;
 }
