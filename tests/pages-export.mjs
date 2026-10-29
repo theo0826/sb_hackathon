@@ -12,6 +12,15 @@ for (const route of ["", "design", "editor", "my", "my/detail", "orders/detail",
   }
 }
 const home = await fs.readFile(path.join(root, "index.html"), "utf8");
+for (const route of ["", "design"]) {
+  const html = await fs.readFile(path.join(root, route, "index.html"), "utf8");
+  assert(html.includes('class="brand-logo"'), `Design entry must include the shared logo: ${route}`);
+  for (const asset of ["symbol.svg", "wordmark.svg", "symbol-mobile.svg", "wordmark-mobile.svg"]) {
+    assert(html.includes(`${base}/figma/brand/${asset}`), `Design entry must reference the published logo: ${route}/${asset}`);
+    const svg = await fs.readFile(path.join(root, "figma/brand", asset), "utf8");
+    assert(svg.includes("<svg"), `Published logo must be a non-empty SVG: ${asset}`);
+  }
+}
 assert(home.includes("handdam-studio"), "Home should open the design studio directly");
 assert(home.includes(`href="${base}/my/"`), "The studio should link to the repository-prefixed library route");
 await fs.access(path.join(root, "models/garment-masters-v2.glb"));

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import RequestView from "./RequestView";
+import SupplierHeader from "@/components/supplier/SupplierHeader";
 import { downloadRequestPDF } from "@/lib/request-download";
 import { matchingOffers, productionOrder, recommendedOffer } from "@/lib/supplier-bids";
 import { useDesignSession } from "@/lib/design-session";
@@ -57,7 +58,7 @@ export default function QuoteForm() {
     } catch (cause) { setSaveError(cause instanceof Error ? cause.message : "파일을 만들지 못했어요."); }
     finally { setDownloadBusy(false); }
   }
-  if (!(hasResult || design.image) || !supplier) return <main id="main-content" className="request-page"><section className="request-empty"><h1>{hasResult || design.image ? "업체를 먼저 선택해주세요." : "먼저 디자인을 만들어주세요."}</h1><Link href={hasResult || design.image ? "/suppliers" : "/design"} className="request-primary">이전 단계로 →</Link></section></main>;
+  if (!(hasResult || design.image) || !supplier) return <main id="main-content" className="request-page"><SupplierHeader accountMenu showSave={false}/><section className="request-empty"><h1>{hasResult || design.image ? "업체를 먼저 선택해주세요." : "먼저 디자인을 만들어주세요."}</h1><Link href={hasResult || design.image ? "/suppliers" : "/design"} className="request-primary">이전 단계로 →</Link></section></main>;
   const recommended = recommendedOffer(matchingOffers(design, productionOrder(design, order)))?.supplier.id === supplier.id;
   return <RequestView supplier={supplier} design={design} order={order} details={details} capture={captureReady ? snapshotClothCapture(clothData) : undefined} completed={delivered} reviewed={reviewed} recommended={recommended}
     onReview={checked => setReviewedVersion(checked ? reviewVersion : "")} onDeliver={confirmDelivery} onDownload={() => void downloadOrder()} downloadBusy={downloadBusy} error={saveError} feedback={downloaded ? "제작 요청서를 내려받았어요." : ""} headingRef={completionHeading}/>;

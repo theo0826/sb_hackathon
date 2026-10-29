@@ -1,8 +1,8 @@
 :HL["/sb_hackathon/_next/static/css/7d6c2cbdba0f828f.css","style"]
 :HL["/sb_hackathon/_next/static/css/3c8c50c5ac0e3278.css","style"]
 :HL["/sb_hackathon/_next/static/css/19989d0209440733.css","style"]
-:HL["/sb_hackathon/_next/static/css/71e26ebdb530c809.css","style"]
+:HL["/sb_hackathon/_next/static/css/6331f5500d8efec8.css","style"]
 3:[["children",{"s":"__PAGE__","h":160}]]
 2:[["children",{"s":"detail","h":96,"c":"$Q3"}]]
 1:[["children",{"s":"orders","h":96,"c":"$Q2"}]]
-0:{"b":"klZFFLc2mR9cpxXy5XWqd","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
+0:{"b":"H04uemLo6lLC55UGhg0as","t":{"t":{"s":"","h":80,"c":"$Q1"}}}

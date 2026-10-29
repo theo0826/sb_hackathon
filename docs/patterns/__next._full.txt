@@ -1,31 +1,30 @@
 1:"$Sreact.fragment"
-2:"static/chunks/5587-a8dc538170243aab.js"
-3:"static/chunks/app/layout-3fcb5fd74508c44f.js"
-4:I[40479,["5587","$2","7177","$3"],"default"]
+2:"static/chunks/9497-6fdc48007be350ec.js"
+3:"static/chunks/app/layout-f2369cadd6417a8d.js"
+4:I[40479,["9497","$2","7177","$3"],"default"]
 5:I[99630,[],""]
 6:I[1380,[],""]
-a:"static/chunks/2175-85b355e32709aff2.js"
-b:"static/chunks/7713-1b99cf81fe52ec04.js"
-c:"static/chunks/210-983cc9b57c90fe2f.js"
-d:"static/chunks/2365-ae4d7306812493dd.js"
-e:"static/chunks/app/patterns/page-e5b7518f46456965.js"
-f:I[82549,["5587","$2","2175","$a","7713","$b","210","$c","2365","$d","1508","$e"],"default"]
-10:I[30887,[],"OutletBoundary"]
-11:"$Sreact.suspense"
-13:"ViewportBoundary"
-14:I[30887,[],"$13"]
-16:"MetadataBoundary"
-17:I[30887,[],"$16"]
-19:I[15718,[],"default",1]
+a:"static/chunks/7713-1b99cf81fe52ec04.js"
+b:"static/chunks/4592-cadb34293d575341.js"
+c:"static/chunks/2365-a9d96d52e0e4cfec.js"
+d:"static/chunks/app/patterns/page-6616989e7bbf9639.js"
+e:I[82549,["9497","$2","7713","$a","4592","$b","2365","$c","1508","$d"],"default"]
+f:I[30887,[],"OutletBoundary"]
+10:"$Sreact.suspense"
+12:"ViewportBoundary"
+13:I[30887,[],"$12"]
+15:"MetadataBoundary"
+16:I[30887,[],"$15"]
+18:I[15718,[],"default",1]
 :HL["/sb_hackathon/_next/static/css/7d6c2cbdba0f828f.css","style"]
 :HL["/sb_hackathon/_next/static/css/3c8c50c5ac0e3278.css","style"]
 :HL["/sb_hackathon/_next/static/css/19989d0209440733.css","style"]
-:HL["/sb_hackathon/_next/static/css/71e26ebdb530c809.css","style"]
+:HL["/sb_hackathon/_next/static/css/6331f5500d8efec8.css","style"]
 8:X
-9:[["children",{"s":"__PAGE__","h":512,"d":{"r":["$","$1","c",{"children":[["$","$Lf",null,{}],null,["$","$L10",null,{"children":["$","$11",null,{"name":"Next.MetadataOutlet","children":"$@12"}]}]]}],"p":false,"v":null}}]]
+9:[["children",{"s":"__PAGE__","h":512,"d":{"r":["$","$1","c",{"children":[["$","$Le",null,{}],null,["$","$Lf",null,{"children":["$","$10",null,{"name":"Next.MetadataOutlet","children":"$@11"}]}]]}],"p":false,"v":null}}]]
 7:[["children",{"s":"patterns","h":512,"d":{"r":["$","$1","c",{"children":[null,["$","$L5",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L6",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}],"p":false,"v":"$8"},"c":"$Q9"}]]
-0:{"P":null,"c":["","patterns",""],"q":"","i":false,"t":{"t":{"s":"","h":528,"d":{"r":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/sb_hackathon/_next/static/css/7d6c2cbdba0f828f.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","link","1",{"rel":"stylesheet","href":"/sb_hackathon/_next/static/css/3c8c50c5ac0e3278.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","link","2",{"rel":"stylesheet","href":"/sb_hackathon/_next/static/css/19989d0209440733.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","link","3",{"rel":"stylesheet","href":"/sb_hackathon/_next/static/css/71e26ebdb530c809.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]],["$","html",null,{"lang":"ko","data-scroll-behavior":"smooth","children":["$","body",null,{"children":[["$","a",null,{"className":"skip-link","href":"#main-content","children":"본문 바로가기"}],["$","$L4",null,{}],["$","$L5",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L6",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]],[]],"forbidden":"$undefined","unauthorized":"$undefined"}],["$","footer",null,{"className":"site-footer shell","children":[["$","span",null,{"children":[["$","b",null,{"children":"한땀"}],["$","span",null,{"className":"footer-copy","children":"성북구의 이웃과 지역의 제작을 연결해요."}]]}],["$","span",null,{"children":"우리다운 단체티의 시작 · HANDDAM"}]]}]]}]}]]}],"p":false,"v":null},"c":"$Q7"},"h":{"r":["$","$1","h",{"children":[null,["$","$L14",null,{"children":"$L15"}],["$","$L17",null,{"children":[["$","div",null,{"hidden":true,"children":["$","$11",null,{"name":"Next.Metadata","children":"$L18"}]}],null]}],null]}],"p":false,"v":null}},"m":"$undefined","G":["$19",[]],"S":true,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"klZFFLc2mR9cpxXy5XWqd"}
+0:{"P":null,"c":["","patterns",""],"q":"","i":false,"t":{"t":{"s":"","h":528,"d":{"r":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/sb_hackathon/_next/static/css/7d6c2cbdba0f828f.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","link","1",{"rel":"stylesheet","href":"/sb_hackathon/_next/static/css/3c8c50c5ac0e3278.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","link","2",{"rel":"stylesheet","href":"/sb_hackathon/_next/static/css/19989d0209440733.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","link","3",{"rel":"stylesheet","href":"/sb_hackathon/_next/static/css/6331f5500d8efec8.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]],["$","html",null,{"lang":"ko","data-scroll-behavior":"smooth","children":["$","body",null,{"children":[["$","a",null,{"className":"skip-link","href":"#main-content","children":"본문 바로가기"}],["$","$L4",null,{}],["$","$L5",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L6",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]],[]],"forbidden":"$undefined","unauthorized":"$undefined"}],["$","footer",null,{"className":"site-footer shell","children":[["$","span",null,{"children":[["$","b",null,{"children":"한땀"}],["$","span",null,{"className":"footer-copy","children":"성북구의 이웃과 지역의 제작을 연결해요."}]]}],["$","span",null,{"children":"우리다운 단체티의 시작 · HANDDAM"}]]}]]}]}]]}],"p":false,"v":null},"c":"$Q7"},"h":{"r":["$","$1","h",{"children":[null,["$","$L13",null,{"children":"$L14"}],["$","$L16",null,{"children":[["$","div",null,{"hidden":true,"children":["$","$10",null,{"name":"Next.Metadata","children":"$L17"}]}],null]}],null]}],"p":false,"v":null}},"m":"$undefined","G":["$18",[]],"S":true,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"H04uemLo6lLC55UGhg0as"}
 8:C
-15:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]
-12:null
-18:[["$","title","0",{"children":"업체 도안 목업 | 한땀"}],["$","meta","1",{"name":"description","content":"성북구 주민의 모임과 지역의 제작을 연결하는 단체티 디자인 플랫폼. 동호회, 가족 행사, 이웃 모임의 옷을 만들어보세요."}]]
+14:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]
+11:null
+17:[["$","title","0",{"children":"업체 도안 목업 | 한땀"}],["$","meta","1",{"name":"description","content":"성북구 주민의 모임과 지역의 제작을 연결하는 단체티 디자인 플랫폼. 동호회, 가족 행사, 이웃 모임의 옷을 만들어보세요."}]]
