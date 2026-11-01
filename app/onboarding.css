@@ -1,0 +1,71 @@
+
+/* layout: one screen. brand message left, a looping product film on the right (prompt -> 3D -> pattern -> order -> send) */
+.handdam-onboarding{
+  --page:#F1F3F7; --card:#FFFFFF; --navy:#041E41; --ink:#191F28; --sub:#4A5262; --muted:#8A93A6;
+  --line:#DDE2EA; --lime:#B3D214; --lime-text:#86A30A;
+  --font:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  color-scheme:light;
+}
+.handdam-onboarding *{box-sizing:border-box}
+.handdam-onboarding{background:var(--page);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased}
+.handdam-onboarding .top{background:var(--card);border-bottom:1px solid #ECEEF2;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))} /* taste-skill-ignore: supplied Figma app/film styling; exact reproduction requested. */
+.handdam-onboarding .top-in{max-width:1240px;margin:0 auto;height:64px;display:flex;align-items:center;justify-content:space-between}
+.handdam-onboarding .logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:21px;color:var(--navy);letter-spacing:-.5px}
+.handdam-onboarding .me{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;color:var(--ink)} /* taste-skill-ignore: supplied Figma app/film styling; exact reproduction requested. */
+.handdam-onboarding .wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:56px 48px}
+.handdam-onboarding .hero{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:minmax(0,.72fr) minmax(0,1.28fr);gap:48px;align-items:center}
+.handdam-onboarding .msg{min-width:0}
+.handdam-onboarding h1{margin:0;font-size:clamp(34px,4.6vw,58px);line-height:1.22;font-weight:700;letter-spacing:-.03em;text-wrap:balance}
+.handdam-onboarding h1 em{font-style:normal;color:var(--lime-text)}
+.handdam-onboarding .lead{margin:20px 0 34px;font-size:clamp(16px,1.5vw,19px);line-height:1.65;color:var(--sub);font-weight:500}
+.handdam-onboarding .cta{display:inline-flex;align-items:center;gap:10px;background:var(--navy);color:#fff;border:0;border-radius:14px;padding:17px 28px;font:700 17px var(--font);cursor:pointer}
+.handdam-onboarding .cta:focus-visible,.handdam-onboarding .ctrl:focus-visible{outline:3px solid var(--lime);outline-offset:3px}
+.handdam-onboarding .steps{margin:40px 0 0;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;font-size:16px;color:#3E4757;font-weight:500}
+.handdam-onboarding .steps i{color:#8A93A6;font-style:normal}
+
+.handdam-onboarding .film-wrap{min-width:0}
+.handdam-onboarding .stage{position:relative;width:100%;aspect-ratio:16/10;background:#E6E9EF;border:1px solid var(--line);border-radius:22px;overflow:hidden} /* taste-skill-ignore: supplied Figma app/film styling; exact reproduction requested. */
+.handdam-onboarding .garment{position:absolute;right:8%;top:-1%;width:56%;aspect-ratio:1/1;opacity:0}
+.handdam-onboarding .garment video{display:block;width:100%;height:100%;object-fit:cover;background:#E6E9EF}
+.handdam-onboarding .orbit{position:absolute;right:17%;top:86%;width:36%;opacity:0;overflow:visible}
+.handdam-onboarding .prompt{position:absolute;left:50%;top:50%;width:56%;background:var(--card);border-radius:18px;padding:18px 18px 14px;box-shadow:0 1px 2px rgba(4,30,65,.04),0 10px 30px rgba(4,30,65,.08);z-index:5} /* taste-skill-ignore: supplied Figma app/film styling; exact reproduction requested. */
+.handdam-onboarding .ptext{margin:0 0 14px;min-height:1.5em;font-size:clamp(13px,1.45vw,19px);line-height:1.5;color:var(--ink)}
+.handdam-onboarding .ph{color:#9AA1AE}
+.handdam-onboarding .caret{display:inline-block;width:2px;height:1em;background:var(--navy);vertical-align:-2px;margin-left:1px}
+.handdam-onboarding .pbar{display:flex;justify-content:space-between;align-items:center}
+.handdam-onboarding .pchip{font-size:clamp(11px,1vw,13px);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:5px 10px;font-weight:500} /* taste-skill-ignore: supplied Figma app/film styling; exact reproduction requested. */
+.handdam-onboarding .send{width:clamp(28px,2.8vw,38px);aspect-ratio:1;border-radius:10px;background:#ECEEF2;display:grid;place-items:center}
+.handdam-onboarding .piece{position:absolute;opacity:0;z-index:3}
+.handdam-onboarding .piece img{display:block;width:100%;height:auto;filter:drop-shadow(0 6px 14px rgba(4,30,65,.08))} /* taste-skill-ignore: supplied Figma app/film styling; exact reproduction requested. */
+.handdam-onboarding .sheet{position:absolute;left:50%;top:50%;width:60%;background:var(--card);border-radius:18px;padding:18px 18px 16px;box-shadow:0 1px 2px rgba(4,30,65,.04),0 12px 32px rgba(4,30,65,.10);opacity:0;z-index:4} /* taste-skill-ignore: supplied Figma app/film styling; exact reproduction requested. */
+.handdam-onboarding .sh-t{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.handdam-onboarding .sh-t b{font-size:clamp(13px,1.3vw,16px)}
+.handdam-onboarding .badge{font-size:11px;font-weight:700;color:#4A5A00;background:#F0F6D3;border-radius:4px;padding:2px 6px}
+.handdam-onboarding .thumbs{display:flex;gap:10px;background:#F7F8FA;border-radius:12px;padding:16px 10px;margin-bottom:12px;align-items:flex-end;justify-content:center}
+.handdam-onboarding .thumbs img{height:clamp(30px,4.3vw,60px);width:auto;opacity:0;min-width:0}
+.handdam-onboarding .thumbs img.sm{height:clamp(16px,2.2vw,30px)}
+.handdam-onboarding .row{display:flex;justify-content:space-between;align-items:center;font-size:clamp(11px,1vw,13px);color:#5B6478;padding:0 2px}
+.handdam-onboarding .row b{font-size:clamp(13px,1.3vw,16px);color:var(--ink)}
+.handdam-onboarding .done{position:relative;height:clamp(40px,4vw,52px);margin-top:4px}
+.handdam-onboarding .done>div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.handdam-onboarding .chk{display:inline-flex;align-items:center;gap:8px;font-size:clamp(12px,1.2vw,15px);font-weight:700;color:var(--ink)}
+.handdam-onboarding .chk i{width:clamp(18px,1.6vw,22px);aspect-ratio:1;border-radius:50%;background:var(--navy);display:grid;place-items:center}
+.handdam-onboarding .end b{font-size:clamp(13px,1.35vw,17px);color:var(--ink)}
+.handdam-onboarding .end span{font-size:clamp(10px,.95vw,12px);color:#5B6478}
+.handdam-onboarding .endlogo{position:absolute;left:0;right:0;bottom:7%;display:flex;flex-direction:column;align-items:center;gap:clamp(6px,.9vw,12px);z-index:6;pointer-events:none}
+.handdam-onboarding .endlogo .sym{width:clamp(48px,6.5vw,84px);height:auto;overflow:visible}
+.handdam-onboarding .endlogo .word{height:clamp(16px,2vw,26px);width:auto;opacity:0}
+.handdam-onboarding .endlogo p{margin:0;font-size:clamp(12px,1.2vw,16px);font-weight:500;color:var(--sub);opacity:0}
+.handdam-onboarding .cursor{position:absolute;left:0;top:0;width:clamp(18px,2.2vw,28px);z-index:10;pointer-events:none;opacity:0;transform-origin:2px 2px}
+.handdam-onboarding .ctrl{margin-top:10px;display:inline-flex;align-items:center;gap:6px;background:none;border:0;color:var(--muted);font:500 12px var(--font);cursor:pointer;padding:4px 0}
+@media (max-width:820px){
+  .handdam-onboarding .wrap{padding-block:32px 36px}
+  .handdam-onboarding .hero{display:flex;flex-direction:column;align-items:stretch;gap:0}
+  .handdam-onboarding .msg{display:contents}
+  .handdam-onboarding .hero h1{order:1}.handdam-onboarding .hero .lead{order:2;margin:14px 0 24px}.handdam-onboarding .film-wrap{order:3}.handdam-onboarding .hero .steps{display:none}.handdam-onboarding .hero .cta{order:5;margin-top:24px;justify-content:center;width:100%}
+  .handdam-onboarding .lead{margin:14px 0 24px}
+  .handdam-onboarding .steps{margin-top:28px}
+  .handdam-onboarding .stage{border-radius:16px;aspect-ratio:4/3}
+  .handdam-onboarding .prompt{padding:11px 11px 9px;border-radius:14px}.handdam-onboarding .ptext{margin-bottom:9px}
+  .handdam-onboarding .sheet{width:74%;padding:12px}.handdam-onboarding .thumbs{padding:10px 8px;gap:6px}
+}

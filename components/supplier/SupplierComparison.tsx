@@ -16,7 +16,6 @@ import SupplierHeader from "./SupplierHeader";
 import SupplierAsset from "./SupplierAsset";
 
 const methodLabel = (method: string) => method === "DTF" ? "DTF 전사" : method;
-const directionParticle = (name: string) => { const final = (name.charCodeAt(name.length - 1) - 0xac00) % 28; return final > 0 && final !== 8 ? "으로" : "로"; };
 function SupplierSteps() {
   return <nav className="supplier-steps" aria-label="제작 단계"><ol className="supplier-desktop"><li><Link href="/design"><SupplierAsset name="912f3.svg" />디자인</Link></li><li><SupplierAsset name="0ebe2.svg" /></li><li><Link href="/quotes/new"><SupplierAsset name="912f3.svg" />주문서 확인</Link></li><li><SupplierAsset name="0ebe2.svg" /></li><li aria-current="step"><strong>03 업체 견적</strong></li><li><SupplierAsset name="0ebe2.svg" /></li><li>04 제작 진행</li></ol><p className="supplier-mobile">3 / 4 <strong>· 업체 견적</strong></p></nav>;
 }
@@ -71,7 +70,7 @@ export default function SupplierComparison() {
   }
   const pageTitle = comparing ? `업체 ${arrivedCount}곳이 견적을 보냈어요` : `업체 ${offers.length}곳에 견적을 요청했어요`;
   const date = order.desiredDeliveryDate ? new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric", weekday: "short" }).format(new Date(`${order.desiredDeliveryDate}T12:00:00+09:00`)) : "";
-  const mobileAction = comparing ? selected ? `${selected.supplier.name}${directionParticle(selected.supplier.name)} 요청서 확인` : "AI 제작 요청서 확인하기" : `견적 ${arrivedCount}건 비교하기`;
+  const mobileAction = comparing ? "AI 제작 요청서 확인하기" : `견적 ${arrivedCount}건 비교하기`;
 
   return <main id="main-content" className="wf-page supplier-page" data-ui data-state={comparing ? "comparing" : "receiving"}>
     <SupplierHeader />

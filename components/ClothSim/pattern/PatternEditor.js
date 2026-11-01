@@ -21,10 +21,15 @@ export default function ClothPatternEditor(props) {
 
   const panels = useMemo(() => {
     const all = scene ? panelOutlines(scene) : [];
+    if (preview) {
+      const bodies = all.filter(p => p.name === 'front' || p.name === 'back');
+      return bodies.length ? bodies : all;
+    }
     if (focus === 'all') return all;
+    if (focus !== 'sleeve' && all.some(p => p.name === focus)) return all.filter(p => p.name === focus);
     return all.filter(p => focus === 'sleeve' ? /^(sleeve|cuff)/.test(p.name) : p.name.startsWith(focus) || p.role === focus);
-  }, [scene, focus]);
-  const layout = useMemo(() => layoutPanels(panels), [panels]);
+  }, [scene, focus, preview]);
+  const layout = useMemo(() => layoutPanels(panels, 150, focus === 'all' && !preview ? 30 : 6), [panels, focus, preview]);
 
   // 로고 미리보기 그림
   useEffect(() => {
@@ -54,7 +59,7 @@ export default function ClothPatternEditor(props) {
     if (!panels.length) return;
     let x1 = 0, y1 = 0;
     for (const p of panels) { const q = layout.get(p.mesh); x1 = Math.max(x1, q.ox + p.bbox[2]); y1 = Math.max(y1, q.oy - p.bbox[1]); }
-    const [W, H] = size, pad = preview ? 12 : 24;
+    const [W, H] = size, pad = preview ? 18 : Math.min(focus === 'all' ? 60 : 52, H * .12);
     const s = Math.min((W - 2 * pad) / Math.max(x1, 1), (H - 2 * pad) / Math.max(y1, 1));
     view.current = { s, tx: (W - s * x1) / 2, ty: (H - s * y1) / 2, fitted: true };
     draw();
@@ -120,30 +125,29 @@ export default function ClothPatternEditor(props) {
         g.closePath();
       }
       g.fill();
-      g.strokeStyle = '#b7c3d6'; g.lineWidth = 1.2; g.beginPath();
+      g.strokeStyle = '#cbd1dc'; g.lineWidth = focus === 'all' || preview ? 1.2 : 2.5; g.beginPath();
       for (const e of p.edges) { const [ax, ay] = toScreen(p.mesh, e[0], e[1]), [bx, by] = toScreen(p.mesh, e[2], e[3]); g.moveTo(ax, ay); g.lineTo(bx, by); }
       g.stroke();
       const [lx, ly] = toScreen(p.mesh, (p.bbox[0] + p.bbox[2]) / 2, p.bbox[1]);
-      g.fillStyle = '#7c899d'; g.font = preview ? '8px sans-serif' : '11px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'top';
-      g.fillText(panelLabel(p.name), lx, ly + 4);
+      g.fillStyle = '#5b6478'; g.font = preview ? '500 12px "Supplier Noto Sans KR", sans-serif' : '500 13px "Supplier Noto Sans KR", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'top';
+      if (focus === 'all') g.fillText(preview ? (p.name === 'front' ? '앞' : '뒤') : panelLabel(p.name), lx, ly + 8);
     }
     const qd = logoQuad();
     if (qd) {
       g.save(); g.translate(qd.cx, qd.cy); g.rotate(-qd.r);
       g.drawImage(img, -qd.w / 2, -qd.h / 2, qd.w, qd.h);
       if (!preview) {
-        g.strokeStyle = drag.current && drag.current.kind === 'logo' ? '#082348' : '#7c92b8';
+        g.strokeStyle = '#b3d214';
         g.setLineDash([5, 4]); g.lineWidth = 1.5; g.strokeRect(-qd.w / 2, -qd.h / 2, qd.w, qd.h);
-        g.setLineDash([]); g.fillStyle = '#082348';
-        for (const x of [-qd.w / 2, qd.w / 2]) for (const y of [-qd.h / 2, qd.h / 2]) g.fillRect(x - 3, y - 3, 6, 6);
+        g.setLineDash([]);
       }
       g.restore();
-      g.fillStyle = '#687a94'; g.font = '11px sans-serif'; g.textAlign = 'left'; g.textBaseline = 'bottom';
+      g.fillStyle = '#5b6478'; g.font = '500 12px "Supplier Noto Sans KR", sans-serif'; g.textAlign = 'left'; g.textBaseline = 'bottom';
       const lgv = logoRef.current;
-      if (!preview) g.fillText(`${panelLabel(lgv.panel)}  가로 ${(lgv.width || 10).toFixed(1)}cm  ${Math.round(lgv.rotation || 0)}°`, 10, H - 8);
+      if (!preview) g.fillText(`${panelLabel(lgv.panel)} · 가로 ${(lgv.width || 10).toFixed(1)}cm · ${Math.round(lgv.rotation || 0)}°`, 14, H - 12);
     } else if (!lg && !preview) {
-      g.fillStyle = '#6b7079'; g.font = '13px sans-serif'; g.textAlign = 'left'; g.textBaseline = 'bottom';
-      g.fillText('로고 이미지가 없어요', 10, H - 8);
+      g.fillStyle = '#5b6478'; g.font = '500 12px "Supplier Noto Sans KR", sans-serif'; g.textAlign = 'left'; g.textBaseline = 'bottom';
+      g.fillText('로고 이미지가 없어요', 14, H - 12);
     }
   }
 

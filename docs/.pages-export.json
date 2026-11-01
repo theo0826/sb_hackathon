@@ -14,11 +14,14 @@
   "fonts",
   "index.html",
   "index.txt",
+  "main",
   "models",
   "my",
+  "onboarding",
   "orders",
   "patterns",
   "previews",
   "quotes",
-  "suppliers"
+  "suppliers",
+  "vendor"
 ]

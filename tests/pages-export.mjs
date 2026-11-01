@@ -4,15 +4,15 @@ import path from "node:path";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "/sb_hackathon";
 const root = process.argv[2] ?? "out";
-for (const route of ["", "design", "editor", "my", "my/detail", "orders/detail", "quotes/detail", "quotes/new", "quotes/prepare", "patterns", "suppliers"]) {
+for (const route of ["", "main", "design", "editor", "my", "my/detail", "orders/detail", "quotes/detail", "quotes/new", "quotes/prepare", "patterns", "suppliers"]) {
   const html = await fs.readFile(path.join(root, route, "index.html"), "utf8");
   assert(html.includes(`${base}/_next/`), `Assets should use basePath: ${route}`);
-  if (["", "design", "my", "quotes/prepare", "suppliers"].includes(route)) {
+  if (["", "main", "design", "my", "quotes/prepare", "suppliers"].includes(route)) {
     assert(!html.includes('class="site-header"'), `Workspace must not render a second header: ${route}`);
   }
 }
 const home = await fs.readFile(path.join(root, "index.html"), "utf8");
-for (const route of ["", "design"]) {
+for (const route of ["", "main", "design"]) {
   const html = await fs.readFile(path.join(root, route, "index.html"), "utf8");
   assert(html.includes('class="brand-logo"'), `Design entry must include the shared logo: ${route}`);
   for (const asset of ["symbol.svg", "wordmark.svg", "symbol-mobile.svg", "wordmark-mobile.svg"]) {
@@ -21,8 +21,18 @@ for (const route of ["", "design"]) {
     assert(svg.includes("<svg"), `Published logo must be a non-empty SVG: ${asset}`);
   }
 }
-assert(home.includes("handdam-studio"), "Home should open the design studio directly");
-assert(home.includes(`href="${base}/my/"`), "The studio should link to the repository-prefixed library route");
+assert(home.includes("handdam-onboarding"), "Home should open the onboarding screen");
+assert(home.includes(`href="${base}/main/"`), "Start should open the repository-prefixed main route");
+assert(home.includes(`${base}/vendor/gsap-3.12.2.min.js`), "Onboarding should load local GSAP");
+for (const asset of ["sweat_turn.mp4", "p_front.svg", "p_back.svg", "p_rib.svg", "p_sl1.svg", "p_sl2.svg"]) {
+  assert((await fs.stat(path.join(root, "onboarding/img", asset))).size > 0, `Onboarding asset must be published: ${asset}`);
+}
+for (const route of ["main", "design"]) {
+  const html = await fs.readFile(path.join(root, route, "index.html"), "utf8");
+  assert(html.includes("handdam-studio"), `Studio should be available: ${route}`);
+  assert(!html.includes('class="studio-pattern-pair"') && !html.includes('class="studio-pattern-miniature"'), `Sidebar pattern preview must be removed: ${route}`);
+  assert(html.includes("로고 편집"), `Logo editing must remain available: ${route}`);
+}
 await fs.access(path.join(root, "models/garment-masters-v2.glb"));
 await fs.access(path.join(root, ".nojekyll"));
 for (const file of ["api", ".env.local", "lib", "components"]) {

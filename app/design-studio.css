@@ -131,7 +131,7 @@ body:has(.handdam-studio) > .site-footer { display: none; }
 .handdam-studio .studio-primary:disabled { color: #fff; background: #d5dbe5; }
 .studio-secondary { color: var(--studio-navy); background: white; border: 1px solid var(--studio-line); }
 .studio-secondary:hover:not(:disabled) { background: #f7f9fc; border-color: var(--studio-outline); }
-.studio-pattern-card .studio-secondary { width: 100%; min-height: 36px; font-size: 11px; }
+.studio-pattern-card .studio-secondary { width: 100%; min-height: 36px; margin-top: 16px; font-size: 11px; }
 .handdam-studio .studio-secondary:disabled { color: #b9c1ce; background: #fafbfd; border-color: #f0f2f6; }
 .studio-estimate-card { flex: 1; display: flex; flex-direction: column; }
 .studio-design-facts, .studio-production-facts { display: grid; gap: 16px; margin: 24px 0 0; }

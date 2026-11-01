@@ -1,11 +1,13 @@
 "use client";
+import AccountMenu from "@/components/layout/AccountMenu";
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import BrandLogo from "@/components/layout/BrandLogo";
+import SupplierAsset from "@/components/supplier/SupplierAsset";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from "react";
-import { ArrowRight, ArrowUp, Check, ChevronDown, ImagePlus, LoaderCircle, PenLine, Plus, Save, UserRound, X } from "lucide-react";
+import { ArrowRight, ArrowUp, Check, ChevronDown, ImagePlus, LoaderCircle, Plus, X } from "lucide-react";
 import { isDesign, type Design } from "@/lib/design";
 import { useDesignSession } from "@/lib/design-session";
 import { getLibraryItem, saveLibraryItem } from "@/lib/library";
@@ -19,17 +21,15 @@ import { resetOrderDetails, useOrderDetails } from "@/lib/order-workflow-client"
 import { clearClothData, subscribeClothData, updateClothData, useClothData } from "@/components/ClothSim/clothdata/store";
 import { readyClothCapture } from "@/lib/cloth-capture";
 import type { ClothSimulationControls } from "./ClothSimulationPreview";
-import GarmentOutline from "./GarmentOutline";
-import type { Scene } from "../ClothSim";
+import { publicPath } from "@/lib/deployment";
 
 const ClothSimulation = dynamic(() => import("./ClothSimulationPreview"), { ssr: false });
-const PatternThumbnail = dynamic(() => import("../ClothSim").then(module => module.ClothPatternEditor), { ssr: false });
 const EXAMPLES = [
-  "네이비 반팔 등판에 학과명 ‘STATISTICS’ 크게",
-  "검정 후드티 가슴에 팀명 ‘CREW’ 작게",
-  "바람막이, 뒷면에 ‘SEONGBUK’ 아치형으로",
+  "네이비 반팔 등판에 학과명 'STATISTICS' 크게",
+  "검정 후드티 가슴에 흰색 영문 'CREW' 크게",
+  "바람막이, 뒷면에 'SEONGBUK' 아치형으로",
 ];
-const REFINEMENTS = ["흰색 티셔츠로", "뒷면에 문구 추가", "후드로 바꿔줘"];
+const REFINEMENTS = ["글씨 흰색으로", "뒷면에 문구 추가", "후드로 바꿔줘"];
 const mobileQuery = "(max-width: 700px)";
 const subscribeMobile = (listener: () => void) => { const media = window.matchMedia(mobileQuery); media.addEventListener("change", listener); return () => media.removeEventListener("change", listener); };
 const getMobile = () => window.matchMedia(mobileQuery).matches;
@@ -48,8 +48,8 @@ export default function DesignStudio() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
-  const [patternScene, setPatternScene] = useState<Scene | null>(null);
   const [patternFocus, setPatternFocus] = useState<"front" | "back" | "sleeve" | "all">("front");
+  const [mobileTool, setMobileTool] = useState<"width" | "rotation">("width");
   const mobile = useSyncExternalStore(subscribeMobile, getMobile, () => false);
   const clothData = useClothData();
   const captureReady = readyClothCapture(clothData);
@@ -240,7 +240,7 @@ export default function DesignStudio() {
   }
   function newDesign() {
     if (!generating && !uploading && !saving) {
-      clearClothData(); resetSession(); resetOrderDetails(); setPreviewVersion(current => current + 1); setPatternScene(null); setEditorOpen(false); setQuoteOpen(false); setCanEdit(false); setAwaitingCapture(false); setRefining(false); setMessage(""); setError("");
+      clearClothData(); resetSession(); resetOrderDetails(); setPreviewVersion(current => current + 1); setEditorOpen(false); setQuoteOpen(false); setCanEdit(false); setAwaitingCapture(false); setRefining(false); setMessage(""); setError("");
     }
   }
 
@@ -273,46 +273,47 @@ export default function DesignStudio() {
   }
   const removeLogo = () => { patch({ image: null, logoPlacement: undefined }); setFilename(""); };
   const nextStep = captureReady && !busy
-    ? <Link id="design-next" className="studio-primary" href="/quotes/new">주문서 작성하기 <ArrowRight size={16}/></Link>
-    : <button id="design-next" className="studio-primary" disabled>{processing ? "주문서 작성하기" : clothData.text ? "앞·뒷면 준비 중…" : "주문서 작성하기"}</button>;
+    ? <Link id="design-next" className="studio-primary" href="/quotes/new"><span className="studio-next-label-desktop">주문서 작성하기</span><span className="studio-next-label-mobile">{quoteOpen ? "주문서 작성하기" : "주문서 작성"}</span><ArrowRight size={16}/></Link>
+    : <button id="design-next" className="studio-primary" disabled><span className="studio-next-label-desktop">주문서 작성하기</span><span className="studio-next-label-mobile">주문서 작성</span><ArrowRight size={16}/></button>;
 
   return <main id="main-content" className="handdam-studio" data-has-design={hasGarment} data-processing={processing} data-first-loading={firstLoading}>
     <header className="handdam-header" inert={modalOpen}>
       <BrandLogo/>
       <div className="studio-header-actions">
-        <button type="button" className="studio-header-button" onClick={save} disabled={busy || !captureReady}>{saving ? <LoaderCircle size={15} className="animate-spin"/> : <Save size={15}/>}<span>{saving ? "저장 중" : "저장하기"}</span></button>
-        <Link href="/my" className="studio-account" aria-label="마이페이지"><UserRound size={19}/></Link>
+        <button type="button" className="studio-header-button" onClick={save} disabled={busy || !captureReady}>{saving ? <LoaderCircle size={17} className="animate-spin"/> : <SupplierAsset name="cb3ac.svg"/>}<span className="studio-save-desktop">{saving ? "저장 중" : "저장하기"}</span><span className="studio-save-mobile">{saving ? "저장 중" : "저장"}</span></button>
+        <AccountMenu/>
       </div>
     </header>
     <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" hidden aria-label="참고 이미지 선택" onChange={upload}/>
     <div className="studio-workspace">
       <div className="studio-canvas-column">
-        <div className="studio-canvas-label" inert={modalOpen}>{canEdit && <button type="button" className="studio-mobile-edit" disabled={busy} onClick={() => setEditorOpen(true)}><PenLine size={14}/>로고 편집</button>}</div>
+        <div className="studio-canvas-label" inert={modalOpen}>{canEdit && <button type="button" className="studio-mobile-edit" disabled={busy} onClick={() => setEditorOpen(true)}><Image src={publicPath("/figma/studio/3ca40.svg")} alt="" width={14} height={14} unoptimized/>로고 편집</button>}</div>
 
         {/* Keep this exact component mounted when the editor opens: the live 3D scene and capture pipeline are shared. */}
         <section ref={editor} className={`studio-scene-shell${editorOpen ? " is-editing" : ""}`} role={editorOpen ? "dialog" : undefined} aria-modal={editorOpen || undefined} aria-labelledby={editorOpen ? "studio-editor-title" : undefined} aria-label={editorOpen ? undefined : "3D 디자인 미리보기"} inert={quoteOpen}>
-          {editorOpen && <div className="studio-editor-heading"><div><h2 id="studio-editor-title">로고 편집</h2><p>로고를 원하는 곳에 놓아보세요. 3D 디자인에도 바로 반영돼요.</p></div><button ref={editorClose} type="button" className="studio-icon-button" aria-label="로고 편집 닫기" onClick={() => setEditorOpen(false)}><X size={20}/></button>{mobile && <button type="button" className="studio-primary studio-editor-done" onClick={() => setEditorOpen(false)}>완료</button>}</div>}
-          {editorOpen && mobile && <div className="studio-mobile-panels" role="group" aria-label="편집할 의류 부위">{([ ["front", "앞판"], ["back", "뒤판"], ["sleeve", "소매"], ["all", "전체"] ] as const).map(([id, label]) => <button key={id} type="button" aria-pressed={patternFocus === id} onClick={() => setPatternFocus(id)}>{label}</button>)}</div>}
+          {editorOpen && <div className="studio-editor-heading"><div><h2 id="studio-editor-title">로고 편집</h2><p>{design.image ? "로고를 끌어서 원하는 위치에 놓으세요 · 옮기면 3D에도 바로 반영돼요" : "로고를 올리면 원하는 위치에 놓을 수 있어요"}</p></div><button ref={editorClose} type="button" className="studio-icon-button" aria-label="로고 편집 닫기" onClick={() => setEditorOpen(false)}><Image src={publicPath("/figma/studio/56544.svg")} alt="" width={22} height={22} unoptimized/></button>{mobile && <button type="button" className="studio-primary studio-editor-done" onClick={() => setEditorOpen(false)}>완료</button>}</div>}
+          {editorOpen && mobile && <div className="studio-mobile-panels" role="group" aria-label="편집할 의류 부위">{([ ["front", "앞판"], ["back", "뒤판"], ["sleeve", "소매"] ] as const).map(([id, label]) => <button key={id} type="button" aria-pressed={patternFocus === id} onClick={() => setPatternFocus(id)}>{label}</button>)}</div>}
           <div className="studio-editor-layout">
             <div id="studio-preview-panel" className="studio-live-preview">
-              <ClothSimulation key={previewVersion} controllerRef={simulation} savedPreview={restoredPreview} logo={clothLogo} view={editorOpen ? "pattern" : "3d"} patternFocus={editorOpen && mobile ? patternFocus : "all"} generating={processing} refining={refining} onFailure={() => { waitingForCapture.current = false; setAwaitingCapture(false); }} onEditableChange={setCanEdit} onSceneChange={setPatternScene}
+              <ClothSimulation key={previewVersion} controllerRef={simulation} savedPreview={restoredPreview} logo={clothLogo} view={editorOpen ? "pattern" : "3d"} patternFocus={editorOpen && mobile ? patternFocus : "all"} generating={processing} refining={refining} onFailure={() => { waitingForCapture.current = false; setAwaitingCapture(false); }} onEditableChange={setCanEdit}
                 emptyContent={<div className="studio-welcome"><h1>어떤 옷을 <span>만들고 싶으세요?</span></h1><p>자유롭게 설명하거나, 예시로 시작해 보세요</p><div className="studio-examples">{EXAMPLES.map(text => <button type="button" key={text} disabled={busy} onClick={() => sample(text)}><span>{text}</span></button>)}</div></div>}
                 onLogoChange={logo => patch({ logoPlacement: logo ? { panel: logo.panel ?? "front", x: logo.x ?? 0, y: logo.y ?? 0, width: logo.width ?? 10, rotation: logo.rotation ?? 0 } : undefined })}/>
               {canEdit && !editorOpen && !processing && <div className="studio-orbit-guide"><span/><p>드래그해서 돌려보세요</p></div>}
             </div>
-            {editorOpen && <aside className="studio-logo-panel" aria-label="로고 설정">
-              <p className="studio-mobile-editor-hint">{design.image ? "로고를 끌어 옮기세요. 다른 부위에서는 원하는 위치를 눌러주세요." : "로고를 추가해 원하는 위치에 놓아보세요."}</p><h3>로고</h3>
-              <button type="button" className={`studio-logo-upload${design.image ? " has-image" : ""}`} disabled={busy} onClick={() => fileInput.current?.click()}>{design.image ? <Image src={design.image} alt="첨부한 로고" width={42} height={42} unoptimized/> : <ImagePlus size={22}/>}<span>{uploading ? "이미지 준비 중…" : filename || "로고 추가하기"}<small>PNG · JPG · WEBP / 최대 8MB</small></span>{design.image && <Plus size={15}/>}</button>
+            {editorOpen && <aside className="studio-logo-panel" data-has-logo={!!design.image} data-tool={mobileTool} aria-label="로고 설정">
+              <p className="studio-mobile-editor-hint">{design.image ? "로고를 끌어서 옮기세요" : "로고를 올리면 원하는 위치에 놓을 수 있어요"}</p><h3>로고</h3>
+              <button type="button" className={`studio-logo-upload${design.image ? " has-image" : ""}`} disabled={busy} onClick={() => fileInput.current?.click()}>{design.image ? <Image src={design.image} alt="첨부한 로고" width={58} height={58} unoptimized/> : <ImagePlus size={22}/>}<span>{uploading ? "이미지 준비 중…" : design.image ? filename || "로고 이미지" : "+ 로고 올리기"}<small>{design.image ? "이미지를 누르면 교체돼요" : "PNG · JPG · WEBP · 최대 8MB"}</small></span></button>
               {design.image ? <>
-                <div className="studio-logo-file-actions"><span>파일을 누르면 교체할 수 있어요</span><button type="button" disabled={busy} onClick={removeLogo} aria-label="로고 삭제">삭제</button></div>
+                <div className="studio-logo-file-actions"><button type="button" disabled={busy} onClick={removeLogo} aria-label="로고 삭제">삭제</button></div>
                 {design.logoPlacement && <div className="studio-logo-controls" aria-label="로고 크기와 회전">
-                  <label>로고 너비<span className="studio-number-field"><input aria-label="로고 너비 직접 입력" type="number" min="1" max="30" step="0.1" value={Number(design.logoPlacement.width.toFixed(1))} disabled={busy} onChange={event => { const width = event.currentTarget.valueAsNumber; if (Number.isFinite(width) && width >= 1 && width <= 30) patch({ logoPlacement: { ...design.logoPlacement!, width } }); }}/><span>cm</span></span><input aria-label="로고 너비" type="range" min="1" max="30" step="0.1" value={Math.min(30,design.logoPlacement.width)} disabled={busy} onChange={event => patch({ logoPlacement: { ...design.logoPlacement!, width: Number(event.target.value) } })}/></label>
-                  <label>로고 회전<span className="studio-number-field"><input aria-label="로고 회전 직접 입력" type="number" min="-180" max="180" step="1" value={Math.round(design.logoPlacement.rotation > 180 ? design.logoPlacement.rotation - 360 : design.logoPlacement.rotation)} disabled={busy} onChange={event => { const rotation = event.currentTarget.valueAsNumber; if (Number.isFinite(rotation) && rotation >= -180 && rotation <= 180) patch({ logoPlacement: { ...design.logoPlacement!, rotation } }); }}/><span>°</span></span><input aria-label="로고 회전" type="range" min="-180" max="180" step="1" value={design.logoPlacement.rotation > 180 ? design.logoPlacement.rotation - 360 : design.logoPlacement.rotation} disabled={busy} onChange={event => patch({ logoPlacement: { ...design.logoPlacement!, rotation: Number(event.target.value) } })}/></label>
+                  <label>로고 너비<span className="studio-number-field"><input aria-label="로고 너비 직접 입력" type="number" min="1" max="30" step="0.1" value={design.logoPlacement.width.toFixed(1)} disabled={busy} onChange={event => { const width = event.currentTarget.valueAsNumber; if (Number.isFinite(width) && width >= 1 && width <= 30) patch({ logoPlacement: { ...design.logoPlacement!, width } }); }}/><span>cm</span></span><input aria-label="로고 너비" type="range" min="1" max="30" step="0.1" value={Math.min(30,design.logoPlacement.width)} disabled={busy} style={{ backgroundSize: `${(design.logoPlacement.width - 1) / 29 * 100}% 100%` }} onChange={event => patch({ logoPlacement: { ...design.logoPlacement!, width: Number(event.target.value) } })}/></label>
+                  <label>로고 회전<span className="studio-number-field"><input aria-label="로고 회전 직접 입력" type="number" min="-180" max="180" step="1" value={Math.round(design.logoPlacement.rotation > 180 ? design.logoPlacement.rotation - 360 : design.logoPlacement.rotation)} disabled={busy} onChange={event => { const rotation = event.currentTarget.valueAsNumber; if (Number.isFinite(rotation) && rotation >= -180 && rotation <= 180) patch({ logoPlacement: { ...design.logoPlacement!, rotation } }); }}/><span>°</span></span><input aria-label="로고 회전" type="range" min="-180" max="180" step="1" value={design.logoPlacement.rotation > 180 ? design.logoPlacement.rotation - 360 : design.logoPlacement.rotation} disabled={busy} style={{ backgroundSize: `${((design.logoPlacement.rotation > 180 ? design.logoPlacement.rotation - 360 : design.logoPlacement.rotation) + 180) / 360 * 100}% 100%` }} onChange={event => patch({ logoPlacement: { ...design.logoPlacement!, rotation: Number(event.target.value) } })}/></label>
                 </div>}
               </> : <div className="studio-logo-controls studio-disabled-controls" aria-label="로고를 추가하면 사용할 수 있는 설정"><label>로고 너비<output>—</output><input type="range" aria-label="로고 너비" min="1" max="30" value="1" disabled/></label><label>로고 회전<output>—</output><input type="range" aria-label="로고 회전" min="-180" max="180" value="-180" disabled/></label></div>}
               {!mobile && <button type="button" className="studio-primary studio-editor-done" onClick={() => setEditorOpen(false)}>완료</button>}
             </aside>}
           </div>
+          {editorOpen && mobile && <div className="studio-editor-tools" aria-label="로고 편집 도구"><button type="button" aria-pressed={mobileTool === "width"} disabled={!design.image} onClick={() => setMobileTool("width")}><Image src={publicPath("/figma/studio/13d52.svg")} alt="" width={24} height={24} unoptimized/><span>크기</span></button><button type="button" aria-pressed={mobileTool === "rotation"} disabled={!design.image} onClick={() => setMobileTool("rotation")}><Image src={publicPath("/figma/studio/082d3.svg")} alt="" width={24} height={24} unoptimized/><span>회전</span></button><button type="button" onClick={() => fileInput.current?.click()} disabled={busy}>{design.image ? <Image src={design.image} alt="" width={18} height={18} className="studio-tool-logo" unoptimized/> : <Image src={publicPath("/figma/studio/a4de7.svg")} alt="" width={24} height={24} unoptimized/>}<span>{design.image ? "로고 교체" : "로고 올리기"}</span></button>{design.image && <button type="button" onClick={removeLogo} disabled={busy} aria-label="로고 삭제"><Image src={publicPath("/figma/studio/9d09b.svg")} alt="" width={24} height={24} unoptimized/><span>로고 삭제</span></button>}</div>}
         </section>
 
         <div ref={composerDock} className="studio-composer-dock" inert={modalOpen}>
@@ -329,12 +330,17 @@ export default function DesignStudio() {
       </div>
 
       <aside className="studio-sidebar" inert={editorOpen}>
-        <section className="studio-pattern-card" inert={quoteOpen}><div className="studio-card-heading"><h2>도안</h2></div><p>{firstLoading ? "도안 만드는 중…" : hasGarment ? "로고를 추가하거나 원하는 곳에 배치해 보세요" : "디자인이 나오면 여기에 도안이 보여요."}</p>{patternScene && !firstLoading ? <div className="studio-pattern-miniature" role="img" aria-label="생성한 의류의 재단 도안과 로고 위치"><PatternThumbnail scene={patternScene} logo={clothLogo} preview background="#f8f9fc"/></div> : <div className="studio-pattern-pair">{(["front", "back"] as const).map((side, index) => <figure key={side}>{captureReady && clothData[side] ? <Image src={clothData[side]} alt={`생성한 의상 ${index === 0 ? "앞면" : "뒷면"}`} width={200} height={200} unoptimized/> : <GarmentOutline back={index === 1}/>}<figcaption>{index === 0 ? "앞" : "뒤"}</figcaption></figure>)}</div>}<button type="button" className="studio-secondary" disabled={!canEdit || busy} onClick={() => setEditorOpen(true)}><Plus size={15}/>로고 편집</button>{captureReady && !canEdit && <p className="studio-restore-note">로고를 다시 편집하려면 같은 설명으로 생성해주세요.</p>}</section>
+        <section className="studio-pattern-card" inert={quoteOpen}>
+          <div className="studio-card-heading"><h2>도안</h2></div>
+          <p>로고 위치·크기·회전은 로고 편집에서 조절해요</p>
+          <button type="button" className="studio-secondary" disabled={!canEdit || busy} onClick={() => setEditorOpen(true)}><Plus size={15}/>로고 편집</button>
+          {captureReady && !canEdit && <p className="studio-restore-note">로고를 다시 편집하려면 같은 설명으로 생성해주세요.</p>}
+        </section>
         <section id="studio-quote-dialog" className={`studio-estimate-card${quoteOpen ? " is-open" : ""}`} role={quoteOpen ? "dialog" : undefined} aria-modal={quoteOpen || undefined} aria-labelledby="studio-estimate-title">
-          <div className="studio-card-heading"><h2 id="studio-estimate-title">이 디자인, 얼마일까?</h2><button type="button" className="studio-icon-button studio-quote-close" aria-label="견적 상세 닫기" onClick={() => setQuoteOpen(false)}><X size={20}/></button></div><p className="studio-estimate-intro">옷 종류 · 디자인 · 수량에 따라 달라져요</p>
-          {quoteOpen && captureReady && clothData.front && <div className="studio-quote-garment"><Image src={clothData.front} alt="생성한 의상 앞면" width={56} height={56} unoptimized/><div><strong>{garmentLabel}</strong><span>디자인과 도안을 확인했어요</span></div></div>}
+          <div className="studio-card-heading"><h2 id="studio-estimate-title">{quoteOpen ? "예상 견적" : "이 디자인, 얼마일까?"}</h2><button type="button" className="studio-icon-button studio-quote-close" aria-label="견적 상세 닫기" onClick={() => setQuoteOpen(false)}><X size={20}/></button></div><p className="studio-estimate-intro">옷 종류 · 디자인 · 수량에 따라 달라져요</p>
+          {quoteOpen && captureReady && clothData.front && <div className="studio-quote-garment"><Image src={clothData.front} alt="생성한 의상 앞면" width={56} height={56} unoptimized/><div><strong>{garmentLabel}</strong><span>옷 종류 · 디자인 · 수량에 따라 달라져요</span></div></div>}
           <dl className="studio-design-facts"><div><dt>의류</dt><dd>{hasGarment && !firstLoading ? garmentLabel : firstLoading ? <span className="studio-placeholder-line"/> : "고르면 표시돼요"}</dd></div><div><dt>수량</dt><dd className="studio-quantity"><button type="button" aria-label="수량 줄이기" disabled={busy || totalQuantity(order) <= 1} onClick={() => changeQuantity(-1)}>−</button><output aria-label="주문 수량">{totalQuantity(order)}</output><button type="button" aria-label="수량 늘리기" disabled={busy || totalQuantity(order) >= 999} onClick={() => changeQuantity(1)}>+</button></dd></div></dl>
-          <div className="studio-estimate-bottom"><dl className="studio-production-facts"><div><dt>총 금액 ({totalQuantity(order)}벌)</dt><dd>{firstLoading ? <span className="studio-placeholder-line"/> : hasGarment ? `${won(price.total)} ~ ${won((price.unit + 5000) * totalQuantity(order))}` : "—"}</dd></div><div><dt>제작 예상 기간</dt><dd>{firstLoading ? <span className="studio-placeholder-line"/> : hasGarment ? "7–14일" : "—"}</dd></div></dl><div className="studio-price-caption"><span>예상 단가 · 1벌</span></div><div className="studio-price-row"><strong aria-live="polite" aria-atomic="true">{hasGarment && !firstLoading ? <>{won(price.unit)}<span> ~ </span>{won(price.unit + 5000)}</> : firstLoading ? <span className="studio-price-loading" aria-label="가격 계산 중"/> : <span className="studio-price-pending">—</span>}</strong><button type="button" className="studio-mobile-quote" aria-label="예상 견적 자세히 보기" onClick={() => setQuoteOpen(true)}><ChevronDown size={16}/></button></div>{hasGarment && <p className="studio-price-note">시연용 예상가 · 실제 견적은 업체 확인 후 확정돼요.</p>}{nextStep}</div>
+          <div className="studio-estimate-bottom"><div className="studio-price-summary"><dl className="studio-production-facts"><div><dt>총 금액 ({totalQuantity(order)}벌)</dt><dd>{firstLoading ? <span className="studio-placeholder-line"/> : hasGarment ? `${price.total.toLocaleString("ko-KR")} ~ ${won((price.unit + 5000) * totalQuantity(order))}` : "—"}</dd></div><div><dt>예상 제작 기간</dt><dd>{firstLoading ? <span className="studio-placeholder-line"/> : hasGarment ? "7~14일" : "—"}</dd></div></dl><div className="studio-price-caption"><span>{quoteOpen ? "1벌 예상 단가" : "예상 단가 · 1벌"}</span></div><div className="studio-price-row"><strong aria-live="polite" aria-atomic="true">{hasGarment && !firstLoading ? <>{price.unit.toLocaleString("ko-KR")}<span> ~ </span>{won(price.unit + 5000)}</> : firstLoading ? <span className="studio-price-loading" aria-label="가격 계산 중"/> : <span className="studio-price-pending">—</span>}</strong><button type="button" className="studio-mobile-quote" aria-label="예상 견적 자세히 보기" onClick={() => setQuoteOpen(true)}><ChevronDown size={16}/></button></div></div>{nextStep}</div>
         </section>
       </aside>
     </div>
