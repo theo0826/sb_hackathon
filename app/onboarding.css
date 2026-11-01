@@ -3,6 +3,7 @@
 .handdam-onboarding{
   --page:#F1F3F7; --card:#FFFFFF; --navy:#041E41; --ink:#191F28; --sub:#4A5262; --muted:#8A93A6;
   --line:#DDE2EA; --lime:#B3D214; --lime-text:#86A30A;
+  --cta-hover:#12375F; --cta-pressed:#02162F;
   --font:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
   color-scheme:light;
 }
@@ -20,6 +21,18 @@
 .handdam-onboarding .lead{margin:20px 0 34px;font-size:clamp(16px,1.5vw,19px);line-height:1.65;color:var(--sub);font-weight:500}
 .handdam-onboarding .cta{display:inline-flex;align-items:center;gap:10px;background:var(--navy);color:#fff;border:0;border-radius:14px;padding:17px 28px;font:700 17px var(--font);cursor:pointer}
 .handdam-onboarding .cta:focus-visible,.handdam-onboarding .ctrl:focus-visible{outline:3px solid var(--lime);outline-offset:3px}
+.handdam-onboarding .cta{touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform .22s var(--control-ease),background-color .22s var(--control-ease),box-shadow .22s var(--control-ease)}
+.handdam-onboarding .cta:focus-visible{background:var(--cta-hover)}
+@media (hover:hover) and (pointer:fine){
+  .handdam-onboarding .cta:hover{background:var(--cta-hover);box-shadow:0 8px 18px #041e4126} /* taste-skill-ignore: requested hover feedback; the button has no shadow at rest. */
+}
+.handdam-onboarding .cta:is(:active,[data-pressed=true]){background:var(--cta-pressed);box-shadow:0 2px 6px #041e4114} /* taste-skill-ignore: transient press feedback only. */
+@media (hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference){
+  .handdam-onboarding .cta:not([aria-disabled=true]):hover{transform:translateY(-3px)}
+}
+@media (prefers-reduced-motion:no-preference){
+  .handdam-onboarding .cta:not([aria-disabled=true]):is(:active,[data-pressed=true]){transform:translateY(1px) scale(.97);transition-duration:.09s}
+}
 .handdam-onboarding .steps{margin:40px 0 0;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;font-size:16px;color:#3E4757;font-weight:500}
 .handdam-onboarding .steps i{color:#8A93A6;font-style:normal}
 
