@@ -10,7 +10,7 @@
 .studio-logo-controls input[type=range]:disabled::-moz-range-thumb { background:#c8ced8; border-color:#c8ced8; }
 .supplier-edit-dialog h2 { word-break:keep-all; overflow-wrap:break-word; }
 .supplier-edit-dialog button:first-child { border:0; box-shadow:none; outline:none; }
-.supplier-page .supplier-edit-dialog button:first-child:focus-visible { outline:none; background:#e3e7ee; }
+:is(.supplier-page,.request-page) .supplier-edit-dialog button:first-child:focus-visible { outline:none; background:#e3e7ee; }
 /* Native date controls need an explicit shrinking box on iOS as well as Chromium. */
 .order-date-control { position:relative; display:block; width:100%; min-width:0; max-width:100%; }
 .order-date-control > svg { position:absolute; right:14px; top:50%; transform:translateY(-50%); color:#8a93a6; pointer-events:none; }

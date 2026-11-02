@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import CaptureImage from "@/components/design/CaptureImage";
 import { useEffect, useRef, useState, type Ref } from "react";
 import type { Design } from "@/lib/design";
@@ -17,6 +18,7 @@ type Props = { supplier: Supplier; design: Design; order: OrderDraft; details?: 
   readOnly?: boolean; createdAt?: string; completed?: boolean; reviewed?: boolean; recommended?: boolean; onReview?: (checked: boolean) => void; onDeliver?: () => void;
   onDownload: () => void; downloadBusy?: boolean; feedback?: string; error?: string; headingRef?: Ref<HTMLHeadingElement> };
 export default function RequestView({ supplier, order, details, capture, readOnly = false, createdAt, completed = false, reviewed = false, recommended = false, onReview, onDeliver, onDownload, downloadBusy, feedback, error, headingRef }: Props) {
+  const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const editDialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -56,6 +58,6 @@ export default function RequestView({ supplier, order, details, capture, readOnl
       {completed && <><div className="request-notice"><Asset name="b782c.svg"/><p>탭을 닫으면 사라지니 중요한 자료는 내려받아 주세요. 시연용이라 실제 업체 발송·결제는 없어요.</p></div><div className="request-receipt-actions"><button type="button" className="request-primary" onClick={onDownload} disabled={downloadBusy}><Asset name="2930d.svg"/>{downloadBusy ? "파일 준비 중…" : "주문 정보 내려받기"}</button><Link href="/my?tab=orders" className="request-secondary">마이페이지에서 주문 보기 <Asset name="d1b55.svg"/></Link></div></>}
       {error && <p className="request-feedback error" role="alert">{error}</p>}{feedback && <p className="request-feedback" role="status">{feedback}</p>}
     </div>{!completed && !readOnly && <div className="request-mobile request-bottom-bar">{deliver}</div>}
-    {editOpen && <dialog ref={editDialog} className="request-edit-dialog" aria-labelledby="request-edit-title" onCancel={() => setEditOpen(false)}><h2 id="request-edit-title">주문 조건을 변경하면 견적을 다시 요청해야 할 수 있어요</h2><div><button onClick={() => setEditOpen(false)}>취소</button><Link href="/quotes/new" className="request-primary">수정하기</Link></div></dialog>}
+    {editOpen && <dialog ref={editDialog} className="supplier-edit-dialog" aria-labelledby="request-edit-title" onCancel={() => setEditOpen(false)}><h2 id="request-edit-title">주문 조건을 변경하면 견적을 다시 요청해야 할 수 있어요</h2><div><button type="button" onClick={() => setEditOpen(false)}>취소</button><button type="button" className="supplier-primary" onClick={() => { setEditOpen(false); router.push("/quotes/new"); }}>수정하기</button></div></dialog>}
   </main>;
 }
