@@ -209,7 +209,7 @@ export class Renderer {
     const buf = dev.createBuffer({ size: row * h, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
     const strain = this.flags.strain;
     const background = this.background;
-    if (background[3] === 0) this.background = [0.945, 0.953, 0.965, 1];
+    if (background[3] === 0) this.background = [247 / 255, 248 / 255, 250 / 255, 1];
     this.flags.strain = false;
     try {
       this.encodeDraw(camera, w / h, msaa, depth, target);

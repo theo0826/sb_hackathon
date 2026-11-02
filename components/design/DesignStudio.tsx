@@ -7,7 +7,7 @@ import Link from "next/link";
 import BrandLogo from "@/components/layout/BrandLogo";
 import SupplierAsset from "@/components/supplier/SupplierAsset";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from "react";
-import { ArrowRight, ArrowUp, Check, ChevronDown, ImagePlus, LoaderCircle, Plus, X } from "lucide-react";
+import { ArrowRight, ArrowUp, Check, ChevronDown, ImagePlus, LoaderCircle, Move, Plus, X } from "lucide-react";
 import { isDesign, type Design } from "@/lib/design";
 import { useDesignSession } from "@/lib/design-session";
 import { getLibraryItem, saveLibraryItem } from "@/lib/library";
@@ -21,6 +21,8 @@ import { resetOrderDetails, useOrderDetails } from "@/lib/order-workflow-client"
 import { clearClothData, subscribeClothData, updateClothData, useClothData } from "@/components/ClothSim/clothdata/store";
 import { readyClothCapture } from "@/lib/cloth-capture";
 import type { ClothSimulationControls } from "./ClothSimulationPreview";
+import ClothPatternEditor from "../ClothSim/pattern/PatternEditor.js";
+import type { Scene, ClothLogo } from "../ClothSim";
 import { publicPath } from "@/lib/deployment";
 
 const ClothSimulation = dynamic(() => import("./ClothSimulationPreview"), { ssr: false });
@@ -48,6 +50,9 @@ export default function DesignStudio() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
+  const [currentScene, setCurrentScene] = useState<Scene | null>(null);
+  const [guideDismissed, setGuideDismissed] = useState(false);
+  const orbitStart = useRef<{ x: number; y: number } | null>(null);
   const [patternFocus, setPatternFocus] = useState<"front" | "back" | "sleeve" | "all">("front");
   const [mobileTool, setMobileTool] = useState<"width" | "rotation">("width");
   const mobile = useSyncExternalStore(subscribeMobile, getMobile, () => false);
@@ -87,6 +92,12 @@ export default function DesignStudio() {
     })().catch(() => { /* Keep the stored preview visible if scene restoration is unavailable. */ });
     return () => { active = false; };
   }, [restoredDesignId, clothData.text]);
+
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => setMessage(""), 2500);
+    return () => clearTimeout(timer);
+  }, [message]);
 
   useEffect(() => { if (conversation.current) conversation.current.scrollTop = conversation.current.scrollHeight; }, [messages, generating]);
   useEffect(() => subscribeClothData(data => {
@@ -149,7 +160,7 @@ export default function DesignStudio() {
     if (!simulation.current) { setError("미리보기를 준비하고 있어요. 잠시 후 다시 눌러주세요."); return; }
     detachSavedDesign();
     const id = ++generationId.current;
-    setRefining(captureReady && canEdit); waitingForCapture.current = true; setAwaitingCapture(true);
+    setGuideDismissed(false); setRefining(captureReady && canEdit); waitingForCapture.current = true; setAwaitingCapture(true);
     setEditorOpen(false);
     const controller = new AbortController(); generationAbort.current = controller;
     requestActive.current = true; setError(""); setMessage(""); setGenerating(true);
@@ -240,7 +251,7 @@ export default function DesignStudio() {
   }
   function newDesign() {
     if (!generating && !uploading && !saving) {
-      clearClothData(); resetSession(); resetOrderDetails(); setPreviewVersion(current => current + 1); setEditorOpen(false); setQuoteOpen(false); setCanEdit(false); setAwaitingCapture(false); setRefining(false); setMessage(""); setError("");
+      clearClothData(); resetSession(); resetOrderDetails(); setPreviewVersion(current => current + 1); setEditorOpen(false); setQuoteOpen(false); setCanEdit(false); setCurrentScene(null); setGuideDismissed(false); setAwaitingCapture(false); setRefining(false); setMessage(""); setError("");
     }
   }
 
@@ -271,6 +282,7 @@ export default function DesignStudio() {
     });
     updateDetails({ confirmed: false });
   }
+  const moveLogo = (logo: ClothLogo | null) => patch({ logoPlacement: logo ? { panel: logo.panel ?? "front", x: logo.x ?? 0, y: logo.y ?? 0, width: logo.width ?? 10, rotation: logo.rotation ?? 0 } : undefined });
   const removeLogo = () => { patch({ image: null, logoPlacement: undefined }); setFilename(""); };
   const nextStep = captureReady && !busy
     ? <Link id="design-next" className="studio-primary" href="/quotes/new"><span className="studio-next-label-desktop">주문서 작성하기</span><span className="studio-next-label-mobile">{quoteOpen ? "주문서 작성하기" : "주문서 작성"}</span><ArrowRight size={16}/></Link>
@@ -294,11 +306,15 @@ export default function DesignStudio() {
           {editorOpen && <div className="studio-editor-heading"><div><h2 id="studio-editor-title">로고 편집</h2><p>{design.image ? "로고를 끌어서 원하는 위치에 놓으세요 · 옮기면 3D에도 바로 반영돼요" : "로고를 올리면 원하는 위치에 놓을 수 있어요"}</p></div><button ref={editorClose} type="button" className="studio-icon-button" aria-label="로고 편집 닫기" onClick={() => setEditorOpen(false)}><Image src={publicPath("/figma/studio/56544.svg")} alt="" width={22} height={22} unoptimized/></button>{mobile && <button type="button" className="studio-primary studio-editor-done" onClick={() => setEditorOpen(false)}>완료</button>}</div>}
           {editorOpen && mobile && <div className="studio-mobile-panels" role="group" aria-label="편집할 의류 부위">{([ ["front", "앞판"], ["back", "뒤판"], ["sleeve", "소매"] ] as const).map(([id, label]) => <button key={id} type="button" aria-pressed={patternFocus === id} onClick={() => setPatternFocus(id)}>{label}</button>)}</div>}
           <div className="studio-editor-layout">
-            <div id="studio-preview-panel" className="studio-live-preview">
-              <ClothSimulation key={previewVersion} controllerRef={simulation} savedPreview={restoredPreview} logo={clothLogo} view={editorOpen ? "pattern" : "3d"} patternFocus={editorOpen && mobile ? patternFocus : "all"} generating={processing} refining={refining} onFailure={() => { waitingForCapture.current = false; setAwaitingCapture(false); }} onEditableChange={setCanEdit}
+            <div id="studio-preview-panel" className="studio-live-preview"
+              onPointerDownCapture={event => { if (canEdit && !editorOpen) orbitStart.current = { x: event.clientX, y: event.clientY }; }}
+              onPointerMoveCapture={event => { const start = orbitStart.current; if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 5) { setGuideDismissed(true); orbitStart.current = null; } }}
+              onPointerUpCapture={() => { orbitStart.current = null; }} onPointerCancelCapture={() => { orbitStart.current = null; }}
+              onWheelCapture={() => { if (canEdit && !editorOpen) setGuideDismissed(true); }}>
+              <ClothSimulation key={previewVersion} controllerRef={simulation} savedPreview={restoredPreview} logo={clothLogo} view={editorOpen ? "pattern" : "3d"} patternFocus={editorOpen && mobile ? patternFocus : "all"} generating={processing} refining={refining} onFailure={() => { waitingForCapture.current = false; setAwaitingCapture(false); }} onEditableChange={setCanEdit} onSceneChange={setCurrentScene}
                 emptyContent={<div className="studio-welcome"><h1>어떤 옷을 <span>만들고 싶으세요?</span></h1><p>자유롭게 설명하거나, 예시로 시작해 보세요</p><div className="studio-examples">{EXAMPLES.map(text => <button type="button" key={text} disabled={busy} onClick={() => sample(text)}><span>{text}</span></button>)}</div></div>}
-                onLogoChange={logo => patch({ logoPlacement: logo ? { panel: logo.panel ?? "front", x: logo.x ?? 0, y: logo.y ?? 0, width: logo.width ?? 10, rotation: logo.rotation ?? 0 } : undefined })}/>
-              {canEdit && !editorOpen && !processing && <div className="studio-orbit-guide"><span/><p>드래그해서 돌려보세요</p></div>}
+                onLogoChange={moveLogo}/>
+              {canEdit && !editorOpen && !processing && !guideDismissed && <div className="studio-orbit-guide"><span/><p>{mobile ? "드래그로 돌리고, 두 손가락으로 확대해보세요" : "드래그로 돌리고, 스크롤로 확대해보세요"}</p></div>}
             </div>
             {editorOpen && <aside className="studio-logo-panel" data-has-logo={!!design.image} data-tool={mobileTool} aria-label="로고 설정">
               <p className="studio-mobile-editor-hint">{design.image ? "로고를 끌어서 옮기세요" : "로고를 올리면 원하는 위치에 놓을 수 있어요"}</p><h3>로고</h3>
@@ -333,7 +349,8 @@ export default function DesignStudio() {
         <section className="studio-pattern-card" inert={quoteOpen}>
           <div className="studio-card-heading"><h2>도안</h2></div>
           <p>로고 위치·크기·회전은 로고 편집에서 조절해요</p>
-          <button type="button" className="studio-secondary" disabled={!canEdit || busy} onClick={() => setEditorOpen(true)}><Plus size={15}/>로고 편집</button>
+          {currentScene && !firstLoading && <div className="studio-pattern-miniature" role="group" aria-label="앞·뒤 도안 로고 위치"><ClothPatternEditor scene={currentScene} logo={clothLogo} preview interactivePreview={!busy} onChange={moveLogo} background="#f7f8fa"/></div>}
+          <button type="button" className="studio-secondary" disabled={!canEdit || busy} onClick={() => setEditorOpen(true)}><Move size={15}/>로고 편집</button>
           {captureReady && !canEdit && <p className="studio-restore-note">로고를 다시 편집하려면 같은 설명으로 생성해주세요.</p>}
         </section>
         <section id="studio-quote-dialog" className={`studio-estimate-card${quoteOpen ? " is-open" : ""}`} role={quoteOpen ? "dialog" : undefined} aria-modal={quoteOpen || undefined} aria-labelledby="studio-estimate-title">

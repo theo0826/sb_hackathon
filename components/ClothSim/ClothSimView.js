@@ -6,13 +6,13 @@ import { clothError, clothLog } from './garment/clothLog.js';
 import { loadLogoBitmap } from './pattern/logo.js';
 
 const ClothSim = forwardRef(function ClothSim(props, ref) {
-  const { scene, options, autoplay = true, onStats, onError, onReady, style, className, look, clothRepresentText = '', logo = null } = props;
+  const { scene, options, autoplay = true, onStats, onError, onReady, onLogoApplied, style, className, look, clothRepresentText = '', logo = null } = props;
   const canvasRef = useRef(null);
   const simRef = useRef(null);
   const [error, setError] = useState(null);
   const [simReady, setSimReady] = useState(0);
   const cb = useRef({});
-  cb.current = { onStats, onError, onReady };
+  cb.current = { onStats, onError, onReady, onLogoApplied };
 
   useImperativeHandle(ref, () => ({
     play: () => simRef.current && simRef.current.play(),
@@ -78,8 +78,8 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
     let alive = true;
     const sim = simRef.current;
     if (!sim || !sim.setLogo) return undefined;
-    if (!logo || !logo.src) { sim.setLogo(null); return undefined; }
-    loadLogoBitmap(logo.src).then(bitmap => { if (alive && simRef.current === sim) sim.setLogo({ ...logo, bitmap }); })
+    if (!logo || !logo.src) { sim.setLogo(null); cb.current.onLogoApplied?.(); return undefined; }
+    loadLogoBitmap(logo.src).then(bitmap => { if (alive && simRef.current === sim) { sim.setLogo({ ...logo, bitmap }); cb.current.onLogoApplied?.(); } })
       .catch(e => clothError('로고 불러오기 실패', e));
     return () => { alive = false; };
   }, [logo, simReady]);

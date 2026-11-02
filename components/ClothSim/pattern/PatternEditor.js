@@ -7,7 +7,8 @@ import { createElement as h, useEffect, useMemo, useRef, useState } from 'react'
 import { layoutPanels, panelContains, panelLabel, panelOutlines, sceneArrays } from './logo.js';
 
 export default function ClothPatternEditor(props) {
-  const { scene, logo, onChange, style, className, background = '#f3f5f8', preview = false, showGrid = false, focus = 'all' } = props;
+  const { scene, logo, onChange, style, className, background = '#f3f5f8', preview = false, interactivePreview = false, showGrid = false, focus = 'all' } = props;
+  const readOnly = preview && !interactivePreview;
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
   const [img, setImg] = useState(null);
@@ -15,9 +16,8 @@ export default function ClothPatternEditor(props) {
   const view = useRef({ s: 4, tx: 20, ty: 20, fitted: false });
   const drag = useRef(null);
   const logoRef = useRef(logo);
-  logoRef.current = logo;
   const cbRef = useRef(onChange);
-  cbRef.current = onChange;
+  useEffect(() => { logoRef.current = logo; cbRef.current = onChange; });
 
   const panels = useMemo(() => {
     const all = scene ? panelOutlines(scene) : [];
@@ -35,9 +35,10 @@ export default function ClothPatternEditor(props) {
   useEffect(() => {
     let alive = true;
     const src = logo && logo.src;
-    if (!src) { setImg(null); return undefined; }
-    if (typeof ImageBitmap !== 'undefined' && src instanceof ImageBitmap) { setImg(src); return undefined; }
-    if (typeof HTMLImageElement !== 'undefined' && src instanceof HTMLImageElement) { setImg(src); return undefined; }
+    if (!src || (typeof ImageBitmap !== 'undefined' && src instanceof ImageBitmap) || (typeof HTMLImageElement !== 'undefined' && src instanceof HTMLImageElement)) {
+      queueMicrotask(() => { if (alive) setImg(src || null); });
+      return () => { alive = false; };
+    }
     const im = new Image();
     let url = null;
     if (typeof src === 'object') { url = URL.createObjectURL(src); im.src = url; } else im.src = String(src);
@@ -54,18 +55,7 @@ export default function ClothPatternEditor(props) {
     return () => ro.disconnect();
   }, []);
 
-  // 처음에 전체가 보이게
-  useEffect(() => {
-    if (!panels.length) return;
-    let x1 = 0, y1 = 0;
-    for (const p of panels) { const q = layout.get(p.mesh); x1 = Math.max(x1, q.ox + p.bbox[2]); y1 = Math.max(y1, q.oy - p.bbox[1]); }
-    const [W, H] = size, pad = preview ? 18 : Math.min(focus === 'all' ? 60 : 52, H * .12);
-    const s = Math.min((W - 2 * pad) / Math.max(x1, 1), (H - 2 * pad) / Math.max(y1, 1));
-    view.current = { s, tx: (W - s * x1) / 2, ty: (H - s * y1) / 2, fitted: true };
-    draw();
-  }, [panels, layout, size[0], size[1], preview]);
 
-  useEffect(() => { draw(); });
 
   const toScreen = (mesh, u, v) => { const q = layout.get(mesh), V = view.current; return [V.tx + V.s * (q.ox + u), V.ty + V.s * (q.oy - v)]; };
   const meshOf = name => { const p = panels.find(p => p.name === name); return p ? p.mesh : -1; };
@@ -100,7 +90,7 @@ export default function ClothPatternEditor(props) {
     const cv = canvasRef.current;
     if (!cv) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2), [W, H] = size;
-    if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
     const g = cv.getContext('2d');
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.fillStyle = background; g.fillRect(0, 0, W, H);
@@ -151,6 +141,19 @@ export default function ClothPatternEditor(props) {
     }
   }
 
+  // 처음에 전체가 보이게
+  useEffect(() => {
+    if (!panels.length) return;
+    let x1 = 0, y1 = 0;
+    for (const p of panels) { const q = layout.get(p.mesh); x1 = Math.max(x1, q.ox + p.bbox[2]); y1 = Math.max(y1, q.oy - p.bbox[1]); }
+    const [W, H] = size, pad = preview ? 18 : Math.min(focus === 'all' ? 60 : 52, H * .12);
+    const s = Math.min((W - 2 * pad) / Math.max(x1, 1), (H - 2 * pad) / Math.max(y1, 1));
+    view.current = { s, tx: (W - s * x1) / 2, ty: (H - s * y1) / 2, fitted: true };
+    draw();
+  }, [panels, layout, size[0], size[1], preview]);
+
+  useEffect(() => { draw(); });
+
   function emit(next) { logoRef.current = next; draw(); if (cbRef.current) cbRef.current(next); }
 
   function onPointerDown(e) {
@@ -163,7 +166,7 @@ export default function ClothPatternEditor(props) {
       if (hit) { const next = { ...current, panel: hit.p.name, x: hit.u, y: hit.v }; emit(next); drag.current = { kind: 'logo', px, py, off: [0, 0] }; return; }
     }
     const q = logoQuad();
-    if (q) {
+    if (q && !preview) {
       const dx = px - q.cx, dy = py - q.cy, c = Math.cos(q.r), s = Math.sin(q.r);
       const lx = c * dx - s * dy, ly = s * dx + c * dy;
       if (Math.abs(Math.abs(lx) - q.w / 2) < 10 && Math.abs(Math.abs(ly) - q.h / 2) < 10) {
@@ -198,7 +201,7 @@ export default function ClothPatternEditor(props) {
   // 휠은 passive 가 아니어야 화면 스크롤을 막을 수 있어서 직접 붙임
   useEffect(() => {
     const cv = canvasRef.current;
-    if (!cv || preview) return undefined;
+    if (!cv || readOnly) return undefined;
     const onWheel = e => {
       e.preventDefault();
       const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
@@ -216,9 +219,12 @@ export default function ClothPatternEditor(props) {
     return () => cv.removeEventListener('wheel', onWheel);
   });
 
+  // React.createElement forwards refs; it does not read them during render.
+  /* eslint-disable react-hooks/refs */
   return h('div', { ref: wrapRef, className, style: { position: 'relative', width: '100%', height: '100%', overflow: 'hidden', ...(style || {}) } },
     h('canvas', {
       ref: canvasRef, style: { width: '100%', height: '100%', display: 'block', touchAction: 'none' },
-      onPointerDown: preview ? undefined : onPointerDown, onPointerMove: preview ? undefined : onPointerMove, onPointerUp: preview ? undefined : onPointerUp, onPointerCancel: preview ? undefined : onPointerUp,
+      onPointerDown: readOnly ? undefined : onPointerDown, onPointerMove: readOnly ? undefined : onPointerMove, onPointerUp: readOnly ? undefined : onPointerUp, onPointerCancel: readOnly ? undefined : onPointerUp,
     }));
+  /* eslint-enable react-hooks/refs */
 }

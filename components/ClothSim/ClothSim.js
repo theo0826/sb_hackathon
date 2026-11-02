@@ -50,6 +50,7 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
   const [status, setStatus] = useState('');
   const [error, setError] = useState(null);
   const [dressReveal, setDressReveal] = useState(false);
+  const [logoApplied, setLogoApplied] = useState(0);
   const [logo, setLogoState] = useState(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const logoChangeRef = useRef(onLogoChange);
@@ -63,10 +64,10 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
     const d = sc && sc.meta ? defaultLogoPlacement(sc, base.src) : null;
     return d ? { ...d, ...(isObj ? Object.fromEntries(Object.entries(base).filter(([k]) => k !== 'panel' && k !== 'x' && k !== 'y')) : {}) } : base;
   };
-  const applyLogo = (v, notify) => {
+  const applyLogo = (v, notify, preserveCapture = false) => {
     const sc = sceneRef.current;
     // 새로고침 후 장면 없이 저장한 이미지만 표시할 때는 완료된 캡처를 보존한다.
-    if (sc) {
+    if (sc && !preserveCapture) {
       captureSeq.current++;
       if (getClothData().completed) updateClothData({ completed: 0 });
     }
@@ -89,9 +90,14 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
     if (logoProp === undefined) return;
     const k = logoKey(logoProp);
     if (k === lastPropKey.current) return;
+    const stored = getClothData();
+    const placement = normLogo(logoProp, sceneRef.current);
+    const preserveCapture = lastPropKey.current === null && stored.completed === 1
+      && stored.text === clothRepresentText && !!placement && !!stored.logo
+      && ['panel', 'x', 'y', 'width', 'rotation'].every(key => placement[key] === stored.logo[key]);
     lastPropKey.current = k;
     if (k === logoKey(logo)) return;
-    applyLogo(logoProp, true);
+    applyLogo(logoProp, true, preserveCapture);
   }, [logoProp]);
   // 도면에서 끄는 동안은 화면만 바꾸고, 멈추면(0.25초) 밖에 알림 (부모가 매번 다시 그리지 않게)
   const notifyTimer = useRef(null);
@@ -156,7 +162,7 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
     if (!viewRef.current?.sim?.settled) return undefined;
     const t = setTimeout(() => doCapture('logo'), 800);
     return () => clearTimeout(t);
-  }, [logo && logo.panel, logo && logo.x, logo && logo.y, logo && logo.width, logo && logo.rotation, logo && logo.src]);
+  }, [logoApplied, logo && logo.panel, logo && logo.x, logo && logo.y, logo && logo.width, logo && logo.rotation, logo && logo.src]);
 
   useEffect(() => { if (sceneProp) setScene(sceneProp); }, [sceneProp]);
   useEffect(() => () => { captureSeq.current++; abortRef.current?.abort(); }, []);
@@ -293,7 +299,7 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
     bar,
     h('div', { style: { position: 'relative', flex: '1 1 auto', minHeight: 0 } },
       scene
-        ? h(ClothSimView, { ref: viewRef, scene, clothRepresentText, ...viewProps, options: viewOptions, logo })
+        ? h(ClothSimView, { ref: viewRef, scene, clothRepresentText, ...viewProps, onLogoApplied: () => setLogoApplied(value => value + 1), options: viewOptions, logo })
         : h('div', { style: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: 14, opacity: 0.6 } },
           busy ? status : (showInput ? '옷을 적고 만들기를 누르세요' : '')),
       dressReveal && showDressReveal && h('div', {

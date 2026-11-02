@@ -1,0 +1,47 @@
+/* Notion QA, 2026-11-02. Preserve the existing Figma app direction. */
+.account-page .library-thumbnail { background:#f7f8fa; }
+.request-image,.cloth-capture-pair figure { background:#f7f8fa; }
+.studio-pattern-miniature { height:158px; margin:14px 0; overflow:hidden; border-radius:12px; background:#f7f8fa; pointer-events:auto; }
+.studio-orbit-guide { opacity:.45; animation:studio-guide-intro 900ms ease-in-out 2; }
+@keyframes studio-guide-intro { 0%,100% { opacity:.45; } 50% { opacity:1; } }
+.handdam-studio .studio-logo-controls input[type=range]:disabled { background:#e3e7ee; opacity:1; cursor:default; }
+.studio-logo-controls input[type=range]:disabled::-webkit-slider-thumb { background:#c8ced8; border-color:#c8ced8; }
+.studio-logo-controls input[type=range]:disabled::-moz-range-thumb { background:#c8ced8; border-color:#c8ced8; }
+.supplier-edit-dialog h2 { word-break:keep-all; overflow-wrap:break-word; }
+.supplier-edit-dialog button:first-child { border:0; box-shadow:none; outline:none; }
+.supplier-page .supplier-edit-dialog button:first-child:focus-visible { outline:none; background:#e3e7ee; }
+/* Native date controls need an explicit shrinking box on iOS as well as Chromium. */
+.order-date-control { position:relative; display:block; width:100%; min-width:0; max-width:100%; }
+.order-date-control > svg { position:absolute; right:14px; top:50%; transform:translateY(-50%); color:#8a93a6; pointer-events:none; }
+.order-date-placeholder { display:none; position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#8a93a6; font-weight:400; pointer-events:none; }
+.order-date-control[data-empty=true] .order-date-placeholder { display:block; }
+.order-review .order-date-control #order-date { display:block; box-sizing:border-box; appearance:none; -webkit-appearance:none; min-width:0; width:100%; max-width:100%; padding-right:42px; }
+.order-review .order-date-control[data-empty=true] #order-date { color:transparent; }
+.order-review .order-date-control[data-empty=true] #order-date:focus { color:#191f28; }
+.order-date-control[data-empty=true] input::-webkit-datetime-edit { opacity:0; }
+.order-date-control[data-empty=true] input:focus::-webkit-datetime-edit { opacity:1; }
+.order-date-control[data-empty=true]:focus-within .order-date-placeholder { display:none; }
+.order-date-control input::-webkit-calendar-picker-indicator { position:absolute; inset:0; width:auto; height:auto; opacity:0; cursor:pointer; }
+.order-date-control input::-webkit-date-and-time-value { min-height:20px; text-align:left; }
+/* taste-skill-ignore: native radio and selected option boundaries from the supplied Figma form. */
+.order-review .order-radio-group input[type=radio] { appearance:none; -webkit-appearance:none; display:block; flex:none; border:1.5px solid #aab9c5; border-radius:50%; background:#fff; position:relative; padding:0; }
+.order-review .order-radio-group input[type=radio]:checked { border:1.5px solid #041e41; background:#fff; }
+.order-review .order-radio-group input[type=radio]:checked::after { content:""; position:absolute; inset:3px; border-radius:50%; background:#041e41; }
+.order-review .order-radio-group > label:has(input:checked) { border-color:#041e41; }
+@media (min-width:701px) {
+  .order-review .flow-steps { gap:9px; }
+  .order-review .flow-steps li { gap:4px; font-size:14px; line-height:20px; }
+  .order-review-title h1,.supplier-title h1 { font-size:26px; }
+  .order-review-title p,.supplier-title > p { font-size:14px; }
+  .supplier-steps { font-size:14px; }
+  .handdam-studio[data-first-loading=true] .studio-empty-preview.is-generating { justify-content:center; padding:0 16px 60px; }
+  .handdam-studio[data-first-loading=true] .studio-generation-placeholder { transform:none; }
+  .handdam-studio[data-first-loading=true] .studio-generation-placeholder > svg { width:250px; height:258px; max-height:40svh; margin-bottom:20px; }
+}
+@media (max-width:700px) {
+  .studio-editor-heading { display:flex; justify-content:space-between; position:relative; }
+  .studio-editor-heading > div { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; transform:none; pointer-events:none; }
+  .studio-editor-heading .studio-icon-button,.studio-editor-heading .studio-editor-done { position:relative; inset:auto; z-index:1; }
+  .order-review :is(input:not([type=radio]):not([type=file]),select) { height:44px; }
+}
+@media (prefers-reduced-motion:reduce) { .studio-orbit-guide { animation:none; } }

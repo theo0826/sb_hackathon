@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import Image from "next/image";
+import CaptureImage from "@/components/design/CaptureImage";
 import { useEffect, useRef, useState, type Ref } from "react";
 import type { Design } from "@/lib/design";
 import { SIZES, totalQuantity, type OrderDraft } from "@/lib/quote";
@@ -35,12 +35,12 @@ export default function RequestView({ supplier, order, details, capture, readOnl
     ["수령", `${details?.delivery === "pickup" ? "방문 수령" : "택배"} · ${date} 희망`], ["연락 이메일", order.contactEmail],
   ];
   const rowLabel = (label: string) => label === "의류 · 제작 방식" ? <><span className="request-desktop">{label}</span><span className="request-mobile">의류 · 방식</span></> : label === "연락 이메일" ? <><span className="request-desktop">{label}</span><span className="request-mobile">이메일</span></> : label;
-  const artwork = <div className="request-captures">{(["front", "back"] as const).map(side => <figure key={side}><div className="request-image">{capture ? <Image src={capture[side]} alt={`생성한 의류 ${side === "front" ? "앞면" : "뒷면"}`} width={1024} height={1024} unoptimized/> : <p>도안 준비 전</p>}</div><figcaption><span>{side === "front" ? "앞면" : "뒷면"}</span>{(completed || readOnly) && capture && <a href={capture[side]} download={`한땀-${side}.${capture[side].startsWith("data:image/png") ? "png" : "jpg"}`}><Asset name="a4513.svg" className="request-desktop"/><Asset name="27c53.svg" className="request-mobile"/><span className="request-desktop">이미지 </span>저장</a>}</figcaption></figure>)}</div>;
+  const artwork = <div className="request-captures">{(["front", "back"] as const).map(side => <figure key={side}><div className="request-image">{capture ? <CaptureImage src={capture[side]} alt={`생성한 의류 ${side === "front" ? "앞면" : "뒷면"}`} width={1024} height={1024} unoptimized/> : <p>도안 준비 전</p>}</div><figcaption><span>{side === "front" ? "앞면" : "뒷면"}</span>{(completed || readOnly) && capture && <a href={capture[side]} download={`한땀-${side}.${capture[side].startsWith("data:image/png") ? "png" : "jpg"}`}><Asset name="a4513.svg" className="request-desktop"/><Asset name="27c53.svg" className="request-mobile"/><span className="request-desktop">이미지 </span>저장</a>}</figcaption></figure>)}</div>;
   const amount = <div className="request-price"><div><p>견적 금액 · {quantity}벌</p><small>1벌 {won(price.unit)}</small></div><strong>{won(price.total)}</strong></div>;
   const download = <button type="button" className="request-download" onClick={onDownload} disabled={downloadBusy}><Asset name="646e5.svg"/>{downloadBusy ? "파일 준비 중…" : "주문 정보 내려받기"}</button>;
   const deliver = <button type="button" className="request-primary" onClick={onDeliver} disabled={!reviewed || !capture}><Asset name="8b40a.svg"/>제작 요청서 전달하기</button>;
   return <main id="main-content" className={`request-page${completed ? " is-complete" : ""}${readOnly ? " is-detail" : ""}`} data-ui>
-    <SupplierHeader accountMenu showSave={!readOnly}/>
+    <SupplierHeader/>
     <div className={completed ? "request-receipt" : "request-content"}>
       {readOnly ? <header className="request-detail-heading"><Link href="/my?tab=orders"><Asset name="308e7.svg" className="request-desktop"/><Asset name="c304f.svg" className="request-mobile"/><h1>주문 상세</h1></Link><p>{createdAt && new Intl.DateTimeFormat("ko-KR", { timeZone:"Asia/Seoul", month:"long", day:"numeric" }).format(new Date(createdAt))} · 요청서 전달 완료</p></header> : completed ? <header className="request-complete-heading"><span><Asset name="e02d5.svg" className="request-desktop"/><Asset name="62b36.svg" className="request-mobile"/></span><h1 ref={headingRef} tabIndex={-1}>제작 요청서를 전달했어요</h1><p>주문과 요청서는 마이페이지에 보관돼요.</p></header> : <>
         <nav className="request-steps" aria-label="제작 단계"><ol className="request-desktop">{[["디자인","/design"],["주문서 확인","/quotes/new"],["업체 견적","/suppliers"]].map(([text, href]) => <li key={href}><Link href={href}><SupplierAsset name="912f3.svg"/>{text}</Link><SupplierAsset name="0ebe2.svg"/></li>)}<li aria-current="step"><strong>04 제작 진행</strong></li></ol><p className="request-mobile">4 / 4 <strong>· 제작 요청서</strong></p></nav>

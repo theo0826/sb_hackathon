@@ -20,6 +20,7 @@ import "./request-account.css";
 import "./brand-account-update.css";
 import "./onboarding.css";
 import "./figma-alignment.css";
+import "./qa-refinements.css";
 
 export const metadata: Metadata = {
   title: { default: "한땀 — 우리다운 단체티의 시작", template: "%s | 한땀" },
