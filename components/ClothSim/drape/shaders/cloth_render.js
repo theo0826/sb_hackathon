@@ -97,6 +97,13 @@ fn height(kind: i32, q: vec2f, aux: f32) -> f32 {
     }
     case 7: { return 0.5 + 0.5 * sin(2.0 * PI * (q.x + q.y)); }                         // 데님 능직 (사선)
     case 8: { return abs(sin(PI * q.x)); }                                               // 코듀로이 골
+    case 10: {                                                                           // 가죽 (aux 0 천연, 1 인조, 2 스웨이드)
+      if (aux > 1.5) { return 0.5 + 0.1 * vnoise(q * 3.0); }                            // 스웨이드: 거의 평평 (결은 색으로)
+      let g1 = vnoise(q); let g2 = vnoise(q * 2.7 + vec2f(5.3, 1.7));
+      let pebble = 1.0 - abs(g1 * 2.0 - 1.0);                                           // 자갈 모양 그레인 (경계가 골)
+      if (aux > 0.5) { return 0.5 + 0.25 * (pebble - 0.5) + 0.1 * (g2 - 0.5); }        // 인조: 고르고 얕음
+      return 0.35 + 0.45 * pebble * pebble + 0.2 * g2;                                  // 천연: 불규칙하고 깊음
+    }
     default: { return 0.5; }
   }
 }
@@ -188,6 +195,7 @@ fn fs(i: VOut, @builtin(front_facing) ff: bool) -> @location(0) vec4f {
     case 6: { amp = 0.35; }
     case 7: { amp = 0.6; }
     case 8: { amp = 1.2; }
+    case 10: { amp = select(select(0.55, 0.3, aux > 0.5), 0.1, aux > 1.5); }
     default: { amp = 0.0; }
   }
   amp *= detail;
@@ -229,6 +237,10 @@ fn fs(i: VOut, @builtin(front_facing) ff: bool) -> @location(0) vec4f {
     base = base * mix(0.95, 1.04, vnoise(i.uv * vec2f(1.6, 0.9)));
   } else if (kind == 6 && aux > 3.5) {                   // 나일론 타슬란: 잔주름 결, 무광에 가까움
     base = base * mix(0.96, 1.03, vnoise(i.uv * vec2f(5.0, 3.0)));
+  } else if (kind == 10 && aux > 1.5) {                  // 스웨이드: 털 방향 따라 진하고 옅은 결
+    base = base * mix(0.82, 1.08, vnoise(i.uv * vec2f(0.35, 1.3))) * mix(0.94, 1.04, vnoise(i.uv * 4.0));
+  } else if (kind == 10) {                               // 가죽: 넓은 얼룩 (가죽마다 고르지 않은 색)
+    base = base * mix(select(0.86, 0.95, aux > 0.5), 1.04, vnoise(i.uv * 0.4));
   }
   // 가공
   let fin = i32(view.surf0.w + 0.5);
@@ -241,17 +253,23 @@ fn fs(i: VOut, @builtin(front_facing) ff: bool) -> @location(0) vec4f {
   // ---- 빛: 감싸는 확산광 + 천 광택(스치는 각도에서 밝아지는 보풀 광) ----
   let l1 = normalize(vec3f(0.5, 1.0, 0.7));
   let l2 = normalize(vec3f(-0.7, 0.3, -0.6));
-  let wrap = select(0.25, 0.45, kind == 1 || kind == 9 || kind == 3);
+  let wrap = select(0.25, 0.45, kind == 1 || kind == 9 || kind == 3 || (kind == 10 && aux > 1.5));
   let d1 = max((dot(n, l1) + wrap) / (1.0 + wrap), 0.0);
   let d2 = max((dot(n, l2) + wrap) / (1.0 + wrap), 0.0);
   let hemi = mix(0.3, 0.55, n.y * 0.5 + 0.5);
   var c = base * (hemi + 0.7 * d1 + 0.22 * d2);
   let nv = max(dot(n, v), 0.0);
-  c += base * sheen * pow(1.0 - nv, 4.0) * 0.9;                       // 보풀 광택
+  let leatherSmooth = kind == 10 && aux < 1.5;
+  c += base * sheen * pow(1.0 - nv, 4.0) * select(0.9, 0.2, leatherSmooth);   // 보풀 광택 (매끈한 가죽은 약하게)
   let hv = normalize(l1 + v);
   // 또렷한 반사점은 나일론처럼 광택이 큰 우븐만 (sheen >= 0.5). 저지, 면은 무광이라 반사점을 넣으면
   // 어두운 색에서 젖은 얼룩처럼 보임. 넓게 퍼진 약한 반사(지수 12)로 둠
   c += vec3f(sheen * 0.35) * pow(max(dot(n, hv), 0.0), 10.0) * select(0.0, 1.0, kind == 6 && aux > 3.5);   // 나일론: 넓게 퍼진 은은한 광택
+  // 가죽: 반광택. 넓은 광택 + 좁은 반사점 (인조가죽은 더 번들거림)
+  if (leatherSmooth) {
+    let ndh = max(dot(n, hv), 0.0);
+    c += vec3f(sheen) * (0.12 * pow(ndh, 8.0) + select(0.28, 0.45, aux > 0.5) * pow(ndh, select(40.0, 60.0, aux > 0.5)));
+  }
   return vec4f(pow(c, vec3f(1.0 / 2.2)), 1.0);
 }
 `;

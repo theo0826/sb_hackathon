@@ -8,7 +8,7 @@ function hex(c) {
 }
 
 // 원단 -> 그리기 질감 (종류, 무늬 주기 cm, 광택, 변형). cloth_render.wgsl 의 height() 종류 번호와 같음
-//   0 저지, 1 플리스/테리, 2 리브, 3 울 니트, 4 와플, 5 피케, 6 우븐(변형 0 포플린, 1 옥스포드, 2 린넨, 3 샴브레이, 4 나일론), 7 데님, 8 코듀로이, 9 기모 우븐
+//   0 저지, 1 플리스/테리, 2 리브, 3 울 니트, 4 와플, 5 피케, 6 우븐(변형 0 포플린, 1 옥스포드, 2 린넨, 3 샴브레이, 4 나일론), 7 데님, 8 코듀로이, 9 기모 우븐, 10 가죽(변형 0 천연, 1 인조, 2 스웨이드)
 // 주기는 실제 원단보다 조금 크게 (화면 기본 거리에서도 짜임이 보이게. 가까이 가면 실제 크기 느낌)
 const FABRIC_LOOK = {
   cotton_jersey: [0, 0.12, 0.15, 0], cotton_interlock: [0, 0.1, 0.2, 0], softshell_knit: [0, 0.1, 0.3, 0],
@@ -16,6 +16,7 @@ const FABRIC_LOOK = {
   rib_knit: [2, 0.45, 0.2, 0], wool_knit: [3, 0.45, 0.35, 0], thermal_waffle: [4, 0.5, 0.2, 0], pique_cotton: [5, 0.2, 0.2, 0],
   cotton_poplin: [6, 0.06, 0.25, 0], oxford: [6, 0.14, 0.15, 1], linen: [6, 0.1, 0.1, 2], chambray: [6, 0.08, 0.15, 3], nylon_taslan: [6, 0.5, 0.32, 4],
   denim: [7, 0.25, 0.15, 0], corduroy: [8, 0.35, 0.35, 0], flannel_brushed: [9, 1, 0.35, 0],
+  leather: [10, 0.35, 0.45, 0], faux_leather: [10, 0.4, 0.55, 1], suede: [10, 0.5, 0.55, 2],
 };
 function fabricLook(mesh) {
   return FABRIC_LOOK[mesh.material] || (mesh.family === 'woven' ? [6, 0.08, 0.2, 0] : [0, 0.12, 0.15, 0]);
