@@ -6,8 +6,9 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../out");
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "/sb_hackathon";
-const port = Number(process.env.PORT || 4173);
-const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".txt": "text/plain", ".webp": "image/webp", ".png": "image/png", ".svg": "image/svg+xml", ".glb": "model/gltf-binary" };
+// The team's Worker permits local browser requests from port 3000.
+const port = Number(process.env.PORT || 3000);
+const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".txt": "text/plain", ".webp": "image/webp", ".png": "image/png", ".svg": "image/svg+xml", ".mp4": "video/mp4", ".woff2": "font/woff2" };
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url, "http://localhost");

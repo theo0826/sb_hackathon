@@ -16,5 +16,5 @@ const sizes: Record<string, [number, number]> = {
 };
 export default function WorkspaceAsset({ name, className = "" }: { name: string; className?: string }) {
   const [width, height] = sizes[name];
-  return <Image src={publicPath(`/figma/workspace/${name}`)} alt="" width={width} height={height} className={className} unoptimized />;
+  return <Image src={publicPath(`/ui/workspace/${name}`)} alt="" width={width} height={height} className={className} unoptimized />;
 }

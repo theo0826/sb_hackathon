@@ -5,5 +5,6 @@ import nextTs from "eslint-config-next/typescript";
 export default defineConfig([
   ...nextVitals,
   ...nextTs,
-  globalIgnores([".next/**", "out/**", ".tools/**", "next-env.d.ts"]),
+  // Public files include vendored GSAP and generated body data, not lint targets.
+  globalIgnores([".next/**", "out/**", ".tools/**", "public/**", "next-env.d.ts"]),
 ]);

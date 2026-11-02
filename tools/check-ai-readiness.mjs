@@ -8,5 +8,5 @@ for (const line of raw.split(/\r?\n/)) {
 for (const [key, label] of [["NEXT_PUBLIC_AI_DESIGN_URL", "새 디자인 API"], ["NEXT_PUBLIC_AI_QUOTE_URL", "새 업체 변환 API"]]) {
   console.log(`${env[key] ? "설정됨" : "연결 대기"} · ${label}`);
 }
-console.log(`${env.LEGACY_BACKEND_ENABLED !== "true" ? "차단됨" : "확인 필요: 이전 연결 활성화됨"} · 이전 개인 백엔드`);
-console.log("개인 Supabase·GPT 키는 새 프론트엔드에 사용하지 않습니다. 외부 요청·생성·DB 쓰기를 실행하지 않았습니다.");
+console.log(`${env.NEXT_PUBLIC_CLOTH_WORKER_URL ? "설정됨" : "팀 기본 URL 사용"} · ClothSim Worker`);
+console.log("구형 개인 서버 코드는 제거되었습니다. 외부 요청·생성·DB 쓰기를 실행하지 않았습니다.");

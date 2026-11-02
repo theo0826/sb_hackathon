@@ -1,21 +1,26 @@
-name: Validate main for GitHub Pages
+name: Validate static site
 
 on:
   push:
-    branches: [main]
+    branches-ignore: [gh-pages]
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: pages-validation-${{ github.ref }}
+  group: static-validation-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
+      NEXT_PUBLIC_AI_DESIGN_URL: ${{ vars.NEXT_PUBLIC_AI_DESIGN_URL }}
+      NEXT_PUBLIC_AI_QUOTE_URL: ${{ vars.NEXT_PUBLIC_AI_QUOTE_URL }}
+      NEXT_PUBLIC_CLOTH_WORKER_URL: ${{ vars.NEXT_PUBLIC_CLOTH_WORKER_URL || 'https://clothsim-api.set35230.workers.dev' }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -23,19 +28,14 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
       - run: npm run test:unit
-      - run: npm run build:pages
-        env:
-          NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
-          NEXT_PUBLIC_AI_DESIGN_URL: ${{ vars.NEXT_PUBLIC_AI_DESIGN_URL }}
-          NEXT_PUBLIC_AI_QUOTE_URL: ${{ vars.NEXT_PUBLIC_AI_QUOTE_URL }}
+      - run: npm run build
       - run: npm run test:pages
-        env:
-          NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
-      - run: node tests/pages-export.mjs docs
       - uses: actions/upload-artifact@v4
         with:
-          name: main-static-preview
-          path: out
+          name: static-preview
+          path: out/
           include-hidden-files: true
           retention-days: 7

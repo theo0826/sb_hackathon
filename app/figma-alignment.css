@@ -281,7 +281,7 @@ body:has(.handdam-onboarding) > .site-footer { display:none; }
   .order-radio-group strong { font-weight:400; line-height:19px; }
   .order-radio-group > label:has(input:checked) strong { font-weight:500; }
   .order-radio-group input[type=radio] { border:1.5px solid #aab9c5; }
-  .order-radio-group input[type=radio]:checked { border:0; background:url("../public/figma/suppliers/fcf03.svg") center/contain no-repeat; }
+  .order-radio-group input[type=radio]:checked { border:0; background:url("../public/ui/suppliers/fcf03.svg") center/contain no-repeat; }
   .order-radio-group > label { gap:10px; }
   .order-review .order-summary-toggle { padding:12px 16px 12px 14px; min-height:76px; }
   .order-review .order-summary-toggle > .order-summary-icon { display:grid; place-items:center; flex:none; width:52px; height:52px; background:#f7f8fa; border-radius:10px; }

@@ -9,5 +9,5 @@ const sizes = {
 } as const;
 export default function SupplierAsset({ name, className = "" }: { name: keyof typeof sizes; className?: string }) {
   const [width, height] = sizes[name];
-  return <Image src={publicPath(`/figma/suppliers/${name}`)} alt="" width={width} height={height} className={className} unoptimized />;
+  return <Image src={publicPath(`/ui/suppliers/${name}`)} alt="" width={width} height={height} className={className} unoptimized />;
 }
