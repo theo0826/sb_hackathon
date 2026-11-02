@@ -78,18 +78,19 @@ export function panelOutlines(scene) {
 }
 
 const ORDER = ['front', 'front_r', 'front_l', 'back', 'sleeve_nx', 'sleeve_px', 'hood', 'collar', 'neck', 'cuff', 'placket', 'pocket'];
-/** 패널을 겹치지 않게 펼쳐 놓기 (도면 cm 단위 오프셋). 줄 너비 rowW 를 넘으면 다음 줄 */
-export function layoutPanels(panels, rowW = 150, gap = 6) {
+/** 패널을 겹치지 않게 펼쳐 놓기 (도면 cm 단위 오프셋). 줄 너비 rowW 를 넘으면 다음 줄, rowGap 은 줄 사이 (아래 이름 자리)
+ *  minCell: 좁은 판도 이 너비만큼 자리를 잡음 (아래 이름이 옆 판 이름과 겹치지 않게) */
+export function layoutPanels(panels, rowW = 150, gap = 6, rowGap = gap, minCell = 0) {
   const rank = p => { const i = ORDER.findIndex(k => p.name.startsWith(k)); return i < 0 ? ORDER.length : i; };
   const list = [...panels].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
   let x = 0, y = 0, rowH = 0;
   const pos = new Map();
   for (const p of list) {
-    const w = p.bbox[2] - p.bbox[0], hgt = p.bbox[3] - p.bbox[1];
-    if (x > 0 && x + w > rowW) { x = 0; y += rowH + gap; rowH = 0; }
-    // 화면 좌표: 도면 (u, v) -> (ox + u, oy - v), oy 는 이 패널 위 끝
-    pos.set(p.mesh, { ox: x - p.bbox[0], oy: y + p.bbox[3], w, h: hgt });
-    x += w + gap; rowH = Math.max(rowH, hgt);
+    const w = p.bbox[2] - p.bbox[0], hgt = p.bbox[3] - p.bbox[1], cell = Math.max(w, minCell);
+    if (x > 0 && x + cell > rowW) { x = 0; y += rowH + rowGap; rowH = 0; }
+    // 화면 좌표: 도면 (u, v) -> (ox + u, oy - v), oy 는 이 패널 위 끝. 좁은 판은 자리 가운데
+    pos.set(p.mesh, { ox: x + (cell - w) / 2 - p.bbox[0], oy: y + p.bbox[3], w, h: hgt });
+    x += cell + gap; rowH = Math.max(rowH, hgt);
   }
   return pos;
 }

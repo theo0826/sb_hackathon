@@ -3,6 +3,7 @@ export default /* wgsl */ `
 // 천 그리기: 계산 결과 버퍼(X, N)를 그대로 읽는다 (CPU 로 복사 없음). 늘어남 색은 켜기/끄기
 // 원단 질감: 도면 좌표 uv (cm, y = 결 방향) 위에 원단마다 짜임/조직 높이를 만들어 법선을 기울이고 색을 섞음
 //   니트(저지), 플리스/테리, 리브, 울 니트(코), 와플, 피케, 우븐(포플린, 옥스포드, 린넨, 샴브레이, 나일론), 데님, 코듀로이, 기모 우븐
+//   가죽(천연, 인조, 스웨이드), 실크 새틴, 벨벳, 울 트위드, 메시(구멍은 가까이서만 뚫어 보임)
 //   화면에서 한 화소보다 작아지는 무늬는 fwidth 로 줄여서 떨림(무아레)을 막음. 가까이 보면 짜임이 드러남
 // 표면 무늬(줄무늬, 체크, 멜란지)와 가공(워싱, 산 워싱, 피그먼트)도 여기서
 // (그리기 셰이더에는 common.wgsl 을 붙이지 않는다)
@@ -70,10 +71,22 @@ fn vnoise(p: vec2f) -> f32 {
 }
 const PI = 3.14159265;
 
+// 도면 y(결) 방향의 세계 좌표 단위 접선. 미분값은 분기 전에 구해 둔 것을 받음
+fn warpTangent(dp1: vec3f, dp2: vec3f, du1: vec2f, du2: vec2f, n: vec3f) -> vec3f {
+  let B = cross(dp2, n) * du1.y + cross(n, dp1) * du2.y;
+  let l = length(B);
+  return select(vec3f(0.0, 1.0, 0.0), B / l, l > 1e-12);
+}
+
 // 원단 높이 (0~1). x = 가로(씨실/코스), y = 결(날실/웨일) 방향
 fn height(kind: i32, q: vec2f, aux: f32) -> f32 {
   switch (kind) {
     case 0: { return 0.5 + 0.5 * abs(sin(PI * q.x)); }                                  // 저지: 웨일
+    case 1: {                                                                            // 플리스 계열 (aux 0 기모: 평평)
+      if ((aux > 2.5 && aux < 3.5) || (aux > 0.5 && aux < 1.5)) { return 0.5 + 0.5 * abs(sin(PI * q.x)); }   // 테리, 헤비 스웨트: 저지 겉면 웨일
+      if (aux > 1.5) { return smoothstep(0.45, 0.8, vnoise(q)); }                         // 폴리 플리스: 보풀 덩어리
+      return 0.5;
+    }
     case 2: { let r = 0.5 + 0.5 * cos(2.0 * PI * q.x); return r * r; }                  // 리브: 세로 골
     case 3: {                                                                            // 울 니트(메리야스): 코 하나 = 기울어진 고리 두 개가 V 를 이룸
       let cell = vec2f(fract(q.x) - 0.5, fract(q.y / 0.75) - 0.5);   // 코 폭 1, 높이 0.75
@@ -92,11 +105,31 @@ fn height(kind: i32, q: vec2f, aux: f32) -> f32 {
     case 5: { let g = fract(q + vec2f(0.5 * floor(q.y), 0.0)) - 0.5; return 1.0 - smoothstep(0.15, 0.45, length(g)); } // 피케
     case 6: {                                                                            // 우븐
       if (aux > 0.5 && aux < 1.5) { let b = fract(q * 0.5) - 0.5; return 0.5 + 0.5 * sign(b.x * b.y) * 0.6; }   // 옥스포드 바스켓
+      if (aux > 4.5) { let c = fract(q) - 0.5; let ck = sign(sin(PI * floor(q.x)) * sin(PI * floor(q.y)) + 0.001); return 0.5 + 0.35 * ck * (1.0 - 4.0 * c.x * c.x) * (1.0 - 4.0 * c.y * c.y); }   // 캔버스: 굵은 평직 (칸마다 실이 번갈아 위로)
       if (aux > 3.5) { return 0.6 * vnoise(q) + 0.4 * vnoise(q * vec2f(2.3, 0.8) + vec2f(7.1, 3.3)); }   // 나일론 타슬란: 불규칙 잔주름
       return 0.5 + 0.25 * (sin(2.0 * PI * q.x) + sin(2.0 * PI * q.y));
     }
     case 7: { return 0.5 + 0.5 * sin(2.0 * PI * (q.x + q.y)); }                         // 데님 능직 (사선)
     case 8: { return abs(sin(PI * q.x)); }                                               // 코듀로이 골
+    case 9: { return 0.5 + 0.5 * sin(2.0 * PI * (q.x + q.y)); }                         // 기모 우븐(플란넬): 털 아래 능직
+    case 10: {                                                                           // 가죽 (aux 0 천연, 1 인조, 2 스웨이드)
+      if (aux > 1.5) { return 0.5 + 0.1 * vnoise(q * 3.0); }                            // 스웨이드: 거의 평평 (결은 색으로)
+      let g1 = vnoise(q); let g2 = vnoise(q * 2.7 + vec2f(5.3, 1.7));
+      let pebble = 1.0 - abs(g1 * 2.0 - 1.0);                                           // 자갈 모양 그레인 (경계가 골)
+      if (aux > 0.5) { return 0.5 + 0.25 * (pebble - 0.5) + 0.1 * (g2 - 0.5); }        // 인조: 고르고 얕음
+      return 0.35 + 0.45 * pebble * pebble + 0.2 * g2;                                  // 천연: 불규칙하고 깊음
+    }
+    case 11: { return 0.5 + 0.5 * smoothstep(0.1, 0.9, fract(q.y * 0.2 + 0.4 * floor(q.x)) ); }   // 새틴: 긴 날실 뜸 (결 방향으로 길게, 이웃 줄마다 어긋남)
+    case 12: { return 0.5 + 0.5 * vnoise(q * 0.6); }                                    // 벨벳: 눌린 털 결 (넓고 얕게)
+    case 13: {                                                                           // 울 트위드: 굵고 고르지 않은 실의 능직
+      let tw = 0.5 + 0.5 * sin(2.0 * PI * (q.x + q.y));
+      let slub = 0.7 + 0.6 * vnoise(q * vec2f(0.4, 2.5));
+      return clamp(0.5 + (tw - 0.5) * slub + 0.15 * (vnoise(q * 2.3) - 0.5), 0.0, 1.0);
+    }
+    case 14: {                                                                           // 메시: 엇갈린 둥근 구멍, 구멍 가장자리 실이 높음
+      let g = fract(q + vec2f(0.5 * floor(q.y), 0.0)) - 0.5;
+      return smoothstep(0.26, 0.42, length(g * vec2f(1.0, 1.15)));
+    }
     default: { return 0.5; }
   }
 }
@@ -125,6 +158,8 @@ fn fs(i: VOut, @builtin(front_facing) ff: bool) -> @location(0) vec4f {
   if (sk == 1) {                                         // 멜란지: 섬유 점
     let sp = vnoise(i.uv * vec2f(9.0, 2.5));
     base = base * mix(0.82, 1.18, sp);
+    let fib = vnoise(i.uv * vec2f(14.0, 3.5) + vec2f(3.1, 7.7));
+    base = mix(base, mix(base, vec3f(0.42), 0.18), smoothstep(0.3, 0.95, fib));   // 고운 회색 섬유 (어두운 색에서도 보이게. 전에는 굵은 줄처럼 보였음)
   } else if (sk == 2) {                                  // 줄무늬
     let dir = i32(view.surf0.y + 0.5);
     var c = i.uv.y;
@@ -137,7 +172,15 @@ fn fs(i: VOut, @builtin(front_facing) ff: bool) -> @location(0) vec4f {
     let bx = smoothstep(0.5 - aa, 0.5 + aa, fract(i.uv.x / (2.0 * sw)));
     let by = smoothstep(0.5 - aa, 0.5 + aa, fract(i.uv.y / (2.0 * sw)));
     let ck = i32(view.surf1.w + 0.5);
-    if (ck == 3) {                                       // 윈도페인: 큰 칸을 이루는 가는 선
+    if (ck == 4) {                                       // 하운드투스: 한 칸 = 4분면 중 하나 진하게, 하나 밝게, 두 개는 사선 줄 (톱니)
+      let ht = i.uv / (2.0 * sw);
+      let hc = fract(ht) * 2.0;
+      let qa = hc.x < 1.0; let qb = hc.y < 1.0;
+      let diag = fract((ht.x + ht.y) * 4.0) < 0.5;
+      var on = false;
+      if (qa && qb) { on = true; } else if (!qa && !qb) { on = false; } else { on = diag; }
+      base = mix(base, col2, select(0.0, 1.0, on));
+    } else if (ck == 3) {                                       // 윈도페인: 큰 칸을 이루는 가는 선
       let lx = step(0.94, abs(fract(i.uv.x / (6.0 * sw)) - 0.5) * 2.0);
       let ly = step(0.94, abs(fract(i.uv.y / (6.0 * sw)) - 0.5) * 2.0);
       base = mix(base, col2, max(lx, ly));
@@ -157,9 +200,15 @@ fn fs(i: VOut, @builtin(front_facing) ff: bool) -> @location(0) vec4f {
       base = 0.5 * (cx + cy);
       base = mix(base, base * 0.7, dx * dy * 0.6);
     } else {                                             // 깅엄, 버펄로: 두 색 같은 폭, 겹친 곳이 진하게
-      let t = (bx + by) * 0.5;
-      base = mix(base, col2, t);
-      if (ck == 2) { base = mix(base, col2 * 0.8, bx * by * 0.4); }
+      if (ck == 2) {                                     // 버펄로: 깅엄보다 2.5배 큰 칸, 겹친 곳은 둘째 색 그대로, 한쪽만은 반반
+        let bs = 2.5 * sw; let ab = clamp(fw / bs, 0.0, 0.5);
+        let cx2 = smoothstep(0.5 - ab, 0.5 + ab, fract(i.uv.x / (2.0 * bs)));
+        let cy2 = smoothstep(0.5 - ab, 0.5 + ab, fract(i.uv.y / (2.0 * bs)));
+        base = mix(mix(base, col2, 0.5 * (cx2 + cy2)), col2, cx2 * cy2);
+      } else {
+        let t = (bx + by) * 0.5;
+        base = mix(base, col2, t);
+      }
     }
   }
 
@@ -181,16 +230,29 @@ fn fs(i: VOut, @builtin(front_facing) ff: bool) -> @location(0) vec4f {
   var amp = 0.0;
   switch (kind) {
     case 0: { amp = 0.25; }
+    case 1: { amp = select(select(select(select(0.0, 0.3, aux > 0.5), 0.7, aux > 1.5), 0.45, aux > 2.5), 0.0, aux > 3.5); }
+    case 9: { amp = select(0.2, 0.35, aux > 0.5); }   // 개버딘(aux 1)은 능직 결이 더 또렷
     case 2: { amp = 1.0; }
     case 3: { amp = 1.0; }
     case 4: { amp = 0.9; }
     case 5: { amp = 0.6; }
-    case 6: { amp = 0.35; }
+    case 6: { amp = select(0.35, 0.7, aux > 4.5); }
     case 7: { amp = 0.6; }
     case 8: { amp = 1.2; }
+    case 10: { amp = select(select(0.55, 0.3, aux > 0.5), 0.1, aux > 1.5); }
+    case 11: { amp = 0.12; }
+    case 12: { amp = 0.15; }
+    case 13: { amp = 0.7; }
+    case 14: { amp = 0.8; }
     default: { amp = 0.0; }
   }
   amp *= detail;
+  if (kind == 14) {
+    let mg = fract(q + vec2f(0.5 * floor(q.y), 0.0)) - 0.5;
+    let hole = length(mg * vec2f(1.0, 1.15)) < 0.26;
+    if (hole && fw < period * 0.12) { discard; }       // 구멍 지름이 4화소 이상일 때만 (그보다 작으면 군데군데 뭉쳐 보였음)
+    base = base * 0.85;                                  // 구멍 사이로 비치는 그늘 (거리와 상관없이 고르게)
+  }
   if (amp > 0.0) {
     // 도면 좌표 기울기 -> 세계 좌표 접선 (화면 미분으로 만든 접선 틀)
     let dp2perp = cross(dp2, n); let dp1perp = cross(n, dp1);
@@ -207,8 +269,18 @@ fn fs(i: VOut, @builtin(front_facing) ff: bool) -> @location(0) vec4f {
     base = base * mix(1.0, mix(lo, 1.04, h), detail * min(amp, 1.0));
   }
   // 재질별 색 변화
-  if (kind == 1 || kind == 9) {                          // 플리스, 테리, 기모: 보풀 얼룩
+  if (kind == 1 && aux > 3.5) {                          // 울 멜톤: 얼룩 없이 고운 펠트 알갱이 + 아주 옅은 넓은 구름
+    base = base * mix(0.93, 1.04, vnoise(i.uv * 3.0)) * mix(0.97, 1.02, vnoise(i.uv * 0.3));
+  } else if (kind == 1 || (kind == 9 && aux < 0.5)) {   // 플리스, 테리, 기모: 보풀 얼룩 (개버딘은 털이 없어 제외)
     base = base * mix(0.93, 1.05, vnoise(i.uv * 1.7));
+    // 멀리서도 보이는 결 (짜임이 화소보다 작아져도 남는 1cm 안팎 크기의 얼룩)
+    if (kind == 1 && aux > 0.5 && aux < 1.5) { base = base * mix(0.95, 1.04, vnoise(i.uv * vec2f(3.0, 0.35))); }        // 테리: 가는 세로 결
+    else if (kind == 1 && aux > 2.5) { base = base * mix(0.9, 1.05, vnoise(i.uv * vec2f(2.0, 0.3))); }                // 헤비 스웨트: 굵은 세로 결
+    else if (kind == 1 && aux > 1.5) { base = base * mix(0.84, 1.08, smoothstep(0.3, 0.8, vnoise(i.uv * 3.3))); }     // 폴리 플리스: 보풀 덩어리
+    else if (kind == 9) { base = base * mix(0.88, 1.07, vnoise(i.uv * vec2f(1.1, 0.6))); }                           // 플란넬: 기모 얼룩
+  } else if (kind == 9) {                                // 개버딘: 멀리서도 보이는 옅은 사선 능직 결
+    let gt = 0.5 + 0.5 * sin(6.2832 * (i.uv.x + i.uv.y) / 0.8);
+    base = base * mix(1.0, mix(0.95, 1.04, gt), 1.0 - detail);
   } else if (kind == 3) {                                // 울: 섬유 털
     base = base * mix(0.9, 1.08, vnoise(i.uv * 6.0));
   } else if (kind == 6 && aux > 1.5 && aux < 2.5) {      // 린넨: 굵은 실 마디 (가로 줄)
@@ -225,33 +297,93 @@ fn fs(i: VOut, @builtin(front_facing) ff: bool) -> @location(0) vec4f {
     }
   } else if (kind == 6 && aux > 0.5 && aux < 1.5) {      // 옥스포드: 색 날실 + 흰 씨실 -> 잔 점무늬 (멀리서 살짝 밝고 거침)
     let sp = hash(floor(i.uv * vec2f(7.0, 5.0)));
-    base = mix(base, base * 0.85 + vec3f(0.12), 0.25 * sp * detail + 0.08 * (1.0 - detail));
+    base = mix(base, base * 0.85 + vec3f(0.12), 0.25 * sp * detail + 0.07 * (1.0 - detail) * vnoise(i.uv * vec2f(2.5, 1.8)));
     base = base * mix(0.95, 1.04, vnoise(i.uv * vec2f(1.6, 0.9)));
+  } else if (kind == 6 && aux > 4.5) {                   // 캔버스: 굵기가 고르지 않은 가로, 세로 실 (멀리서도 거친 평직)
+    base = base * mix(0.92, 1.05, vnoise(vec2f(i.uv.x * 0.4, i.uv.y * 3.0))) * mix(0.93, 1.04, vnoise(vec2f(i.uv.x * 3.0, i.uv.y * 0.4) + vec2f(5.0, 1.0)));
   } else if (kind == 6 && aux > 3.5) {                   // 나일론 타슬란: 잔주름 결, 무광에 가까움
     base = base * mix(0.96, 1.03, vnoise(i.uv * vec2f(5.0, 3.0)));
+  } else if (kind == 10 && aux > 1.5) {                  // 스웨이드: 털 방향 따라 진하고 옅은 결
+    base = base * mix(0.82, 1.08, vnoise(i.uv * vec2f(0.35, 1.3))) * mix(0.94, 1.04, vnoise(i.uv * 4.0));
+  } else if (kind == 10) {                               // 가죽: 넓은 얼룩 (가죽마다 고르지 않은 색)
+    base = base * mix(select(0.86, 0.95, aux > 0.5), 1.04, vnoise(i.uv * 0.4));
+  } else if (kind == 5) {                                // 피케: 멀리서도 보이는 잔 벌집 얼룩
+    base = base * mix(0.95, 1.03, vnoise(i.uv * 2.2));
+  } else if (kind == 12) {                               // 벨벳: 털이 눌린 방향마다 짙고 옅은 넓은 얼룩
+    base = base * mix(0.93, 1.03, vnoise(i.uv * vec2f(0.25, 0.4)));   // 2026-10-31: 흰 벨벳 가슴의 회색 얼룩이 커서 폭을 줄임
+  } else if (kind == 13) {                               // 울 트위드: 섞인 색실 + 여러 색 잔 점(넵)
+    base = base * mix(0.84, 1.12, vnoise(i.uv * vec2f(5.0, 3.0)));
+    let cell = floor(i.uv * vec2f(4.0, 3.0));
+    let hk = hash(cell);
+    if (hk > 0.93) {
+      let pk = hash(cell + vec2f(17.0, 3.0));
+      var fleck = vec3f(0.85, 0.80, 0.68);                                 // 크림
+      if (pk > 0.75) { fleck = vec3f(0.55, 0.16, 0.08); }                  // 녹 빛 빨강
+      else if (pk > 0.5) { fleck = vec3f(0.05, 0.25, 0.28); }              // 청록
+      else if (pk > 0.25) { fleck = vec3f(0.02, 0.02, 0.02); }             // 검정
+      let fr = length(fract(i.uv * vec2f(4.0, 3.0)) - 0.5);
+      base = mix(base, fleck, 0.45 * (1.0 - smoothstep(0.1, 0.25, fr)) * max(detail, 0.35));
+    }
   }
   // 가공
   let fin = i32(view.surf0.w + 0.5);
-  if (fin == 1) { let g = dot(base, vec3f(0.3, 0.59, 0.11)); base = mix(base, vec3f(g), 0.18) * mix(0.95, 1.08, vnoise(i.uv * 0.5)); }   // 워싱
+  if (fin == 1 || fin == 5 || fin == 6) {              // 워싱 (가먼트, 효소, 디스트레스드 바탕): 빛바래 밝아지고 얼룩
+    let g = dot(base, vec3f(0.3, 0.59, 0.11));
+    base = mix(base, vec3f(g), 0.15);
+    base = mix(base, base * 1.3 + vec3f(0.035), select(0.4, 0.55, fin == 6)) * mix(select(0.94, 0.86, fin == 6), 1.07, vnoise(i.uv * select(0.5, 0.9, fin == 6)));
+    if (fin == 5) {                                      // 디스트레스드: 닳은 밝은 자국 (세로로 긴 조각)
+      // 닳은 자국: 결 방향의 가는 줄(올이 닳아 흰 씨실이 드러남)이 넓은 구역 안에만 몰림 (전에는 덩어리 얼룩이라 위장무늬 같았음)
+      let zone = smoothstep(0.45, 0.8, vnoise(i.uv * vec2f(0.12, 0.2) + vec2f(11.0, 4.0)));
+      let streak = smoothstep(0.55, 0.9, vnoise(i.uv * vec2f(4.0, 0.3) + vec2f(2.0, 9.0)));
+      base = mix(base, base * 1.6 + vec3f(0.12), 0.6 * zone * streak);
+    }
+  }
+  else if (fin == 4) { base = mix(base, base * 1.08 + vec3f(0.015), 0.4); }   // 기모 가공: 털이 일어 살짝 뿌옇게 (빛에서 털 광택을 더함)
   else if (fin == 2) { base = mix(base, base * 2.2 + vec3f(0.08), smoothstep(0.55, 0.8, vnoise(i.uv * 0.35)) * 0.7); }                   // 산 워싱
-  else if (fin == 3) { base = base * mix(0.8, 1.12, vnoise(i.uv * 0.25)); }                                                              // 피그먼트
+  else if (fin == 3) { base = mix(base, base * 1.5 + vec3f(0.06), 0.1 + 0.4 * (0.6 * vnoise(i.uv * 0.2) + 0.4 * vnoise(i.uv * 0.55 + vec2f(5.0, 2.0)))); }                                 // 피그먼트: 고르지 않게 바랜 색
 
   if (view.flags.x != 0u) { base = mix(base, pow(heat(i.s), vec3f(2.2)), select(0.85, 0.0, i.s <= 0.02)); }
 
   // ---- 빛: 감싸는 확산광 + 천 광택(스치는 각도에서 밝아지는 보풀 광) ----
   let l1 = normalize(vec3f(0.5, 1.0, 0.7));
   let l2 = normalize(vec3f(-0.7, 0.3, -0.6));
-  let wrap = select(0.25, 0.45, kind == 1 || kind == 9 || kind == 3);
+  let wrap = select(0.25, 0.45, kind == 1 || (kind == 9 && aux < 0.5) || kind == 3 || (kind == 10 && aux > 1.5) || kind == 12 || kind == 13);
   let d1 = max((dot(n, l1) + wrap) / (1.0 + wrap), 0.0);
   let d2 = max((dot(n, l2) + wrap) / (1.0 + wrap), 0.0);
   let hemi = mix(0.3, 0.55, n.y * 0.5 + 0.5);
   var c = base * (hemi + 0.7 * d1 + 0.22 * d2);
   let nv = max(dot(n, v), 0.0);
-  c += base * sheen * pow(1.0 - nv, 4.0) * 0.9;                       // 보풀 광택
+  let leatherSmooth = kind == 10 && aux < 1.5;
+  if (kind == 12) {
+    // 벨벳: 정면은 깊고 어둡게, 가장자리(스치는 각도)에서 털 끝이 빛을 받아 밝게
+    c = c * mix(0.88, 1.0, pow(1.0 - nv, 1.5)) + base * sheen * 1.2 * pow(1.0 - nv, 2.0) + vec3f(0.1) * pow(1.0 - nv, 2.5);
+  } else {
+    c += base * sheen * pow(1.0 - nv, 4.0) * select(0.9, 0.2, leatherSmooth || kind == 11);   // 보풀 광택 (매끈한 가죽, 새틴은 약하게)
+  }
+  // 털이 있는 원단(기모 플리스, 폴리 플리스, 플란넬, 스웨이드)은 스치는 각도에서 무채색으로 뿌옇게 (검정에서도 원단 차이가 보이게)
+  var fuzz = 0.0;
+  if ((kind == 1 && (aux < 0.5 || (aux > 1.5 && aux < 2.5))) || (kind == 9 && aux < 0.5)) { fuzz = 0.09; }
+  if (kind == 10 && aux > 1.5) { fuzz = 0.13; }
+  if (i32(view.surf0.w + 0.5) == 4) { fuzz = max(fuzz, 0.1); }   // 기모 가공
+  c += vec3f(fuzz) * pow(1.0 - nv, 3.0);
   let hv = normalize(l1 + v);
   // 또렷한 반사점은 나일론처럼 광택이 큰 우븐만 (sheen >= 0.5). 저지, 면은 무광이라 반사점을 넣으면
   // 어두운 색에서 젖은 얼룩처럼 보임. 넓게 퍼진 약한 반사(지수 12)로 둠
-  c += vec3f(sheen * 0.35) * pow(max(dot(n, hv), 0.0), 10.0) * select(0.0, 1.0, kind == 6 && aux > 3.5);   // 나일론: 넓게 퍼진 은은한 광택
+  c += vec3f(sheen * 0.35) * pow(max(dot(n, hv), 0.0), 10.0) * select(0.0, 1.0, kind == 6 && aux > 3.5 && aux < 4.5);   // 나일론: 넓게 퍼진 은은한 광택
+  // 가죽: 반광택. 넓은 광택 + 좁은 반사점 (인조가죽은 더 번들거림)
+  if (leatherSmooth) {
+    let ndh = max(dot(n, hv), 0.0);
+    c += vec3f(sheen) * (0.12 * pow(ndh, 8.0) + select(0.28, 0.45, aux > 0.5) * pow(ndh, select(40.0, 60.0, aux > 0.5)));
+  }
+  if (kind == 11) {
+    // 새틴: 결(날실) 방향으로 길게 늘어난 띠 모양 반사 (실 방향 반사 모델). 반사색은 원단색이 섞인 흰빛
+    let wB = warpTangent(dp1, dp2, du1, du2, n);
+    let th = dot(wB, hv);
+    let aniso = pow(sqrt(max(1.0 - th * th, 0.0)), 80.0);
+    let broad = pow(sqrt(max(1.0 - th * th, 0.0)), 8.0);
+    let scol = mix(base, vec3f(1.0), 0.45);
+    c = c * 0.85 + scol * sheen * (0.55 * aniso + 0.18 * broad) * max(dot(n, l1), 0.0);
+  }
   return vec4f(pow(c, vec3f(1.0 / 2.2)), 1.0);
 }
 `;

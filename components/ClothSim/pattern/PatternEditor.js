@@ -1,14 +1,35 @@
 // <ClothPatternEditor />: 재단 도면(패널을 펼친 2D) 위에서 로고를 옮기고 크기, 회전을 바꾸는 화면.
 // 바꿀 때마다 onChange(새 로고 값) 을 부르므로, 같은 값을 <ClothSim logo={...}> 에 주면 3D 에 바로 반영된다.
-//   마우스: 로고 끌기 = 옮기기 (다른 패널로 옮기면 그 패널에 붙음), 로고 위 휠 = 크기, Shift + 휠 = 회전
-//           빈 곳 끌기 = 화면 이동, 빈 곳 휠 = 화면 확대/축소
+//   마우스: 로고 끌기 = 옮기기 (다른 패널로 옮기면 그 패널에 붙음), 로고 모서리 끌기 = 크기
+//           로고 위 휠 = 크기, Shift + 휠 = 회전, 빈 곳 끌기 = 화면 이동, 빈 곳 휠 = 화면 확대/축소
+//   preview: 앞판, 뒤판만 작게 (테두리, 격자, 안내 글 없음). interactivePreview 가 아니면 만지지 못함
+//   focus: 'front' | 'back' | 'sleeve' 이면 그 부위만 크게 ('all' 은 전부)
+//   theme: 색과 글꼴 (아래 DEFAULT_THEME 중 바꿀 것만)
 // JSX 없이 씀 (설정 없이 어디서나 동작)
 import { createElement as h, useEffect, useMemo, useRef, useState } from 'react';
 import { layoutPanels, panelContains, panelLabel, panelOutlines, sceneArrays } from './logo.js';
 
+export const DEFAULT_THEME = {
+  grid: 'rgba(0,0,0,0.05)',
+  panel: '#fbfaf7',
+  activePanel: '#ffffff',
+  line: '#3b3f45',
+  label: '#6b7079',
+  logoBorder: 'rgba(29,107,82,0.8)',
+  logoBorderActive: '#1d6b52',
+  logoText: '#1d6b52',
+  fontFamily: 'sans-serif',
+  fontWeight: 'normal',
+};
+
 export default function ClothPatternEditor(props) {
-  const { scene, logo, onChange, style, className, background = '#f3f5f8', preview = false, interactivePreview = false, showGrid = false, focus = 'all' } = props;
+  const {
+    scene, logo, onChange, style, className, background = '#f6f5f1',
+    preview = false, interactivePreview = false, showGrid = true, focus = 'all', theme: themeProp, maxLogoWidth = 60,
+  } = props;
   const readOnly = preview && !interactivePreview;
+  const theme = { ...DEFAULT_THEME, ...(themeProp || {}) };
+  const font = px => `${theme.fontWeight} ${px}px ${theme.fontFamily}`;
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
   const [img, setImg] = useState(null);
@@ -16,8 +37,9 @@ export default function ClothPatternEditor(props) {
   const view = useRef({ s: 4, tx: 20, ty: 20, fitted: false });
   const drag = useRef(null);
   const logoRef = useRef(logo);
+  logoRef.current = logo;
   const cbRef = useRef(onChange);
-  useEffect(() => { logoRef.current = logo; cbRef.current = onChange; });
+  cbRef.current = onChange;
 
   const panels = useMemo(() => {
     const all = scene ? panelOutlines(scene) : [];
@@ -27,18 +49,20 @@ export default function ClothPatternEditor(props) {
     }
     if (focus === 'all') return all;
     if (focus !== 'sleeve' && all.some(p => p.name === focus)) return all.filter(p => p.name === focus);
-    return all.filter(p => focus === 'sleeve' ? /^(sleeve|cuff)/.test(p.name) : p.name.startsWith(focus) || p.role === focus);
+    const part = all.filter(p => focus === 'sleeve' ? /^(sleeve|cuff)/.test(p.name) : p.name.startsWith(focus) || p.role === focus);
+    return part.length ? part : all;
   }, [scene, focus, preview]);
-  const layout = useMemo(() => layoutPanels(panels, 150, focus === 'all' && !preview ? 30 : 6), [panels, focus, preview]);
+  // 판 이름을 아래에 쓸 때는 옆, 줄 사이를 넓혀 이름이 다른 판과 겹치지 않게
+  const labeled = focus === 'all' && !preview;
+  const layout = useMemo(() => labeled ? layoutPanels(panels, 150, 10, 14, 30) : layoutPanels(panels), [panels, labeled]);
 
   // 로고 미리보기 그림
   useEffect(() => {
     let alive = true;
     const src = logo && logo.src;
-    if (!src || (typeof ImageBitmap !== 'undefined' && src instanceof ImageBitmap) || (typeof HTMLImageElement !== 'undefined' && src instanceof HTMLImageElement)) {
-      queueMicrotask(() => { if (alive) setImg(src || null); });
-      return () => { alive = false; };
-    }
+    if (!src) { setImg(null); return undefined; }
+    if (typeof ImageBitmap !== 'undefined' && src instanceof ImageBitmap) { setImg(src); return undefined; }
+    if (typeof HTMLImageElement !== 'undefined' && src instanceof HTMLImageElement) { setImg(src); return undefined; }
     const im = new Image();
     let url = null;
     if (typeof src === 'object') { url = URL.createObjectURL(src); im.src = url; } else im.src = String(src);
@@ -55,10 +79,22 @@ export default function ClothPatternEditor(props) {
     return () => ro.disconnect();
   }, []);
 
+  // 처음에 전체가 보이게 (preview 는 아래에 '앞', '뒤' 글자 자리)
+  useEffect(() => {
+    if (!panels.length) return;
+    let x1 = 0, y1 = 0;
+    for (const p of panels) { const q = layout.get(p.mesh); x1 = Math.max(x1, q.ox + p.bbox[2]); y1 = Math.max(y1, q.oy - p.bbox[1]); }
+    const [W, H] = size, pad = preview ? 18 : 24, labelSpace = preview ? 20 : labeled ? 16 : 0;
+    const s = Math.min((W - 2 * pad) / Math.max(x1, 1), (H - 2 * pad - labelSpace) / Math.max(y1, 1));
+    view.current = { s, tx: (W - s * x1) / 2, ty: (H - labelSpace - s * y1) / 2, fitted: true };
+    draw();
+  }, [panels, layout, size[0], size[1], preview, labeled]);
 
+  useEffect(() => { draw(); });
 
   const toScreen = (mesh, u, v) => { const q = layout.get(mesh), V = view.current; return [V.tx + V.s * (q.ox + u), V.ty + V.s * (q.oy - v)]; };
   const meshOf = name => { const p = panels.find(p => p.name === name); return p ? p.mesh : -1; };
+  const clampWidth = w => Math.max(1, Math.min(maxLogoWidth, w));
   // 화면 점 -> (패널, u, v)
   function pick(px, py) {
     const V = view.current, X = (px - V.tx) / V.s, Y = (py - V.ty) / V.s;
@@ -78,12 +114,23 @@ export default function ClothPatternEditor(props) {
     const [cx, cy] = toScreen(m, lg.x || 0, lg.y || 0);
     return { cx, cy, w: w * view.current.s, h: hh * view.current.s, r: (lg.rotation || 0) * Math.PI / 180 };
   }
+  // 로고 기준 좌표 (회전 풀기). 화면 y 는 아래로 (회전 반대)
+  function logoLocal(q, px, py) {
+    const dx = px - q.cx, dy = py - q.cy, c = Math.cos(q.r), s = Math.sin(q.r);
+    return [c * dx - s * dy, s * dx + c * dy, Math.hypot(dx, dy)];
+  }
   function insideLogo(px, py) {
     const q = logoQuad();
     if (!q) return false;
-    const dx = px - q.cx, dy = py - q.cy, c = Math.cos(q.r), s = Math.sin(q.r);
-    const lx = c * dx - s * dy, ly = s * dx + c * dy;   // 화면 y 는 아래로 (회전 반대)
+    const [lx, ly] = logoLocal(q, px, py);
     return Math.abs(lx) <= q.w / 2 + 4 && Math.abs(ly) <= q.h / 2 + 4;
+  }
+  function onLogoCorner(px, py) {
+    const q = logoQuad();
+    if (!q || preview) return null;
+    // 모서리 바깥 10px ~ 안쪽 1/4 까지 (작은 로고도 가운데는 끌어 옮기기로 남게)
+    const [lx, ly, dist] = logoLocal(q, px, py), near = (a, half) => a < half + 10 && a > half - Math.min(10, half / 2);
+    return near(Math.abs(lx), q.w / 2) && near(Math.abs(ly), q.h / 2) ? { q, dist } : null;
   }
 
   function draw() {
@@ -96,16 +143,17 @@ export default function ClothPatternEditor(props) {
     g.fillStyle = background; g.fillRect(0, 0, W, H);
     const V = view.current, lg = logoRef.current;
     // 1 cm 격자 (5 cm 마다 진하게)
-    if (V.s > 3 && !preview && showGrid) {
-      g.strokeStyle = 'rgba(8,35,72,0.025)'; g.lineWidth = 1; g.beginPath();
+    if (V.s > 3 && showGrid && !preview) {
+      g.strokeStyle = theme.grid; g.lineWidth = 1; g.beginPath();
       const step = V.s * (V.s > 12 ? 1 : 5);
       for (let x = ((V.tx % step) + step) % step; x < W; x += step) { g.moveTo(x, 0); g.lineTo(x, H); }
       for (let y = ((V.ty % step) + step) % step; y < H; y += step) { g.moveTo(0, y); g.lineTo(W, y); }
       g.stroke();
     }
+    const labels = [];
     for (const p of panels) {
-      const q = layout.get(p.mesh), UV = sceneArrays(scene).uv, t = p.tris;
-      g.fillStyle = '#ffffff';
+      const UV = sceneArrays(scene).uv, t = p.tris;
+      g.fillStyle = lg && lg.panel === p.name ? theme.activePanel : theme.panel;
       g.beginPath();
       for (let k = 0; k < t.length; k += 3) {
         for (let j = 0; j < 3; j++) {
@@ -115,81 +163,71 @@ export default function ClothPatternEditor(props) {
         g.closePath();
       }
       g.fill();
-      g.strokeStyle = '#cbd1dc'; g.lineWidth = focus === 'all' || preview ? 1.2 : 2.5; g.beginPath();
+      g.strokeStyle = theme.line; g.lineWidth = focus === 'all' || preview ? 1.2 : 2.5; g.beginPath();
       for (const e of p.edges) { const [ax, ay] = toScreen(p.mesh, e[0], e[1]), [bx, by] = toScreen(p.mesh, e[2], e[3]); g.moveTo(ax, ay); g.lineTo(bx, by); }
       g.stroke();
-      const [lx, ly] = toScreen(p.mesh, (p.bbox[0] + p.bbox[2]) / 2, p.bbox[1]);
-      g.fillStyle = '#5b6478'; g.font = preview ? '500 12px "Supplier Noto Sans KR", sans-serif' : '500 13px "Supplier Noto Sans KR", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'top';
-      if (focus === 'all') g.fillText(preview ? (p.name === 'front' ? '앞' : '뒤') : panelLabel(p.name), lx, ly + 8);
+      if (focus === 'all') labels.push({ p, text: preview ? (p.name === 'front' ? '앞' : '뒤') : panelLabel(p.name) });
+    }
+    // 판 이름: 판을 다 그린 뒤 위에 씀. 옆 이름과 겹치면 한 줄 아래로
+    g.fillStyle = theme.label; g.font = font(12); g.textAlign = 'center'; g.textBaseline = 'top';
+    const placed = [];
+    for (const { p, text } of labels) {
+      const [lx, y0] = toScreen(p.mesh, (p.bbox[0] + p.bbox[2]) / 2, p.bbox[1]), w = g.measureText(text).width + 6;
+      let ly = y0 + (preview ? 8 : 4);
+      while (placed.some(b => Math.abs(b.x - lx) < (b.w + w) / 2 && Math.abs(b.y - ly) < 14)) ly += 14;
+      placed.push({ x: lx, y: ly, w });
+      g.fillText(text, lx, ly);
     }
     const qd = logoQuad();
     if (qd) {
       g.save(); g.translate(qd.cx, qd.cy); g.rotate(-qd.r);
       g.drawImage(img, -qd.w / 2, -qd.h / 2, qd.w, qd.h);
       if (!preview) {
-        g.strokeStyle = '#b3d214';
+        g.strokeStyle = drag.current && drag.current.kind !== 'pan' ? theme.logoBorderActive : theme.logoBorder;
         g.setLineDash([5, 4]); g.lineWidth = 1.5; g.strokeRect(-qd.w / 2, -qd.h / 2, qd.w, qd.h);
-        g.setLineDash([]);
       }
       g.restore();
-      g.fillStyle = '#5b6478'; g.font = '500 12px "Supplier Noto Sans KR", sans-serif'; g.textAlign = 'left'; g.textBaseline = 'bottom';
-      const lgv = logoRef.current;
-      if (!preview) g.fillText(`${panelLabel(lgv.panel)} · 가로 ${(lgv.width || 10).toFixed(1)}cm · ${Math.round(lgv.rotation || 0)}°`, 14, H - 12);
+      if (!preview) {
+        g.fillStyle = theme.logoText; g.font = font(12); g.textAlign = 'left'; g.textBaseline = 'bottom';
+        const lgv = logoRef.current;
+        g.fillText(`${panelLabel(lgv.panel)}  가로 ${(lgv.width || 10).toFixed(1)}cm  ${Math.round(lgv.rotation || 0)}°`, 10, H - 8);
+      }
     } else if (!lg && !preview) {
-      g.fillStyle = '#5b6478'; g.font = '500 12px "Supplier Noto Sans KR", sans-serif'; g.textAlign = 'left'; g.textBaseline = 'bottom';
-      g.fillText('로고 이미지가 없어요', 14, H - 12);
+      g.fillStyle = theme.label; g.font = font(13); g.textAlign = 'left'; g.textBaseline = 'bottom';
+      g.fillText('로고 이미지가 없어요', 10, H - 8);
     }
   }
-
-  // 처음에 전체가 보이게
-  useEffect(() => {
-    if (!panels.length) return;
-    let x1 = 0, y1 = 0;
-    for (const p of panels) { const q = layout.get(p.mesh); x1 = Math.max(x1, q.ox + p.bbox[2]); y1 = Math.max(y1, q.oy - p.bbox[1]); }
-    const [W, H] = size, pad = preview ? 18 : Math.min(focus === 'all' ? 60 : 52, H * .12);
-    const labelSpace = preview ? 20 : 0;
-    const s = Math.min((W - 2 * pad) / Math.max(x1, 1), (H - 2 * pad - labelSpace) / Math.max(y1, 1));
-    view.current = { s, tx: (W - s * x1) / 2, ty: (H - labelSpace - s * y1) / 2, fitted: true };
-    draw();
-  }, [panels, layout, size[0], size[1], preview]);
-
-  useEffect(() => { draw(); });
 
   function emit(next) { logoRef.current = next; draw(); if (cbRef.current) cbRef.current(next); }
 
   function onPointerDown(e) {
     const r = canvasRef.current.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
     canvasRef.current.setPointerCapture(e.pointerId);
-    // A different mobile tab hides the original panel; tapping a visible panel moves the logo there.
-    const current = logoRef.current;
-    if (focus !== 'all' && current && meshOf(current.panel) < 0) {
+    const lg = logoRef.current;
+    // 로고가 있는 부위가 focus 로 가려져 있으면, 보이는 패널을 눌러 그 자리로 옮김
+    if (lg && focus !== 'all' && meshOf(lg.panel) < 0) {
       const hit = pick(px, py);
-      if (hit) { const next = { ...current, panel: hit.p.name, x: hit.u, y: hit.v }; emit(next); drag.current = { kind: 'logo', px, py, off: [0, 0] }; return; }
+      if (hit) { emit({ ...lg, panel: hit.p.name, x: hit.u, y: hit.v }); drag.current = { kind: 'logo', px, py, off: [0, 0] }; return; }
     }
-    const q = logoQuad();
-    if (q && !preview) {
-      const dx = px - q.cx, dy = py - q.cy, c = Math.cos(q.r), s = Math.sin(q.r);
-      const lx = c * dx - s * dy, ly = s * dx + c * dy;
-      if (Math.abs(Math.abs(lx) - q.w / 2) < 10 && Math.abs(Math.abs(ly) - q.h / 2) < 10) {
-        drag.current = { kind: 'resize', cx: q.cx, cy: q.cy, distance: Math.max(1, Math.hypot(dx, dy)), width: logoRef.current.width || 10 };
-        return;
-      }
+    const corner = onLogoCorner(px, py);
+    if (corner) {
+      drag.current = { kind: 'resize', cx: corner.q.cx, cy: corner.q.cy, dist: Math.max(1, corner.dist), width: lg.width || 10 };
+      return;
     }
     if (insideLogo(px, py)) {
-      const hit = pick(px, py), lg = logoRef.current;
+      const hit = pick(px, py);
       drag.current = { kind: 'logo', px, py, off: hit && hit.p.name === lg.panel ? [hit.u - lg.x, hit.v - lg.y] : [0, 0] };
     } else drag.current = { kind: 'pan', px, py, tx: view.current.tx, ty: view.current.ty };
   }
   function onPointerMove(e) {
     const d = drag.current;
     const r = canvasRef.current.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
-    canvasRef.current.style.cursor = d ? (d.kind === 'logo' ? 'grabbing' : 'move') : (insideLogo(px, py) ? 'grab' : 'default');
+    canvasRef.current.style.cursor = d
+      ? (d.kind === 'logo' ? 'grabbing' : d.kind === 'resize' ? 'nwse-resize' : 'move')
+      : (onLogoCorner(px, py) ? 'nwse-resize' : insideLogo(px, py) ? 'grab' : 'default');
     if (!d) return;
-    if (d.kind === 'resize') {
-      emit({ ...logoRef.current, width: Math.max(1, Math.min(30, d.width * Math.hypot(px - d.cx, py - d.cy) / d.distance)) });
-      return;
-    }
     if (d.kind === 'pan') { view.current.tx = d.tx + px - d.px; view.current.ty = d.ty + py - d.py; draw(); return; }
+    if (d.kind === 'resize') { emit({ ...logoRef.current, width: clampWidth(d.width * Math.hypot(px - d.cx, py - d.cy) / d.dist) }); return; }
     const hit = pick(px, py);
     if (!hit) return;   // 패널 밖으로는 못 나감 (마지막 자리 유지)
     const lg = logoRef.current;
@@ -209,7 +247,7 @@ export default function ClothPatternEditor(props) {
       const lg = logoRef.current, k = Math.exp(-e.deltaY * 0.0015);
       if (lg && insideLogo(px, py)) {
         if (e.shiftKey) emit({ ...lg, rotation: (((lg.rotation || 0) + (e.deltaY > 0 ? 5 : -5)) % 360 + 360) % 360 });
-        else emit({ ...lg, width: Math.max(1, Math.min(30, (lg.width || 10) * k)) });
+        else emit({ ...lg, width: clampWidth((lg.width || 10) * k) });
         return;
       }
       const V = view.current, s2 = Math.max(0.5, Math.min(60, V.s * k));
@@ -220,12 +258,10 @@ export default function ClothPatternEditor(props) {
     return () => cv.removeEventListener('wheel', onWheel);
   });
 
-  // React.createElement forwards refs; it does not read them during render.
-  /* eslint-disable react-hooks/refs */
+  const handlers = readOnly ? {} : { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp };
   return h('div', { ref: wrapRef, className, style: { position: 'relative', width: '100%', height: '100%', overflow: 'hidden', ...(style || {}) } },
     h('canvas', {
-      ref: canvasRef, style: { width: '100%', height: '100%', display: 'block', touchAction: 'none' },
-      onPointerDown: readOnly ? undefined : onPointerDown, onPointerMove: readOnly ? undefined : onPointerMove, onPointerUp: readOnly ? undefined : onPointerUp, onPointerCancel: readOnly ? undefined : onPointerUp,
+      ref: canvasRef, style: { width: '100%', height: '100%', display: 'block', touchAction: readOnly ? 'auto' : 'none' },
+      ...handlers,
     }));
-  /* eslint-enable react-hooks/refs */
 }

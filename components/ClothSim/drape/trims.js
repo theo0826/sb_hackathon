@@ -172,6 +172,31 @@ export function buildTrims(scene) {
     point(K.button, cl, xmax - 2.2, ymax - 1.6, 0.4, tr.buttonColor, 0.12);
   }
 
+  // 주머니: 테두리 안쪽 0.5cm 에 박음질 (같은 원단, 같은 색이라 전에는 앞판과 구분이 안 됐음)
+  names.forEach((nm, m) => {
+    if (!/^pocket/.test(nm) || !trisOf.has(m)) return;
+    const cnt = new Map();
+    let cx = 0, cy = 0, nv = 0;
+    for (const t of trisOf.get(m)) {
+      for (let k = 0; k < 3; k++) {
+        const a = T[4 * t + k], b = T[4 * t + (k + 1) % 3], key = a < b ? a + ',' + b : b + ',' + a;
+        cnt.set(key, (cnt.get(key) || 0) + 1);
+        cx += UV[2 * a]; cy += UV[2 * a + 1]; nv++;
+      }
+    }
+    cx /= nv; cy /= nv;
+    const inset = (x, y) => { const dx = cx - x, dy = cy - y, d = Math.hypot(dx, dy) || 1; return [x + dx * 0.5 / d, y + dy * 0.5 / d]; };
+    // 테두리 그늘선 (천 색을 어둡게 한 가는 띠, 주머니 가장자리 두께와 그늘) + 안쪽 박음질
+    const rgb = hex(meta.meshes[m].color);
+    const dark = '#' + rgb.map(v => Math.round(v * 255 * 0.55).toString(16).padStart(2, '0')).join('');
+    for (const [key, c] of cnt) {
+      if (c !== 1) continue;
+      const [a, b] = key.split(',').map(Number);
+      strip(K.cord, m, [[UV[2 * a], UV[2 * a + 1]], [UV[2 * b], UV[2 * b + 1]]], 1.0, 0.2, dark, 0.06, 1);
+      strip(K.stitch, m, [inset(UV[2 * a], UV[2 * a + 1]), inset(UV[2 * b], UV[2 * b + 1])], 1.0, 0.1, thread, 0.1);
+    }
+  });
+
   if (!inst.length) return null;
   const buf = new ArrayBuffer(inst.length * TRIM_WORDS * 4), u = new Uint32Array(buf), f = new Float32Array(buf);
   inst.forEach((it, i) => {

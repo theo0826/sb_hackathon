@@ -9,6 +9,7 @@ import { readyClothCapture } from "@/lib/cloth-capture";
 import ClothCapturePreview from "./ClothCapturePreview";
 import GarmentOutline from "./GarmentOutline";
 import { getClothScene, setClothScene } from "@/lib/cloth-scene-session";
+import { CLOTH_PATTERN_THEME } from "@/lib/cloth-pattern-theme";
 
 const stages: Record<Progress["stage"], string> = {
   translate: "옷 설명을 읽고 있어요.", choose: "형태와 소재를 고르고 있어요.",
@@ -85,9 +86,9 @@ export default function ClothSimulationPreview({ controllerRef, savedPreview = n
       <div id="studio-artwork-editor" className="studio-cloth-layer" style={{ visibility: ready && (!generating || refining) ? "visible" : "hidden" }} aria-hidden={!ready || (generating && !refining)} inert={!ready || generating}>
         <ClothSim ref={simulator} scene={initialScene} showInput={false} clothRepresentText={clothRepresentText}
           llm={{ backend: "worker", workerUrl: process.env.NEXT_PUBLIC_CLOTH_WORKER_URL || "https://clothsim-api.set35230.workers.dev", timeoutMs: 90000 }}
-          logo={logo} view={view} patternFocus={patternFocus} patternEditor="none" onLogoChange={onLogoChange}
+          logo={logo} view={view} patternFocus={patternFocus} patternTheme={CLOTH_PATTERN_THEME} patternEditor="none" onLogoChange={onLogoChange}
           autoplay options={{ strain: false, tear: false, body: false }}
-          look={{ background: [0, 0, 0, 0] }}
+          look={{ background: [0, 0, 0, 0], captureBackground: [247 / 255, 248 / 255, 250 / 255] }}
           onScene={scene => { setClothScene(scene, textRef.current); setHasScene(true); onSceneChange?.(scene); }}
           onProgress={progress => setStatus(stages[progress.stage])}
           onReady={() => { setHasScene(true); setReady(true); setError(""); setStatus("앞·뒷면 이미지를 준비하고 있어요."); }}
