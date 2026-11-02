@@ -147,8 +147,9 @@ export default function ClothPatternEditor(props) {
     let x1 = 0, y1 = 0;
     for (const p of panels) { const q = layout.get(p.mesh); x1 = Math.max(x1, q.ox + p.bbox[2]); y1 = Math.max(y1, q.oy - p.bbox[1]); }
     const [W, H] = size, pad = preview ? 18 : Math.min(focus === 'all' ? 60 : 52, H * .12);
-    const s = Math.min((W - 2 * pad) / Math.max(x1, 1), (H - 2 * pad) / Math.max(y1, 1));
-    view.current = { s, tx: (W - s * x1) / 2, ty: (H - s * y1) / 2, fitted: true };
+    const labelSpace = preview ? 20 : 0;
+    const s = Math.min((W - 2 * pad) / Math.max(x1, 1), (H - 2 * pad - labelSpace) / Math.max(y1, 1));
+    view.current = { s, tx: (W - s * x1) / 2, ty: (H - labelSpace - s * y1) / 2, fitted: true };
     draw();
   }, [panels, layout, size[0], size[1], preview]);
 

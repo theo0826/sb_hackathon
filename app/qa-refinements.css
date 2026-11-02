@@ -1,6 +1,7 @@
 /* Notion QA, 2026-11-02. Preserve the existing Figma app direction. */
 .account-page .library-thumbnail { background:#f7f8fa; }
 .request-image,.cloth-capture-pair figure { background:#f7f8fa; }
+.order-summary-preview .cloth-capture-pair img { mix-blend-mode:normal; }
 .studio-pattern-miniature { height:158px; margin:14px 0; overflow:hidden; border-radius:12px; background:#f7f8fa; pointer-events:auto; }
 .studio-orbit-guide { opacity:.45; animation:studio-guide-intro 900ms ease-in-out 2; }
 @keyframes studio-guide-intro { 0%,100% { opacity:.45; } 50% { opacity:1; } }
@@ -31,6 +32,7 @@
 @media (min-width:701px) {
   .order-review .flow-steps { gap:9px; }
   .order-review .flow-steps li { gap:4px; font-size:14px; line-height:20px; }
+  .order-review .flow-steps li:not(:last-child)::after { flex:none; width:12px; margin-left:5px; text-align:center; }
   .order-review-title h1,.supplier-title h1 { font-size:26px; }
   .order-review-title p,.supplier-title > p { font-size:14px; }
   .supplier-steps { font-size:14px; }
@@ -39,6 +41,7 @@
   .handdam-studio[data-first-loading=true] .studio-generation-placeholder > svg { width:250px; height:258px; max-height:40svh; margin-bottom:20px; }
 }
 @media (max-width:700px) {
+  .handdam-studio .studio-generated-stage[data-preview-mode="3d"] .studio-cloth-layer { transform:none; }
   .studio-editor-heading { display:flex; justify-content:space-between; position:relative; }
   .studio-editor-heading > div { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; transform:none; pointer-events:none; }
   .studio-editor-heading .studio-icon-button,.studio-editor-heading .studio-editor-done { position:relative; inset:auto; z-index:1; }

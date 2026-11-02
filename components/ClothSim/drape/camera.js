@@ -54,7 +54,9 @@ export class OrbitCamera {
   viewProj(aspect) {
     const e = this.eye(), [r, u, f] = this.axes();
     const view = [r[0], u[0], -f[0], 0, r[1], u[1], -f[1], 0, r[2], u[2], -f[2], 0, -dot(r, e), -dot(u, e), dot(f, e), 1];
-    const near = 2, far = 4000, t = 1 / Math.tan(this.fov / 2);
+    // Keep the garment in frame on tall phone viewports; retain user zoom and
+    // the existing square export framing instead of resetting camera distance.
+    const near = 2, far = 4000, t = Math.min(1, aspect / 0.65) / Math.tan(this.fov / 2);
     // 깊이 0..1 (WebGPU)
     const proj = [t / aspect, 0, 0, 0, 0, t, 0, 0, 0, 0, far / (near - far), -1, 0, 0, near * far / (near - far), 0];
     return mul(proj, view);
