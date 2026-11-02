@@ -6,7 +6,8 @@ docs/
 .tmp*
 *.fig
 .tools/
-.taste-skill/
+.taste-skill/*
+!.taste-skill/direction.json
 .env*
 !.env.example
 *.tsbuildinfo
