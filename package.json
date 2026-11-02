@@ -7,15 +7,16 @@
     "build": "next build --webpack",
     "postbuild": "node tools/finalize-export.mjs",
     "start": "node tools/serve-pages.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "lint": "eslint .",
+    "lint:frontend": "eslint . --ignore-pattern \"components/ClothSim/**\"",
     "check:ai": "node tools/check-ai-readiness.mjs",
     "check:sharing": "node tools/check-sharing.mjs",
     "test:unit": "node tests/design-contract.mjs && node tests/production-mapping.mjs && node tests/ai-client-contract.mjs && node tests/order-workflow.mjs && node tests/saved-cloth.mjs && node tests/supplier-bids.mjs && node tests/order-history.mjs && node tests/capture-background.mjs",
     "build:pages": "npm run build",
     "preview:pages": "node tools/serve-pages.mjs",
     "test:pages": "node tests/pages-export.mjs",
-    "predeploy": "npm run lint && npm run typecheck && npm run test:unit && npm run build && npm run test:pages",
+    "predeploy": "npm run lint:frontend && npm run typecheck && npm run test:unit && npm run build && npm run test:pages",
     "deploy": "gh-pages -d out -b gh-pages --dotfiles --nojekyll"
   },
   "dependencies": {

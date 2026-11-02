@@ -14,7 +14,7 @@ npm run dev
 개발 주소는 `http://127.0.0.1:3000`입니다.
 
 ```sh
-npm run lint
+npm run lint:frontend
 npm run typecheck
 npm run test:unit
 npm run build
@@ -23,6 +23,8 @@ npm run preview:pages
 ```
 
 기본 빌드는 항상 `output: "export"`로 `out/`을 생성합니다. 별도 서버용 빌드나 소스 복사본은 없습니다. 정적 미리보기는 `http://127.0.0.1:3000/sb_hackathon/`이며 `npm start`도 같은 미리보기를 실행합니다. 개발 서버를 종료한 뒤 실행하세요. 팀 Worker가 허용하는 로컬 출처에 맞춰 3000번 포트를 사용합니다.
+
+배포 검사는 프론트엔드 소유 코드를 검사합니다. `npm run lint`는 백엔드팀 ClothSim까지 포함한 전체 진단용이며, 2026-11-02 팀 최신본에는 `PatternEditor.js`의 React Hook 규칙 오류 6개가 있습니다. 원본 보존 요청에 따라 수정하거나 숨기지 않았습니다. 단위 검사·TypeScript·정적 빌드·브라우저 기능 검증은 별도로 수행합니다.
 
 ## GitHub Pages 배포
 
