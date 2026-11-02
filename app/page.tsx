@@ -1,3 +1,2 @@
-import MotionHome from "@/components/home/MotionHome";
-
-export default function Home() { return <MotionHome />; }
+import Onboarding from "@/components/home/Onboarding";
+export default function HomePage() { return <Onboarding/>; }

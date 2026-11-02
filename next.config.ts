@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const staticSite = process.env.NEXT_PUBLIC_STATIC_EXPORT === "true";
 const scriptExecution = process.env.NODE_ENV === "development" ? "'unsafe-eval'" : "'wasm-unsafe-eval'";
-const aiOrigins = [process.env.NEXT_PUBLIC_AI_DESIGN_URL, process.env.NEXT_PUBLIC_AI_QUOTE_URL]
+const aiOrigins = [process.env.NEXT_PUBLIC_AI_DESIGN_URL, process.env.NEXT_PUBLIC_AI_QUOTE_URL, process.env.NEXT_PUBLIC_CLOTH_WORKER_URL || "https://clothsim-api.set35230.workers.dev"]
   .flatMap(value => {
     if (!value || value.startsWith("/")) return [];
     try { const url = new URL(value); return ["https:", "http:"].includes(url.protocol) ? [url.origin] : []; }

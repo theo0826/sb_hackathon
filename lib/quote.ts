@@ -2,6 +2,7 @@ import { COLORS, garmentName, isDesign, placementLabel, type Design } from "./de
 import { getSupplier, type Supplier } from "./suppliers";
 import type { ProductionPacket } from "./production-mapping";
 import { isPricingGarment, pricingGarment, type PricingGarment } from "./garment-pricing";
+import { isClothCapture } from "./cloth-capture";
 
 export const SIZES = ["S", "M", "L", "XL"] as const;
 export type OrderDraft = {
@@ -25,7 +26,7 @@ export function isQuoteDocument(value: unknown): value is QuoteDocument {
     && [document.productionNotes, document.checks].every(items => Array.isArray(items) && items.every(item => typeof item === "string"))
     && Array.isArray(document.verifiedRows) && document.verifiedRows.every(row => Array.isArray(row) && row.every(item => typeof item === "string"));
 }
-export type QuoteRecord = { id: string; sourceOrderId?: string; mode: "mock" | "live"; status: "prepared"; createdAt: string; supplierId: string; design: Design; filename: string; order: OrderDraft; quantity: number; format: "pdf" | "email"; document?: QuoteDocument; trashedAt?: string | null };
+export type QuoteRecord = { id: string; sourceOrderId?: string; mode: "mock" | "live"; status: "prepared"; createdAt: string; supplierId: string; design: Design; filename: string; order: OrderDraft; quantity: number; format: "pdf" | "email"; document?: QuoteDocument; trashedAt?: string | null; clothCapture?: import("./cloth-capture").ClothCapture };
 
 export function todayKST(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
@@ -69,7 +70,8 @@ export function isQuoteRecord(value: unknown): value is QuoteRecord {
     && ["mock", "live"].includes(record.mode) && record.status === "prepared" && record.format === supplier.format
     && typeof record.createdAt === "string" && Number.isFinite(Date.parse(record.createdAt))
     && typeof record.filename === "string" && isDesign(record.design) && isOrderDraft(record.order)
-    && record.quantity === totalQuantity(record.order);
+    && record.quantity === totalQuantity(record.order)
+    && (record.clothCapture === undefined || isClothCapture(record.clothCapture));
 }
 
 export function orderRows(supplier: Supplier, design: Design, order: OrderDraft) {
@@ -91,6 +93,6 @@ export function validateDesignForSupplier(design: Design, supplier: Supplier) {
 
 export function emailTemplate(supplier: Supplier, design: Design, order: OrderDraft, filename: string) {
   const subject = `[단체복 제작 문의] ${order.group.trim() || "단체 이름"} / ${totalQuantity(order)}벌`;
-  const body = `안녕하세요, ${supplier.name} 담당자님.\n${order.group.trim() || "단체 이름"}의 단체티 제작 견적을 문의드립니다.\n\n${orderRows(supplier, design, order).slice(2).map(([label, value]) => `${label}: ${value}`).join("\n")}\n도안: ${design.image ? filename || "첨부 이미지" : design.text || "OUR CLUB"}\n\n추가 요청 사항:\n${order.memo.trim() || "없음"}\n\n첨부 예정 파일:\n- seongbuk-fit-artwork.${design.image ? "png" : "svg"}\n\n인쇄 규격, 원단, 제작 일정과 최종 견적 확인 부탁드립니다.\n\n[성북핏 체험용 양식 · 실제 업체에 발송되지 않음]`;
+  const body = `안녕하세요, ${supplier.name} 담당자님.\n${order.group.trim() || "단체 이름"}의 단체티 제작 견적을 문의드립니다.\n\n${orderRows(supplier, design, order).slice(2).map(([label, value]) => `${label}: ${value}`).join("\n")}\n도안: ${design.image ? filename || "첨부 이미지" : design.text || "OUR CLUB"}\n\n추가 요청 사항:\n${order.memo.trim() || "없음"}\n\n첨부 예정 파일:\n- seongbuk-fit-artwork.${design.image ? "png" : "svg"}\n\n인쇄 규격, 원단, 제작 일정과 최종 견적 확인 부탁드립니다.\n\n[한땀 체험용 양식 · 실제 업체에 발송되지 않음]`;
   return { subject, body };
 }

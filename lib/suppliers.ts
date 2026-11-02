@@ -13,6 +13,7 @@ export type Supplier = {
   attachmentTypes: string[];
   requirements: string[];
   accent: string;
+  quoteUnitPrice?: number;
 };
 
 // 제휴 전 화면·양식 검증용 데이터입니다. 실제 업체나 연락처가 아닙니다.
@@ -23,5 +24,12 @@ export const SUPPLIERS: Supplier[] = [
 ];
 
 export function getSupplier(id: string | null | undefined) {
-  return SUPPLIERS.find((supplier) => supplier.id === id);
+  return [...SUPPLIERS, ...BIDDING_SUPPLIERS].find((supplier) => supplier.id === id);
 }
+
+// Figma V1 examples. Keep the older supplier IDs available for saved orders.
+export const BIDDING_SUPPLIERS: Supplier[] = [
+  SUPPLIERS[0],
+  { ...SUPPLIERS[1], id: "jeongneung", name: "정릉 어패럴", region: "정릉동", minOrder: 20, methods: ["DTF", "실크스크린", "자수"], leadDays: "5–7일", maxPrintWidthCm: 30, maxPrintHeightCm: 40, quoteUnitPrice: 5000, documentTitle: "정릉 어패럴 · 제작 요청서", accent: "#041e41" },
+  { ...SUPPLIERS[2], id: "seokgwan", name: "석관 프린팅", region: "석관동", minOrder: 10, methods: ["DTF", "실크스크린"], leadDays: "10–14일", maxPrintWidthCm: 30, maxPrintHeightCm: 40, quoteUnitPrice: 5500, documentTitle: "석관 프린팅 · 제작 요청서", accent: "#041e41" },
+];

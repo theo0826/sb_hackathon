@@ -123,3 +123,52 @@ const restoredImage = orderQuote(JSON.parse(JSON.stringify(imageDelivery)));
 assert.equal(restoredImage.design.image, imageInput.design.image);
 assert.equal(restoredImage.filename, '원본.png');
 console.log('PASS local delivery snapshots validate inputs/approval, survive storage, connect order and document IDs, preserve originals, and never invent generated patterns');
+
+// Captures are immutable order evidence, including after the next design replaces clothData.
+const { readyClothCapture, snapshotClothCapture, isClothCapture } = await loadTS('lib/cloth-capture.ts');
+const readyCapture = { completed:1, front:imageInput.design.image, back:imageInput.design.image, category:{id:'hoodie',label:'후드'}, text:'초록색 후드', updatedAt:'2026-10-26T12:00:00.000Z', tokens:{}, logo:null, price:null };
+assert(readyClothCapture(readyCapture));
+for (const changed of [{completed:0}, {front:null}, {back:null}, {updatedAt:null}, {back:'https://example.com/image.jpg'}]) {
+  assert(!readyClothCapture({...readyCapture,...changed}));
+  assert.throws(() => snapshotClothCapture({...readyCapture,...changed}), /이미지/);
+}
+const captureDelivery = deliveryOrder(savedOrder, requestKey, true, '2026-10-26T12:01:00.000Z', snapshotClothCapture(readyCapture));
+assert(flow.isDemoOrder(captureDelivery));
+assert(isClothCapture(captureDelivery.preparedQuote.clothCapture));
+const storedCapture = JSON.parse(JSON.stringify(captureDelivery));
+readyCapture.front = 'replaced';
+assert.equal(orderQuote(storedCapture).clothCapture.front, imageInput.design.image);
+assert.equal(orderQuote(storedCapture).clothCapture.category.label, '후드');
+assert(!isQuoteRecord({...orderQuote(storedCapture),clothCapture:{front:null}}));
+assert.throws(() => deliveryOrder(savedOrder,requestKey,true,undefined,{front:null}), /이미지/);
+console.log('PASS capture readiness blocks missing/unfinished images; final handoff preserves front/back snapshots across reload and subsequent edits');
+
+const storageValues = new Map();
+let quotaImages = false;
+const previousSessionStorage = globalThis.sessionStorage;
+globalThis.sessionStorage = {
+  getItem:key => storageValues.get(key) ?? null,
+  setItem(key,value) { if (quotaImages && JSON.parse(value).front) throw new Error('QuotaExceededError'); storageValues.set(key,value); },
+};
+const clothStore = await import('../components/ClothSim/clothdata/store.js?order-workflow-test');
+let changes = 0;
+const unsubscribeCloth = clothStore.subscribeClothData(() => { changes++; });
+const storeCapture = { ...readyCapture, front:imageInput.design.image };
+clothStore.setClothData(storeCapture);
+assert(readyClothCapture(clothStore.getClothData()));
+clothStore.updateClothData({completed:0});
+assert(!readyClothCapture(clothStore.getClothData()), 'Editing must invalidate the old capture');
+quotaImages = true;
+clothStore.setClothData(storeCapture);
+assert(clothStore.getClothData().imagesInMemoryOnly);
+assert(readyClothCapture(clothStore.getClothData()), 'An image in memory remains downloadable');
+const restoredStore = await import('../components/ClothSim/clothdata/store.js?order-workflow-reload-test');
+assert(!readyClothCapture(restoredStore.getClothData()), 'A reload with metadata only must block ordering');
+assert(restoredStore.getClothData().imagesInMemoryOnly);
+clothStore.clearClothData();
+assert(!readyClothCapture(clothStore.getClothData()));
+assert.equal(changes,4);
+unsubscribeCloth();
+if (previousSessionStorage === undefined) delete globalThis.sessionStorage;
+else globalThis.sessionStorage = previousSessionStorage;
+console.log('PASS clothData updates notify subscribers; edits and reset invalidate captures; storage quota retains downloadable memory images and blocks incomplete reloads');

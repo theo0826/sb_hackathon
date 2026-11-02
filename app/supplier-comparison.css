@@ -1,0 +1,157 @@
+/* Figma supplier V1: the supplied app screens take precedence over marketing rules. */
+@font-face { font-family:"Supplier Noto Sans KR"; src:url("./fonts/supplier-noto-sans-kr.woff2") format("woff2"); font-weight:100 900; font-style:normal; font-display:swap; }
+@font-face { font-family:"Supplier Inter"; src:url("./fonts/supplier-inter.woff2") format("woff2"); font-weight:100 900; font-style:normal; font-display:swap; }
+body:has(.supplier-page) { --blue:#041e41; --ink:#191f28; --sub:#5b6478; --bg:#f1f3f6; background:var(--bg); background-image:none; font-family:"Supplier Noto Sans KR",sans-serif; }
+.supplier-page { --supplier-navy:#041e41; --supplier-muted:#8a93a6; --supplier-line:#dde2ea; min-height:100svh; color:#191f28; background:#f1f3f6; font-family:"Supplier Noto Sans KR","Malgun Gothic",sans-serif; letter-spacing:0; }
+.supplier-page .supplier-mobile { display:none; }
+.supplier-page img { flex:none; max-width:none; }
+.supplier-page :is(button,a,select):focus-visible { outline:2px solid var(--supplier-navy); outline-offset:4px; }
+.supplier-header { height:72px; padding:0 24px; display:flex; align-items:center; justify-content:space-between; background:#fff; border-bottom:1px solid var(--supplier-line); position:relative; } /* taste-skill-ignore: Figma header divider. */
+.supplier-brand { position:relative; display:block; width:87px; height:41px; overflow:hidden; flex:none; }
+.supplier-brand img { position:absolute; width:100.13%; height:135.37%; left:-.06%; top:-14.63%; }
+.supplier-header-actions { display:flex; align-items:center; gap:20px; }
+.supplier-save { display:flex; align-items:center; justify-content:center; gap:7px; padding:10px 15px 10px 17px; min-height:40px; font-size:14px; font-weight:500; line-height:20px; border:1px solid var(--supplier-line); border-radius:999px; background:#fff; box-shadow:0 4px 14px #041e410f,0 1px 2px #041e4108; } /* taste-skill-ignore: exact Figma save control. */
+.supplier-account { display:grid; place-items:center; width:40px; height:40px; border:1px solid #ebeef2; background:#f1f3f6; border-radius:50%; box-shadow:0 4px 14px #041e410f,0 1px 2px #041e4108; } /* taste-skill-ignore: exact Figma account control. */
+.supplier-save-feedback { position:absolute; right:24px; top:78px; max-width:calc(100% - 48px); z-index:5; padding:12px 16px; font-size:13px; line-height:1.6; background:#fff; border:1px solid var(--supplier-line); border-radius:10px; } /* taste-skill-ignore: save status popover boundary. */
+.supplier-save-feedback[role=alert] { color:#a12b2b; }
+.supplier-content { width:calc(100% - 64px); max-width:1244px; margin:0 auto; padding:40px 0 80px; }
+.supplier-steps { margin-bottom:25px; font-size:13px; line-height:20px; color:#a0a8b7; }
+.supplier-steps ol { display:flex; align-items:center; gap:9px; margin:0; padding:0; list-style:none; }
+.supplier-steps li,.supplier-steps a { display:flex; align-items:center; gap:4px; }
+.supplier-steps a { color:#8a93a6; }
+.supplier-steps strong { color:var(--supplier-navy); font-weight:700; }
+.supplier-title h1 { font-family:"Supplier Inter","Supplier Noto Sans KR",sans-serif; font-size:26px; line-height:36px; font-weight:600; letter-spacing:0; outline:none; }
+.supplier-title > p { font-family:"Supplier Inter","Supplier Noto Sans KR",sans-serif; color:#5b6478; font-size:14px; line-height:25px; margin-top:1px; }
+.supplier-grid { display:grid; grid-template-columns:minmax(0,820fr) minmax(300px,400fr); gap:24px; margin-top:28px; align-items:start; }
+.supplier-list-column { min-width:0; }
+.supplier-toolbar { min-height:32px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; gap:16px; font-size:13px; line-height:20px; }
+.supplier-toolbar strong { font-weight:600; }
+.supplier-toolbar p > span { color:#5b6478; }
+.supplier-progress-panel { width:100%; align-self:stretch; display:flex; flex-direction:column; justify-content:space-between; gap:6px; }
+.supplier-progress-panel > div:first-child { display:flex; justify-content:space-between; align-items:center; }
+.supplier-progress { height:6px; display:flex; border-radius:99px; overflow:hidden; background:#e5e8ee; }
+.supplier-progress > span { flex:1; background:#e5e8ee; transition:background-color .2s; }
+.supplier-progress > span[data-complete=true] { background:#b3d214; }
+.supplier-bids { display:flex; flex-direction:column; gap:16px; }
+.supplier-bid { position:relative; display:flex; align-items:center; min-height:91px; gap:14px; padding:22px 24px; border:1.5px solid transparent; border-radius:16px; background:#fff; box-shadow:0 4px 14px #041e410d,0 1px 2px #041e4108; } /* taste-skill-ignore: Figma selectable quote rows with subtle shadow. */
+.supplier-bid[data-comparing=true][data-arrived=true] { cursor:pointer; }
+.supplier-bid[data-selected=true] { border-color:var(--supplier-navy); }
+.supplier-bid > input { position:absolute; width:1px; height:1px; opacity:0; left:24px; top:44px; }
+.supplier-bid:has(input:focus-visible) { outline:2px solid var(--supplier-navy); outline-offset:3px; }
+.supplier-arrival-icon { width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:50%; flex:none; }
+.supplier-arrival-icon.is-arrived { background:var(--supplier-navy); }
+.supplier-arrival-icon.is-waiting { background:#f1f3f6; }
+.supplier-radio { width:20px; height:20px; display:grid; place-items:center; flex:none; }
+.supplier-radio > span { width:20px; height:20px; display:block; border:1px solid #a9b4c5; border-radius:50%; background:#fff; } /* taste-skill-ignore: Figma native single-choice radio. */
+.supplier-bid-content { min-width:0; display:flex; flex-direction:column; gap:6px; }
+.supplier-bid-name { display:flex; align-items:center; gap:8px; }
+.supplier-bid-name > strong { font-size:18px; line-height:22px; font-weight:700; white-space:nowrap; }
+.supplier-recommendation { padding:2px 6px; font-size:12px; line-height:14px; font-weight:700; color:#4a5a00; background:#f0f6d3; border-radius:4px; }
+.supplier-bid-meta { color:#8a93a6; font-size:13px; line-height:16px; white-space:nowrap; }
+.supplier-bid-price { display:flex; flex-direction:column; align-items:flex-end; gap:2px; margin-left:auto; flex:none; font-variant-numeric:tabular-nums; }
+.supplier-bid-price > strong { font-size:22px; line-height:27px; font-weight:700; animation:supplier-price-arrives .25s ease-out both; }
+.supplier-bid-price > small { color:#5b6478; font-size:12px; line-height:14px; }
+.supplier-bid[data-arrived=false] .supplier-bid-price > small { color:#8a93a6; }
+.supplier-bid[data-arrived=false] .supplier-bid-name > strong { color:#5b6478; font-weight:500; }
+.supplier-price-skeleton { display:block; width:122px; height:20px; border-radius:4px; background:#edf0f3; margin-bottom:3px; }
+.supplier-sort { position:relative; display:flex; align-items:center; border:1px solid #dde2ea; background:#fff; border-radius:8px; } /* taste-skill-ignore: native sort control in the provided app UI. */
+.supplier-sort select { appearance:none; background:transparent; border:0; border-radius:8px; padding:6px 30px 6px 12px; color:#191f28; font-size:13px; line-height:18px; cursor:pointer; }
+.supplier-sort > img { position:absolute; pointer-events:none; right:9px; }
+.supplier-fine-print { margin-top:16px; color:#8a93a6; font-size:12px; line-height:20px; }
+.supplier-sidebar { padding-top:48px; display:flex; flex-direction:column; gap:16px; min-width:0; }
+.supplier-summary,.supplier-decision { background:#fff; border-radius:16px; box-shadow:0 4px 14px #041e410d,0 1px 2px #041e4108; } /* taste-skill-ignore: exact two-panel Figma order summary. */
+.supplier-summary { display:block; padding:20px 24px; border:0; }
+.supplier-summary-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.supplier-summary-heading h2 { font-family:"Supplier Inter","Supplier Noto Sans KR",sans-serif; font-size:15px; line-height:18px; font-weight:700; }
+.supplier-summary-heading button { display:flex; align-items:center; gap:4px; color:#5b6478; font-size:12px; line-height:20px; padding:0; }
+.supplier-summary-body { display:flex; align-items:center; gap:12px; }
+.supplier-summary-shirt { width:52px; height:52px; display:grid; place-items:center; background:#f1f3f6; border-radius:10px; flex:none; }
+.supplier-summary-body > div { min-width:0; display:flex; flex-direction:column; gap:3px; }
+.supplier-summary-body p { margin:0; font-size:12px; line-height:14px; color:#8a93a6; }
+.supplier-summary-body p:nth-child(2) { color:#5b6478; }
+.supplier-summary-body p:first-child { font-size:14px; line-height:17px; color:#191f28; font-weight:500; }
+.supplier-decision { display:flex; flex-direction:column; gap:12px; padding:24px 26px 26px; }
+.supplier-decision-name > p { font-size:13px; line-height:16px; color:#8a93a6; margin-bottom:2px; }
+.supplier-decision-name h2 { font-size:18px; line-height:22px; font-weight:700; }
+.supplier-decision dl { margin:0 0 12px; }
+.supplier-decision dl > div { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.supplier-decision dt { color:#5b6478; font-size:14px; line-height:22px; }
+.supplier-decision dd { margin:0; font-size:20px; line-height:28px; font-weight:700; font-variant-numeric:tabular-nums; }
+.supplier-primary { width:100%; min-height:56px; padding:15px 14px; display:flex; align-items:center; justify-content:center; gap:6px; border-radius:10px; color:#fff; background:var(--supplier-navy); font-size:16px; line-height:24px; font-weight:700; }
+.supplier-primary:hover:not(:disabled) { background:#0c315e; }
+.supplier-primary:disabled { opacity:1; background:#dde2ea; color:#8a93a6; }
+.supplier-empty { max-width:600px; margin:80px auto; text-align:center; }
+.supplier-empty h1 { font-size:24px; line-height:1.5; font-weight:600; }
+.supplier-empty p { font-size:14px; color:#5b6478; margin-top:14px; }
+.supplier-empty .supplier-primary { max-width:260px; margin:28px auto 0; }
+.supplier-edit-dialog { margin:auto; width:min(430px,calc(100% - 32px)); padding:28px; border:0; border-radius:16px; color:#191f28; background:#fff; }
+.supplier-edit-dialog::backdrop { background:#041e4166; }
+.supplier-edit-dialog h2 { font-size:18px; line-height:1.6; font-weight:600; }
+.supplier-edit-dialog > div { display:flex; gap:12px; margin-top:26px; }
+.supplier-edit-dialog button { flex:1; min-height:48px; border-radius:8px; font-size:14px; font-weight:600; }
+.supplier-edit-dialog button:first-child { background:#f1f3f6; color:#5b6478; }
+@keyframes supplier-price-arrives { from { opacity:0; } to { opacity:1; } }
+@media(min-width:801px) and (max-width:1100px) {
+  .supplier-grid { grid-template-columns:minmax(0,1fr) 300px; gap:20px; }
+  .supplier-bid { gap:12px; padding:18px 16px; }
+  .supplier-bid-name > strong { font-size:16px; }
+  .supplier-bid-price > strong { font-size:19px; }
+  .supplier-bid-meta { font-size:11px; }
+  .supplier-summary,.supplier-decision { padding:20px; }
+}
+@media(max-width:800px) {
+  .supplier-page .supplier-desktop { display:none; }
+  .supplier-page .supplier-mobile { display:block; }
+  .supplier-header { height:60px; padding:0 20px; border:0; }
+  .supplier-brand { width:58.732px; height:28px; }
+  .supplier-header-actions { gap:16px; }
+  .supplier-save { min-height:30px; padding:6px 12px; font-size:13px; line-height:16px; border-color:#e6e9ee; box-shadow:none; }
+  .supplier-save > img { display:none; }
+  .supplier-account { width:32px; height:32px; border:0; border-radius:0; background:none; box-shadow:none; }
+  .supplier-mobile-avatar { position:relative; width:32px; height:32px; }
+  .supplier-mobile-avatar img:last-child { position:absolute; top:7px; left:7px; }
+  .supplier-save-feedback { top:66px; right:16px; max-width:calc(100% - 32px); }
+  .supplier-content { width:100%; max-width:640px; padding:20px 16px calc(100px + env(safe-area-inset-bottom)); }
+  .supplier-steps { margin-bottom:18px; font-size:13px; line-height:16px; }
+  .supplier-steps p { color:#8a93a6; }
+  .supplier-steps strong { font-weight:600; }
+  .supplier-title h1 { font-family:"Supplier Noto Sans KR",sans-serif; font-size:22px; line-height:26px; font-weight:700; letter-spacing:0; }
+  .supplier-title .supplier-mobile-order { display:flex; justify-content:space-between; align-items:center; gap:12px; min-height:30px; padding-top:2px; margin-top:6px; font-size:14px; line-height:17px; font-weight:500; color:#4a5262; }
+  .supplier-mobile-order button { height:28px; padding:4px 10px; border:1px solid #dde2ea; border-radius:99px; background:#fff; font-size:12px; line-height:18px; font-weight:500; white-space:nowrap; } /* taste-skill-ignore: Figma order-edit control. */
+  .supplier-grid { display:block; margin-top:6px; }
+  .supplier-toolbar { min-height:48px; margin-bottom:18px; padding:18px 0 0; font-size:13px; line-height:16px; }
+  .supplier-toolbar strong { font-weight:700; }
+  .supplier-page[data-state=comparing] .supplier-toolbar { padding:18px 0 13px; font-size:14px; line-height:17px; }
+  .supplier-progress-panel { gap:8px; }
+  .supplier-progress-panel > div:first-child > span { color:#8a93a6; font-size:13px; }
+  .supplier-progress { gap:4px; height:6px; background:none; border-radius:0; }
+  .supplier-progress > span { border-radius:99px; }
+  .supplier-bids { gap:12px; }
+  .supplier-bid { min-height:83px; padding:18px 16px; gap:12px; border-radius:16px; }
+  .supplier-bid[data-arrived=false] { min-height:62px; }
+  .supplier-arrival-icon { width:24px; height:24px; }
+  .supplier-bid-name { gap:5px; }
+  .supplier-bid-name > strong { font-size:15px; line-height:18px; }
+  .supplier-bid-content { gap:6px; }
+  .supplier-recommendation { padding:1px 4px; font-size:11px; line-height:14px; }
+  .supplier-bid-meta { font-size:13px; line-height:16px; font-weight:500; color:#4a5262; }
+  .supplier-bid-price { gap:6px; }
+  .supplier-bid-price > strong { font-size:18px; line-height:22px; }
+  .supplier-bid-price > small { font-size:13px; line-height:16px; font-weight:500; color:#4a5262; }
+  .supplier-bid[data-arrived=false] .supplier-bid-price > small { font-size:12px; line-height:18px; color:#8a93a6; }
+  .supplier-bid > input { left:16px; top:40px; }
+  .supplier-sort { border:0; background:none; border-radius:0; }
+  .supplier-sort select { padding:0 20px 0 8px; font-size:13px; line-height:16px; }
+  .supplier-sort > img { right:0; }
+  .supplier-fine-print { font-size:12px; line-height:18px; margin-top:16px; padding:4px 0 0 4px; }
+  .supplier-page .supplier-bottom-bar { display:flex; align-items:center; position:fixed; bottom:0; left:0; right:0; z-index:10; padding:12px 16px calc(12px + env(safe-area-inset-bottom)); background:#fff; box-shadow:0 -4px 14px #041e410f; } /* taste-skill-ignore: Figma fixed-action bar shadow. */
+  .supplier-bottom-bar .supplier-primary { min-height:52px; padding:14px 12px; font-size:16px; line-height:22px; border-radius:12px; }
+  .supplier-empty { margin-top:60px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .supplier-page * { animation:none !important; transition:none !important; }
+}
+
+.supplier-empty ul { margin:24px 0; padding:0; list-style:none; text-align:left; }
+.supplier-empty li { padding:16px 0; }
+.supplier-empty li p { margin-top:6px; line-height:1.65; }
