@@ -1,4 +1,4 @@
-:HL["/sb_hackathon/_next/static/css/0d76bcf154c46e1c.css","style"]
+:HL["/sb_hackathon/_next/static/css/2fc3c02d0c0f0646.css","style"]
 :HL["/sb_hackathon/_next/static/css/3c8c50c5ac0e3278.css","style"]
 :HL["/sb_hackathon/_next/static/css/be0c6ce2f9787c14.css","style"]
 :HL["/sb_hackathon/_next/static/css/38d26f30a02e0b01.css","style"]
@@ -6,4 +6,4 @@
 3:[["children",{"s":"__PAGE__","h":160}]]
 2:[["children",{"s":"detail","h":96,"c":"$Q3"}]]
 1:[["children",{"s":"my","h":96,"c":"$Q2"}]]
-0:{"b":"YOaeOVAzlqlJOJM9ZVHk7","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
+0:{"b":"jUhKiqB1m3XEUywgfA2oJ","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
