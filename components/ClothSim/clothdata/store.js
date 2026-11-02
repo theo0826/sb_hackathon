@@ -7,7 +7,7 @@
 //
 // completed: 0 = 만드는 중 (또는 아직 없음), 1 = 다 내려앉은 뒤 캡처까지 끝남
 // front, back: 'data:image/jpeg;base64,...' (정사각, 기본 1024px)
-// category: { id: 'hoodie' | 'tee' | 'long-sleeve' | 'sweatshirt' | 'windbreaker' | 'shirt', label: '후드' ... } 또는 null
+// category: { id: 'hoodie' | 'cardigan' | 'coat' | 'jacket' | 'windbreaker' | 'shirt' | 'polo' | 'sweatshirt' | 'knit' | 'vest' | 'sleeveless' | 'long-sleeve' | 'tee', label: '후드' ... } 또는 null
 // tokens: 엔진이 고른 값 { 'neck': 'hood', 'sleeve_length': 'long', ... } (경로 마지막 이름 -> 값)
 // logo: 로고 위치 { panel, x, y, width, rotation } (이미지는 넣지 않음) 또는 null
 // price: 1벌당 제작 단가(인쇄 포함) 가격대 { label: '1~1.5만원', min: 10000, max: 15000, probability } (6만원 이상은 max null), 실패하면 null
@@ -32,11 +32,13 @@ export function getClothData() { return load(); }
 
 export function setClothData(next) {
   mem = { ...EMPTY, ...next };
+  delete mem.imagesInMemoryOnly;
   try {
     sessionStorage.setItem(KEY, JSON.stringify(mem));
   } catch (_) {
-    // 저장 공간이 모자라면 이미지는 메모리에만 두고 나머지만 저장
-    try { sessionStorage.setItem(KEY, JSON.stringify({ ...mem, front: null, back: null, imagesInMemoryOnly: true })); } catch (__) { /* 무시 */ }
+    // 저장 공간이 모자라면 이미지는 메모리에만 두고 나머지만 저장. imagesInMemoryOnly: true 로 알려 줌 (새로 고치면 이미지가 사라짐)
+    mem = { ...mem, imagesInMemoryOnly: true };
+    try { sessionStorage.setItem(KEY, JSON.stringify({ ...mem, front: null, back: null })); } catch (__) { /* 무시 */ }
   }
   listeners.forEach(f => { try { f(mem); } catch (_) { /* 무시 */ } });
   return mem;

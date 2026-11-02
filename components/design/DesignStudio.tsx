@@ -24,6 +24,7 @@ import type { ClothSimulationControls } from "./ClothSimulationPreview";
 import ClothPatternEditor from "../ClothSim/pattern/PatternEditor.js";
 import type { Scene, ClothLogo } from "../ClothSim";
 import { publicPath } from "@/lib/deployment";
+import { CLOTH_PATTERN_THEME } from "@/lib/cloth-pattern-theme";
 
 const ClothSimulation = dynamic(() => import("./ClothSimulationPreview"), { ssr: false });
 const EXAMPLES = [
@@ -349,7 +350,7 @@ export default function DesignStudio() {
         <section className="studio-pattern-card" inert={quoteOpen}>
           <div className="studio-card-heading"><h2>도안</h2></div>
           <p>로고 위치·크기·회전은 로고 편집에서 조절해요</p>
-          {currentScene && !firstLoading && <div className="studio-pattern-miniature" role="group" aria-label="앞·뒤 도안 로고 위치"><ClothPatternEditor scene={currentScene} logo={clothLogo} preview interactivePreview={!busy} onChange={moveLogo} background="#f7f8fa"/></div>}
+          {currentScene && !firstLoading && <div className="studio-pattern-miniature" role="group" aria-label="앞·뒤 도안 로고 위치"><ClothPatternEditor scene={currentScene} logo={clothLogo} preview interactivePreview={!busy} onChange={moveLogo} background="#f7f8fa" theme={CLOTH_PATTERN_THEME}/></div>}
           <button type="button" className="studio-secondary" disabled={!canEdit || busy} onClick={() => setEditorOpen(true)}><Move size={15}/>로고 편집</button>
           {captureReady && !canEdit && <p className="studio-restore-note">로고를 다시 편집하려면 같은 설명으로 생성해주세요.</p>}
         </section>

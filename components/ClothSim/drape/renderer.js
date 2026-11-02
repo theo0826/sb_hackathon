@@ -8,15 +8,21 @@ function hex(c) {
 }
 
 // 원단 -> 그리기 질감 (종류, 무늬 주기 cm, 광택, 변형). cloth_render.wgsl 의 height() 종류 번호와 같음
-//   0 저지, 1 플리스/테리, 2 리브, 3 울 니트, 4 와플, 5 피케, 6 우븐(변형 0 포플린, 1 옥스포드, 2 린넨, 3 샴브레이, 4 나일론), 7 데님, 8 코듀로이, 9 기모 우븐, 10 가죽(변형 0 천연, 1 인조, 2 스웨이드)
+//   0 저지, 1 플리스/테리, 2 리브, 3 울 니트, 4 와플, 5 피케, 6 우븐(변형 0 포플린, 1 옥스포드, 2 린넨, 3 샴브레이, 4 나일론), 7 데님, 8 코듀로이, 9 기모 우븐(변형 1 개버딘: 털 없는 능직), 10 가죽(변형 0 천연, 1 인조, 2 스웨이드),
+//   11 실크 새틴, 12 벨벳, 13 울 트위드, 14 메시
 // 주기는 실제 원단보다 조금 크게 (화면 기본 거리에서도 짜임이 보이게. 가까이 가면 실제 크기 느낌)
 const FABRIC_LOOK = {
   cotton_jersey: [0, 0.12, 0.15, 0], cotton_interlock: [0, 0.1, 0.2, 0], softshell_knit: [0, 0.1, 0.3, 0],
-  french_terry: [1, 1, 0.35, 0], brushed_fleece: [1, 1, 0.5, 0], polyester_fleece: [1, 1, 0.45, 0], heavy_sweat_fleece: [1, 1, 0.4, 0],
-  rib_knit: [2, 0.45, 0.2, 0], wool_knit: [3, 0.45, 0.35, 0], thermal_waffle: [4, 0.5, 0.2, 0], pique_cotton: [5, 0.2, 0.2, 0],
-  cotton_poplin: [6, 0.06, 0.25, 0], oxford: [6, 0.14, 0.15, 1], linen: [6, 0.1, 0.1, 2], chambray: [6, 0.08, 0.15, 3], nylon_taslan: [6, 0.5, 0.32, 4],
-  denim: [7, 0.25, 0.15, 0], corduroy: [8, 0.35, 0.35, 0], flannel_brushed: [9, 1, 0.35, 0],
+  // 플리스 계열 변형 (1번): 0 기모 플리스, 1 프렌치 테리(저지 겉면 + 세로 결), 2 폴리 플리스(보풀 덩어리), 3 헤비 스웨트(굵은 세로 결)
+  french_terry: [1, 0.16, 0.3, 1], brushed_fleece: [1, 1, 0.5, 0], polyester_fleece: [1, 0.3, 0.45, 2], heavy_sweat_fleece: [1, 0.22, 0.35, 3],
+  rib_knit: [2, 0.45, 0.2, 0], wool_knit: [3, 0.45, 0.35, 0], thermal_waffle: [4, 0.5, 0.2, 0], pique_cotton: [5, 0.3, 0.2, 0],
+  cotton_poplin: [6, 0.06, 0.25, 0], oxford: [6, 0.2, 0.15, 1], linen: [6, 0.1, 0.1, 2], chambray: [6, 0.08, 0.15, 3], nylon_taslan: [6, 0.5, 0.32, 4],
+  denim: [7, 0.25, 0.15, 0], corduroy: [8, 0.35, 0.35, 0], flannel_brushed: [9, 0.3, 0.35, 0],
   leather: [10, 0.35, 0.45, 0], faux_leather: [10, 0.4, 0.55, 1], suede: [10, 0.5, 0.55, 2],
+  silk_satin: [11, 0.08, 0.6, 0], velvet: [12, 0.3, 0.9, 0], wool_tweed: [13, 0.3, 0.25, 0], mesh: [14, 0.35, 0.15, 0],
+  // 2026-10-31 추가 원단: 울 멜톤 = 결 없는 펠트 표면(기모 플리스 질감), 개버딘 = 털 없는 고운 능직(기모 우븐 변형 1), 캔버스 = 굵은 평직(우븐)
+  // 2026-10-31 v12: 멜톤은 플리스 변형 4 (얼룩 없이 고운 펠트 알갱이, 털 광택 없음), 캔버스는 우븐 변형 5 (굵은 평직 + 멀리서 보이는 가로세로 실 굵기 차)
+  wool_melton: [1, 0.25, 0.2, 4], gabardine: [9, 0.16, 0.25, 1], cotton_canvas: [6, 0.32, 0.1, 5],
 };
 function fabricLook(mesh) {
   return FABRIC_LOOK[mesh.material] || (mesh.family === 'woven' ? [6, 0.08, 0.2, 0] : [0, 0.12, 0.15, 0]);
@@ -24,8 +30,9 @@ function fabricLook(mesh) {
 // 표면 무늬 (scene.meta.surface, garment/index.js 가 spec 에서 넣음)
 const SURF = { solid: 0, heather: 1, stripe: 2, check: 3 };
 const DIR = { horizontal: 0, vertical: 1, diagonal: 2 };
-const CHECK = { gingham: 0, tartan: 1, buffalo: 2, windowpane: 3, houndstooth: 0 };
-const FINISH = { none: 0, garment_wash: 1, enzyme_wash: 1, distressed: 1, acid_wash: 2, pigment_dye: 3, brushed: 0 };
+const CHECK = { gingham: 0, tartan: 1, buffalo: 2, windowpane: 3, houndstooth: 4 };
+// 가공: 1 가먼트 워싱, 2 산 워싱, 3 피그먼트, 4 기모(브러시드), 5 디스트레스드, 6 효소 워싱
+const FINISH = { none: 0, garment_wash: 1, enzyme_wash: 6, distressed: 5, acid_wash: 2, pigment_dye: 3, brushed: 4 };
 
 export class Renderer {
   static async create(device, canvas, solver, derived, offscreen = false, look = {}) {
@@ -40,9 +47,14 @@ export class Renderer {
     this.flags = { strain: true, body: true };
     // 배경: 다크 모드와 상관없이 밝은 스튜디오 그라데이션 (위 #f7f6f3 -> 아래 #e4e1db).
     // look.background = [r,g,b,a] 를 주면 그 단색, look.gradient = [[위 r,g,b],[아래 r,g,b]] 를 주면 그 그라데이션 (0..1, 화면 색 그대로)
+    // look.background 의 a 가 1 보다 작으면 캔버스가 비쳐 보임 (뒤의 페이지 배경이 보임)
+    // look.captureBackground = [r,g,b] 앞면, 뒷면 캡처 배경 (사진은 항상 불투명). 없으면 화면 배경, 화면이 비치면 #f7f6f3
     const hx = (c) => [parseInt(c.slice(1, 3), 16) / 255, parseInt(c.slice(3, 5), 16) / 255, parseInt(c.slice(5, 7), 16) / 255];
     this.gradient = look.background ? null : (look.gradient || [hx('#f7f6f3'), hx('#e4e1db')]);
     this.background = look.background || [...this.gradient[0], 1];
+    this.transparent = this.background[3] < 1;
+    const cap = look.captureBackground || (this.transparent ? hx('#f7f6f3') : null);
+    this.captureBackground = cap ? [cap[0], cap[1], cap[2], 1] : null;
     this.bodyColor = look.bodyColor || '#d8d4cc';
   }
 
@@ -54,7 +66,7 @@ export class Renderer {
     } else {
       this.ctx = this.canvas.getContext('webgpu');
       this.format = navigator.gpu.getPreferredCanvasFormat();
-      this.ctx.configure({ device: dev, format: this.format, alphaMode: 'opaque' });
+      this.ctx.configure({ device: dev, format: this.format, alphaMode: this.transparent ? 'premultiplied' : 'opaque' });
     }
     this.viewData = new ArrayBuffer(64 + 16 + 16 + 64 * 16 + 64 * 16 + 32 + 32);   // 끝 32: 로고
     this.viewBuf = dev.createBuffer({ size: this.viewData.byteLength, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
@@ -208,11 +220,12 @@ export class Renderer {
     const target = dev.createTexture({ size: [w, h], format: this.format, usage: RA | GPUTextureUsage.COPY_SRC });
     const row = Math.ceil(w * 4 / 256) * 256;
     const buf = dev.createBuffer({ size: row * h, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
-    const strain = this.flags.strain;
+    const strain = this.flags.strain, background = this.background;
     this.flags.strain = false;
+    if (this.captureBackground) this.background = this.captureBackground;
     try {
       this.encodeDraw(camera, w / h, msaa, depth, target);
-    } finally { this.flags.strain = strain; }
+    } finally { this.flags.strain = strain; this.background = background; }
     const enc = dev.createCommandEncoder();
     enc.copyTextureToBuffer({ texture: target }, { buffer: buf, bytesPerRow: row }, [w, h]);
     dev.queue.submit([enc.finish()]);
@@ -240,13 +253,14 @@ export class Renderer {
       dv.set([lg.x || 0, lg.y || 0, w / 2, w * lg.aspect / 2, Math.cos(r), Math.sin(r), lg.mesh, 1]);
     } else dv.set([0, 0, 1, 1, 1, 0, -1, 0]);
     this.device.queue.writeBuffer(this.viewBuf, 0, this.viewData);
-    const bg = this.background;
+    // 비치는 캔버스(premultiplied)에는 색에 a 를 곱해서 지움
+    const b = this.background, bg = b[3] < 1 ? [b[0] * b[3], b[1] * b[3], b[2] * b[3], b[3]] : b;
     const enc = this.device.createCommandEncoder();
     const pass = enc.beginRenderPass({
       colorAttachments: [{ view: msaaTex.createView(), resolveTarget: resolveTex.createView(), clearValue: bg, loadOp: 'clear', storeOp: 'discard' }],
       depthStencilAttachment: { view: depthTex.createView(), depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'discard' },
     });
-    if (this.bg) { pass.setPipeline(this.bg); pass.draw(3); }
+    if (this.bg && b !== this.captureBackground) { pass.setPipeline(this.bg); pass.draw(3); }
     if (this.flags.body) { pass.setPipeline(this.body); pass.setBindGroup(0, this.bodyGroup); pass.draw(this.d.bodyIdx.length); }
     pass.setPipeline(this.cloth); pass.setBindGroup(0, this.clothGroup); pass.draw(3 * this.solver.ntri);
     if (this.trim && this.flags.trims !== false) { pass.setPipeline(this.trim); pass.setBindGroup(0, this.trimGroup); pass.draw(6, this.trimCount); }

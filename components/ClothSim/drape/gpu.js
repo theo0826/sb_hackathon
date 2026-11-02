@@ -25,6 +25,21 @@ export async function initGPU() {
   return sharedGpu;
 }
 
+// 장치 끊김 알림을 시뮬마다 따로 받기 (2026-10-30 메모리 누수 수정)
+//   전에는 시뮬마다 공유 장치의 device.lost.then(...) 에 함수를 걸었는데, 장치가 끊기지 않는 한 그 함수가 영원히 남아
+//   시뮬 하나의 장면, 버퍼 배열 전체(실행마다 약 30MB)를 붙잡았다. 이제 장치당 한 번만 걸고, 시뮬은 등록과 해제만 한다
+const lostHandlers = new WeakMap();
+export function onDeviceLost(device, fn) {
+  let set = lostHandlers.get(device);
+  if (!set) {
+    set = new Set();
+    lostHandlers.set(device, set);
+    device.lost.then(info => { for (const f of [...set]) { try { f(info); } catch (e) { console.error(e); } } set.clear(); });
+  }
+  set.add(fn);
+  return () => { set.delete(fn); };
+}
+
 export function releaseGPU() {
   if (sharedRefs > 0) sharedRefs--;
 }

@@ -54,7 +54,8 @@ export class OrbitCamera {
   viewProj(aspect) {
     const e = this.eye(), [r, u, f] = this.axes();
     const view = [r[0], u[0], -f[0], 0, r[1], u[1], -f[1], 0, r[2], u[2], -f[2], 0, -dot(r, e), -dot(u, e), dot(f, e), 1];
-    const near = 2, far = 4000, t = 1 / Math.tan(this.fov / 2);
+    // 세로로 긴 화면(폰)에서는 옷이 좌우로 잘리지 않게 시야를 넓힘
+    const near = 2, far = 4000, t = Math.min(1, aspect / 0.65) / Math.tan(this.fov / 2);
     // 깊이 0..1 (WebGPU)
     const proj = [t / aspect, 0, 0, 0, 0, t, 0, 0, 0, 0, far / (near - far), -1, 0, 0, near * far / (near - far), 0];
     return mul(proj, view);

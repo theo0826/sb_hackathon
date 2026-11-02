@@ -44,13 +44,24 @@ export interface ClothSimStats {
   ramp: number;        // 봉제 프레임 수
 }
 
+/** 화면 모양 (색은 0..1) */
+export interface ClothLook {
+  /** 단색 배경 [r,g,b,a]. a 가 1 보다 작으면 캔버스가 비쳐 페이지 배경이 보임 */
+  background?: [number, number, number, number];
+  /** 그라데이션 배경 [[위 r,g,b], [아래 r,g,b]] (background 가 없을 때) */
+  gradient?: [[number, number, number], [number, number, number]];
+  /** 앞면, 뒷면 캡처 배경 [r,g,b] (사진은 항상 불투명). 없으면 화면 배경, 화면이 비치면 #f7f6f3 */
+  captureBackground?: [number, number, number] | [number, number, number, number];
+  bodyColor?: string;
+}
+
 export interface CreateClothSimParams extends Partial<ClothSimOptions>, DressOptions {
   /** scene.json, scene.bin 이 있는 폴더 주소, 또는 이미 받은 { meta, bin } */
   scene?: string | { meta: unknown; bin: ArrayBuffer | ArrayBufferView };
   /** 이미 만든 WebGPU 장치를 같이 쓸 때 (GPUDevice). 없으면 새로 만듦 */
   device?: unknown;
   autoplay?: boolean;
-  look?: { background?: [number, number, number, number]; bodyColor?: string };
+  look?: ClothLook;
   offscreen?: boolean;
   onStats?: (s: ClothSimStats) => void;
   statsEvery?: number;
@@ -93,7 +104,7 @@ export const DEFAULT_OPTIONS: ClothSimOptions;
 export type CaptureView = 'front' | 'back' | 'left' | 'right';
 
 /** 큰 카테고리 (팀 가격표 id 에 맞춤, shirt 는 추가) */
-export type ClothCategoryId = 'hoodie' | 'windbreaker' | 'shirt' | 'sweatshirt' | 'long-sleeve' | 'tee';
+export type ClothCategoryId = 'hoodie' | 'cardigan' | 'coat' | 'jacket' | 'windbreaker' | 'shirt' | 'polo' | 'sweatshirt' | 'knit' | 'vest' | 'sleeveless' | 'long-sleeve' | 'tee';
 export interface ClothCategory { id: ClothCategoryId; label: string; }
 /** 옷 정보 보관함(clothData) 값. completed 0 = 만드는 중(또는 없음), 1 = 다 내려앉은 뒤 캡처 끝 */
 export interface ClothData {
@@ -113,7 +124,7 @@ export interface ClothData {
   imagesInMemoryOnly?: boolean;
 }
 /** 가격대: label '1만원 미만' | '1~1.5만원' | '1.5~2만원' | '2~3만원' | '3~4만원' | '4~6만원' | '6만원 이상', max 는 마지막만 null */
-export interface ClothPrice { label: string; min: number; max: number | null; probability: number; }
+export interface ClothPrice { label: string; min: number; max: number | null; probability: number | null; base?: string; }
 export const PRICE_BANDS: { label: string; min: number; max: number | null; text: string }[];
 export function getClothData(): ClothData;
 export function setClothData(next: Partial<ClothData>): ClothData;
@@ -125,7 +136,7 @@ export function useClothData(): ClothData;
 export const clothData: { get(): ClothData; set(n: Partial<ClothData>): ClothData; update(p: Partial<ClothData>): ClothData; clear(e?: Partial<ClothData>): ClothData; subscribe(fn: (c: ClothData) => void): () => void; readonly completed: 0 | 1; };
 export const CATEGORY_LABELS: Record<ClothCategoryId, string>;
 export function tokensFromSpec(spec: unknown): Record<string, string | number | boolean>;
-export function categoryFromTokens(tokens: Record<string, unknown> | null): ClothCategory | null;
+export function categoryFromTokens(tokens: Record<string, unknown> | null, text?: string): ClothCategory | null;
 export function createClothSim(canvas: HTMLCanvasElement, params: CreateClothSimParams): Promise<ClothSim>;
 
 /** <ClothSim> 컴포넌트 속성 */
@@ -135,7 +146,7 @@ export interface ClothSimProps {
   /** 켜고 끄는 값 (바꾸면 바로 적용) + 입히기 설정 (만들 때만) */
   options?: Partial<ClothSimOptions> & DressOptions & Record<string, unknown>;
   autoplay?: boolean;
-  look?: { background?: [number, number, number, number]; bodyColor?: string };
+  look?: ClothLook;
   onStats?: (s: ClothSimStats) => void;
   onError?: (e: Error) => void;
   onReady?: (sim: ClothSim) => void;
@@ -233,6 +244,12 @@ export interface ClothSimDesignerProps extends Omit<ClothSimProps, 'scene' | 'lo
   patternEditor?: 'button' | 'none';
   /** 'pattern' 이면 3D 대신 재단 도면을 보여 줌 (3D 계산은 숨긴 채 유지) */
   view?: '3d' | 'pattern';
+  /** 재단 도면에서 보여 줄 부위 (기본 'all') */
+  patternFocus?: PatternFocus;
+  /** 재단 도면 색과 글꼴. background 는 도면 화면 배경 */
+  patternTheme?: PatternTheme & { background?: string };
+  /** 도면에서 로고 최대 가로 cm (기본 60) */
+  maxLogoWidth?: number;
 }
 export interface ClothSimDesignerHandle extends ClothSimHandle {
   generate(text?: string): Promise<{ spec: Spec; scene: Scene } | null>;
@@ -248,7 +265,29 @@ export interface ClothSimDesignerHandle extends ClothSimHandle {
 }
 
 /** <ClothPatternEditor>: 재단 도면 위에서 로고 옮기기 (따로 배치할 때) */
-export interface ClothPatternEditorProps { scene: Scene | null; logo: ClothLogo | null; onChange?: (logo: ClothLogo) => void; style?: CSSProperties; className?: string; background?: string; }
+export type PatternFocus = 'all' | 'front' | 'back' | 'sleeve';
+/** 재단 도면 색 (CSS 색), 글꼴. 빠진 값은 DEFAULT_THEME */
+export interface PatternTheme {
+  grid?: string; panel?: string; activePanel?: string; line?: string; label?: string;
+  logoBorder?: string; logoBorderActive?: string; logoText?: string;
+  fontFamily?: string; fontWeight?: string | number;
+}
+export const DEFAULT_THEME: Required<PatternTheme>;
+export interface ClothPatternEditorProps {
+  scene: Scene | null; logo: ClothLogo | null; onChange?: (logo: ClothLogo) => void;
+  style?: CSSProperties; className?: string; background?: string;
+  /** 작은 미리보기: 앞판, 뒤판만, 격자와 로고 테두리 없음, 손으로 못 바꿈 */
+  preview?: boolean;
+  /** preview 에서도 로고 끌기, 모서리로 크기 바꾸기 허용 */
+  interactivePreview?: boolean;
+  /** 배경 격자 (기본 true, preview 에서는 항상 끔) */
+  showGrid?: boolean;
+  /** 보여 줄 부위 (기본 'all'). 로고가 안 보이는 부위에 있으면 보이는 판을 눌러 옮김 */
+  focus?: PatternFocus;
+  theme?: PatternTheme;
+  /** 로고 최대 가로 cm (기본 60) */
+  maxLogoWidth?: number;
+}
 export declare function ClothPatternEditor(props: ClothPatternEditorProps): ReactElement;
 export function loadLogoBitmap(src: LogoSource): Promise<ImageBitmap | null>;
 export function defaultLogoPlacement(scene: Scene, src?: LogoSource): ClothLogo | null;

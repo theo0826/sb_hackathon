@@ -13,7 +13,7 @@
 //   showDressing: false 면 1단계를 화면에 그리지 않고 빨리 계산한 뒤 2단계부터 보여 줌
 //   bendScale: 굽힘 강성 배수 (scene.js 의 원단 대표값에 곱함)
 // 장면 파일은 Python 쪽 (garment/export/webgpu_scene.py, design 또는 render 결과의 cloth/ 폴더) 이 만든다.
-import { initGPU, releaseGPU } from './gpu.js';
+import { initGPU, releaseGPU, onDeviceLost } from './gpu.js';
 import { loadScene, derive } from './scene.js';
 import { loadBody, unpackBodyVertices } from '../anny/index.js';
 import { clothError, clothLog } from '../garment/clothLog.js';
@@ -174,7 +174,7 @@ async function createClothSimImpl(canvas, options = {}) {
       });
     }
   }
-  device.lost.then(info => {
+  const offLost = onDeviceLost(device, info => {
     alive = false;
     pending = false;
     cancelAnimationFrame(raf);
@@ -418,6 +418,7 @@ async function createClothSimImpl(canvas, options = {}) {
         for (const b of Object.values(solver.B)) b.destroy();
       } catch (_) { /* device lost */ }
       if (ownsGpu) releaseGPU();
+      offLost();
     },
     _internal: { solver, renderer, device },
   };

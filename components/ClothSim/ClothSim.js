@@ -6,6 +6,8 @@
 //   ref.current.setLogo(같은 값) 도 됨. 재단 도면 편집: 화면 오른쪽 위 '도면 편집' 버튼 (patternEditor="none" 이면 숨김)
 //   view="pattern" 이면 3D 대신 재단 도면을 보여 줌 (3D 계산은 숨긴 채 유지). 밖의 버튼으로 바꿀 때 씀
 //   도면에서 옮기면 onLogoChange(로고 값) 으로 알려 줌
+//   patternFocus='front'|'back'|'sleeve' 이면 도면에서 그 부위만, patternTheme 으로 도면 색과 글꼴 ({ line, label, fontFamily, ... })
+//   도면 화면 칸은 className 'cloth-pattern-workspace', 안내 줄은 'cloth-pattern-instructions' (밖 CSS 로 꾸밀 때)
 //   submit 값이 바뀔 때마다 clothRepresentText 로 새로 만든다 (버튼 onClick 에서 +1). ref.current.generate(글자) 도 됨
 // 옷 정보 보관함 clothData (clothdata/store.js): 만들기를 시작하면 completed=0, 옷이 다 내려앉으면 앞면, 뒷면을 찍어 completed=1.
 //   로고를 옮기면 다시 찍음. 다른 페이지에서 getClothData() 또는 useClothData() 로 꺼냄. ref.current.capture() 로 직접 찍을 수도 있음
@@ -38,9 +40,10 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
     scene: sceneProp, llm, showInput = true, defaultText = '', placeholder = '만들 옷을 적어 주세요 (예: 오버핏 후드티, 캥거루 주머니)',
     preprocess, fixed, onSpec, onScene, onLog, onProgress, onError,
     clothRepresentText, submit,
-    logo: logoProp, onLogoChange, patternEditor = 'button', view = '3d',
+    logo: logoProp, onLogoChange, patternEditor = 'button', view = '3d', patternFocus = 'all', patternTheme, maxLogoWidth,
     style, className, ...viewProps
   } = props;
+  const patternBackground = (patternTheme && patternTheme.background) || '#f6f5f1';
   const viewRef = useRef(null);
   const abortRef = useRef(null);
   const [text, setText] = useState(defaultText);
@@ -86,7 +89,12 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
     if (k === lastPropKey.current) return;
     lastPropKey.current = k;
     if (k === logoKey(logo)) return;
-    applyLogo(logoProp, false);
+    // 이미지만 받아 기본 위치를 여기서 정했으면 그 위치를 밖에 알림 (밖이 준 위치는 되돌려 알리지 않음)
+    const nl = applyLogo(logoProp, false);
+    if (nl && nl.panel && logoProp.panel !== nl.panel && logoChangeRef.current) {
+      lastPropKey.current = logoKey(nl);
+      logoChangeRef.current(nl);
+    }
   }, [logoProp]);
   // 도면에서 끄는 동안은 화면만 바꾸고, 멈추면(0.25초) 밖에 알림 (부모가 매번 다시 그리지 않게)
   const notifyTimer = useRef(null);
@@ -132,7 +140,7 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
       const lg = logoRef.current;
       const rec = setClothData({
         completed: 1, front, back,
-        category: tokens ? categoryFromTokens(tokens) : null,
+        category: tokens ? categoryFromTokens(tokens, reqTextRef.current) : null,
         tokens,
         logo: lg && lg.panel ? { panel: lg.panel, x: lg.x ?? 0, y: lg.y ?? 0, width: lg.width ?? 10, rotation: lg.rotation ?? 0 } : null,
         price,
@@ -207,7 +215,7 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
         // 가격대 질문은 옷이 내려앉는 동안 미리 보냄 (배포 사이트: Worker, 내 컴퓨터: Ollama)
         const tk = tokensFromSpec(spec);
         const priceLLM = makeLLM({ ...(c.llm || {}), onLog: line => { if (c.onLog) c.onLog(line); } });
-        priceRef.current = estimatePrice(priceLLM, tk, categoryFromTokens(tk), req, ctl.signal)
+        priceRef.current = estimatePrice(priceLLM, tk, categoryFromTokens(tk, req), req, ctl.signal)
           .then(r => { clothLog('가격대', r); return r; })
           .catch(e => { if (!ctl.signal.aborted) clothError('가격대 질문 실패', e); return null; });
       }
@@ -302,13 +310,13 @@ const ClothSim = forwardRef(function ClothSim(props, ref) {
         style: { position: 'absolute', right: 10, top: 10, zIndex: 4, padding: '6px 10px', fontSize: 12, borderRadius: 8, border: '1px solid #0002', background: '#fffd', color: '#17232f', cursor: 'pointer' },
       }, '도면 편집'),
       scene && scene.meta && (editorOpen || view === 'pattern') && h('div', {
-        style: { position: 'absolute', inset: 0, zIndex: 5, display: 'flex', flexDirection: 'column', background: '#f6f5f1' },
+        className: 'cloth-pattern-workspace', style: { position: 'absolute', inset: 0, zIndex: 5, display: 'flex', flexDirection: 'column', background: patternBackground },
       },
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', fontSize: 12, color: '#17232f', borderBottom: '1px solid #0001' } },
-          h('span', { style: { flex: 1 } }, logo ? '로고를 끌어 옮기고, 로고 위에서 휠로 크기, Shift+휠로 회전. 빈 곳은 끌기로 이동, 휠로 확대' : '로고 이미지를 먼저 넣어 주세요'),
+        h('div', { className: 'cloth-pattern-instructions', style: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', fontSize: 12, color: '#17232f', borderBottom: '1px solid #0001' } },
+          h('span', { style: { flex: 1 } }, logo ? '로고를 끌어 옮기고, 모서리를 끌거나 로고 위에서 휠로 크기, Shift+휠로 회전. 빈 곳은 끌기로 이동, 휠로 확대' : '로고 이미지를 먼저 넣어 주세요'),
           view !== 'pattern' && h('button', { type: 'button', onClick: () => setEditorOpen(false), style: { ...btn, padding: '4px 10px', fontSize: 12 } }, '3D 보기')),
         h('div', { style: { position: 'relative', flex: '1 1 auto', minHeight: 0 } },
-          h(ClothPatternEditor, { scene, logo, onChange: editorChange }))),
+          h(ClothPatternEditor, { scene, logo, onChange: editorChange, focus: patternFocus, theme: patternTheme, background: patternBackground, maxLogoWidth }))),
       // 입력칸이 밖에 있을 때 진행 상태와 오류는 화면 위에 작게
       !showInput && (status || error) && h('div', {
         style: { position: 'absolute', left: 8, top: 8, padding: '4px 8px', fontSize: 12, borderRadius: 4, background: '#0008', color: error ? '#f88' : '#fff', maxWidth: 'calc(100% - 16px)' },

@@ -6,7 +6,7 @@
 //   import { getClothData, useClothData } from './ClothSim'  만든 옷의 앞면, 뒷면 이미지와 카테고리 (다른 페이지에서)
 export { default } from './ClothSim.js';
 export { default as ClothSimView } from './ClothSimView.js';
-export { default as ClothPatternEditor } from './pattern/PatternEditor.js';
+export { default as ClothPatternEditor, DEFAULT_THEME } from './pattern/PatternEditor.js';
 export { loadLogoBitmap, defaultLogoPlacement, panelOutlines, layoutPanels } from './pattern/logo.js';
 export { createClothSim, DEFAULT_OPTIONS } from './drape/create.js';
 export { getClothData, setClothData, updateClothData, clearClothData, subscribeClothData, useClothData, clothData } from './clothdata/store.js';

@@ -10,6 +10,7 @@ import { loadBody } from '../anny/index.js';
 import { bytesToUint8Array } from '../anny/bodyAsset.js';
 import { clothError, clothLog } from './clothLog.js';
 import { logFinalSpecTokens } from './specLog.js';
+import { applyContrast } from './contrast.js';
 
 export { makeLLM, LLM_DEFAULTS } from './llm.js';
 export { parseIntent } from './intent.js';
@@ -188,8 +189,13 @@ export async function textToScene(text, o = {}) {
       fixed: intent.fixed,
       priors,
       explicit_slots: intent.explicit_slots,
+      ...(o.groupSize ? { group_size: o.groupSize } : {}),   // 토너먼트 묶음 크기 (기본 8, 26 = 한 번에)
+      ...(o.swapSkip !== undefined ? { swap_skip: o.swapSkip } : {}),   // 역순 질문 생략 기준 (기본 0.9, 2 = 항상 두 번)
     });
     spec.info.select_seconds = Math.round((performance.now() - t0) / 100) / 10;
+    // 무늬, 배색 색이 바탕색과 같으면 대비 색으로 (garment/contrast.js)
+    const contrast = applyContrast(spec, text, JSON.parse(TREE), priors);
+    if (contrast.length) { spec.info.contrast = contrast; clothLog('대비 색으로 바꿈', contrast); }
   }
   logFinalSpecTokens(spec, o.onTokenLog);
   step({ stage: 'build' });

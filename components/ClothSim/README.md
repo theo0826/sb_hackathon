@@ -90,7 +90,7 @@ Next.js 는 파일 맨 위에 `'use client'`.
 | **garment/** | LLM + wasm 옷 생성 (`textToScene`) | `garment/README.md` |
 | **drape/** | WebGPU 입힌 뒤 시뮬 (`createClothSim`) | `drape/README.md` |
 
-루트: `ClothSim.js`, `ClothSimView.js`, `index.js` (UI·진입점). `engine/index.js`는 이전 import 호환용 re-export.
+루트: `ClothSim.js`, `ClothSimView.js`, `index.js` (UI·진입점).
 
 만든 파일 다시 만들기 (garment_maker 등):
 - wasm·트리: garment_maker 빌드 스크립트 → `garment/wasm.js`, `garment/assets/trees/`
