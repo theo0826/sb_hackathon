@@ -1,8 +1,8 @@
-:HL["/sb_hackathon/_next/static/css/90496dbc19ebb862.css","style"]
+:HL["/sb_hackathon/_next/static/css/169f3a6b177c83ab.css","style"]
 :HL["/sb_hackathon/_next/static/css/3c8c50c5ac0e3278.css","style"]
 :HL["/sb_hackathon/_next/static/css/be0c6ce2f9787c14.css","style"]
-:HL["/sb_hackathon/_next/static/css/5352b1a55b20bf2c.css","style"]
+:HL["/sb_hackathon/_next/static/css/38d26f30a02e0b01.css","style"]
 :HL["/sb_hackathon/_next/static/css/76a2e13e66390d5d.css","style"]
 2:[["children",{"s":"__PAGE__","h":160}]]
 1:[["children",{"s":"editor","h":96,"c":"$Q2"}]]
-0:{"b":"6gSwenj9dIehIc63JWPeK","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
+0:{"b":"ilpcAs0FojPKPZE1oiyZi","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
