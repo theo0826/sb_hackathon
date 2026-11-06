@@ -6,11 +6,11 @@ import Image from "next/image";
 import Link from "next/link";
 import BrandLogo from "@/components/layout/BrandLogo";
 import SupplierAsset from "@/components/supplier/SupplierAsset";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from "react";
 import { ArrowRight, ArrowUp, Check, ChevronDown, ImagePlus, LoaderCircle, Move, Plus, X } from "lucide-react";
 import { isDesign, type Design } from "@/lib/design";
 import { DESIGN_EXAMPLES, getExampleDesign, type DesignExample } from "@/lib/design-examples";
-import { useDesignSession } from "@/lib/design-session";
+import { discardUnsavedExampleOnEntry, useDesignSession } from "@/lib/design-session";
 import { getLibraryItem, saveLibraryItem } from "@/lib/library";
 import { getClothScene, restoreClothScene, savedClothDesign, setClothScene, snapshotClothDesign } from "@/lib/cloth-scene-session";
 import { generateAIDesign } from "@/lib/ai-client";
@@ -76,6 +76,10 @@ export default function DesignStudio() {
     setDesign((current) => ({ ...current, ...value })); setMessage(""); updateDetails({ confirmed: false });
   };
   const lastPrompt = clothData.text || [...messages].reverse().find((item) => item.role === "user")?.text || prompt;
+
+  useLayoutEffect(() => {
+    discardUnsavedExampleOnEntry(DESIGN_EXAMPLES.map(example => example.prompt));
+  }, []);
 
   useEffect(() => {
     for (const example of DESIGN_EXAMPLES) void getExampleDesign(example).catch(() => {});

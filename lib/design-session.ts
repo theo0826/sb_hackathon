@@ -4,7 +4,7 @@ import { useMemo, useSyncExternalStore, type SetStateAction } from "react";
 import { DEFAULT_DESIGN, isDesign, simpleDesign, type Design } from "./design";
 import { DEFAULT_ORDER, isOrderDraft, type OrderDraft } from "./quote";
 import { getSupplier } from "./suppliers";
-import { clearClothData, setClothData } from "../components/ClothSim/clothdata/store";
+import { clearClothData, getClothData, setClothData } from "../components/ClothSim/clothdata/store";
 import { savedClothDesign, setClothScene, type SavedClothDesign } from "./cloth-scene-session";
 
 export type ChatMessage = { id: string; role: "user" | "assistant"; text: string };
@@ -13,6 +13,7 @@ const DRAFT_KEY = "seongbuk-fit:draft:v1";
 const initialSession: DesignSession = { design: DEFAULT_DESIGN, prompt: "", filename: "", supplierId: null, order: DEFAULT_ORDER, messages: [], hasResult: false, restoredDesignId: null, restoredPreview: null };
 const initialSnapshot = JSON.stringify(initialSession);
 let snapshot: string | null = null;
+let checkedInitialExample = false;
 const listeners = new Set<() => void>();
 
 function parseSession(raw: string): DesignSession | null {
@@ -47,6 +48,16 @@ function updateSession(update: (current: DesignSession) => DesignSession) {
   try { sessionStorage.setItem(DRAFT_KEY, snapshot); }
   catch { /* 저장소가 막혀 있어도 열린 탭에서는 편집 상태를 유지합니다. */ }
   listeners.forEach((listener) => listener());
+}
+
+export function discardUnsavedExampleOnEntry(examplePrompts: readonly string[]) {
+  if (checkedInitialExample) return;
+  checkedInitialExample = true;
+  const draft = parseSession(getSnapshot());
+  if (!draft?.restoredPreview || draft.restoredDesignId || !examplePrompts.includes(getClothData().text)) return;
+  clearClothData();
+  setClothScene(null);
+  updateSession(() => initialSession);
 }
 
 export function useDesignSession() {
