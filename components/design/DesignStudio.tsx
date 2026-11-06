@@ -9,6 +9,7 @@ import SupplierAsset from "@/components/supplier/SupplierAsset";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from "react";
 import { ArrowRight, ArrowUp, Check, ChevronDown, ImagePlus, LoaderCircle, Move, Plus, X } from "lucide-react";
 import { isDesign, type Design } from "@/lib/design";
+import { DESIGN_EXAMPLES, getExampleDesign, getExampleScene, type DesignExample } from "@/lib/design-examples";
 import { useDesignSession } from "@/lib/design-session";
 import { getLibraryItem, saveLibraryItem } from "@/lib/library";
 import { getClothScene, restoreClothScene, savedClothDesign, setClothScene, snapshotClothDesign } from "@/lib/cloth-scene-session";
@@ -27,20 +28,16 @@ import { publicPath } from "@/lib/deployment";
 import { CLOTH_PATTERN_THEME } from "@/lib/cloth-pattern-theme";
 
 const ClothSimulation = dynamic(() => import("./ClothSimulationPreview"), { ssr: false });
-const EXAMPLES = [
-  "네이비 반팔 등판에 학과명 'STATISTICS' 크게",
-  "검정 후드티 가슴에 흰색 영문 'CREW' 크게",
-  "바람막이, 뒷면에 'SEONGBUK' 아치형으로",
-];
 const REFINEMENTS = ["글씨 흰색으로", "뒷면에 문구 추가", "후드로 바꿔줘"];
 const mobileQuery = "(max-width: 700px)";
 const subscribeMobile = (listener: () => void) => { const media = window.matchMedia(mobileQuery); media.addEventListener("change", listener); return () => media.removeEventListener("change", listener); };
 const getMobile = () => window.matchMedia(mobileQuery).matches;
 
 export default function DesignStudio() {
-  const { design, setDesign, prompt, setPrompt, filename, setFilename, messages, setMessages, resetSession, setHasResult, order, setOrder, restoredDesignId, restoredPreview, detachSavedDesign, rememberSavedDesign } = useDesignSession();
+  const { design, setDesign, prompt, setPrompt, filename, setFilename, messages, setMessages, resetSession, setHasResult, order, setOrder, restoredDesignId, restoredPreview, detachSavedDesign, rememberSavedDesign, loadDesign } = useDesignSession();
   const { update: updateDetails } = useOrderDetails();
   const [generating, setGenerating] = useState(false);
+  const [loadingExample, setLoadingExample] = useState(false);
   const [awaitingCapture, setAwaitingCapture] = useState(false);
   const [refining, setRefining] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -78,6 +75,10 @@ export default function DesignStudio() {
     setDesign((current) => ({ ...current, ...value })); setMessage(""); updateDetails({ confirmed: false });
   };
   const lastPrompt = clothData.text || [...messages].reverse().find((item) => item.role === "user")?.text || prompt;
+
+  useEffect(() => {
+    for (const example of DESIGN_EXAMPLES) void getExampleDesign(example).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!clothData.text || getClothScene(clothData.text)) return;
@@ -233,7 +234,9 @@ export default function DesignStudio() {
     saveActive.current = true; setSaving(true); setError(""); setMessage("");
     try {
       const scene = getClothScene(clothData.text);
-      if (!scene) throw new Error("이 저장본에는 3D 장면이 없어요. 디자인을 다시 생성한 뒤 저장해주세요.");
+      if (!scene && !DESIGN_EXAMPLES.some(example => example.prompt === clothData.text)) {
+        throw new Error("이 저장본에는 3D 장면이 없어요. 디자인을 다시 생성한 뒤 저장해주세요.");
+      }
       const preview = clothData.front;
       const saved = await saveLibraryItem({
         kind: "design",
@@ -251,13 +254,50 @@ export default function DesignStudio() {
     finally { saveActive.current = false; setSaving(false); }
   }
   function newDesign() {
-    if (!generating && !uploading && !saving) {
+    if (!requestActive.current && !generating && !uploading && !saving) {
+      generationId.current++;
       clearClothData(); resetSession(); resetOrderDetails(); setPreviewVersion(current => current + 1); setEditorOpen(false); setQuoteOpen(false); setCanEdit(false); setCurrentScene(null); setGuideDismissed(false); setAwaitingCapture(false); setRefining(false); setMessage(""); setError("");
     }
   }
 
   const processing = generating || awaitingCapture;
-  const busy = processing || uploading || saving;
+  const busy = processing || uploading || saving || loadingExample;
+  async function openExample(example: DesignExample) {
+    if (busy || requestActive.current) return;
+    const id = ++generationId.current;
+    requestActive.current = true;
+    setLoadingExample(true);
+    setMessage("");
+    setError("");
+
+    let saved: Awaited<ReturnType<typeof getExampleDesign>>;
+    try {
+      saved = await getExampleDesign(example);
+      if (id !== generationId.current) return;
+      updateDetails({ confirmed: false });
+      setCurrentScene(null);
+      setCanEdit(false);
+      setGuideDismissed(false);
+      loadDesign({ ...saved, order });
+    } catch {
+      if (id === generationId.current) setError("예시 디자인을 열지 못했어요. 다시 눌러주세요.");
+      return;
+    } finally {
+      if (id === generationId.current) {
+        requestActive.current = false;
+        setLoadingExample(false);
+      }
+    }
+
+    try {
+      const scene = await getExampleScene(example, saved.meta);
+      if (id !== generationId.current) return;
+      setClothScene(scene, example.prompt);
+      setPreviewVersion(current => current + 1);
+    } catch {
+      if (id === generationId.current) setError("3D 미리보기를 열지 못했어요. 앞·뒷면 이미지는 확인할 수 있어요.");
+    }
+  }
   function sample(text: string) {
     setPrompt(text);
     setError(""); setMessage("");
@@ -313,7 +353,7 @@ export default function DesignStudio() {
               onPointerUpCapture={() => { orbitStart.current = null; }} onPointerCancelCapture={() => { orbitStart.current = null; }}
               onWheelCapture={() => { if (canEdit && !editorOpen) setGuideDismissed(true); }}>
               <ClothSimulation key={previewVersion} controllerRef={simulation} savedPreview={restoredPreview} logo={clothLogo} view={editorOpen ? "pattern" : "3d"} patternFocus={editorOpen && mobile ? patternFocus : "all"} generating={processing} refining={refining} onFailure={() => { waitingForCapture.current = false; setAwaitingCapture(false); }} onEditableChange={setCanEdit} onSceneChange={setCurrentScene}
-                emptyContent={<div className="studio-welcome"><h1>어떤 옷을 <span>만들고 싶으세요?</span></h1><p>자유롭게 설명하거나, 예시로 시작해 보세요</p><div className="studio-examples">{EXAMPLES.map(text => <button type="button" key={text} disabled={busy} onClick={() => sample(text)}><span>{text}</span></button>)}</div></div>}
+                emptyContent={<div className="studio-welcome"><h1>어떤 옷을 <span>만들고 싶으세요?</span></h1><p>자유롭게 설명하거나, 예시로 시작해 보세요</p><div className="studio-examples">{DESIGN_EXAMPLES.map(example => <button type="button" key={example.id} disabled={busy} onClick={() => openExample(example)}><span>{example.prompt}</span></button>)}</div></div>}
                 onLogoChange={moveLogo}/>
               {canEdit && !editorOpen && !processing && !guideDismissed && <div className="studio-orbit-guide"><span/><p>{mobile ? "드래그로 돌리고, 두 손가락으로 확대해보세요" : "드래그로 돌리고, 스크롤로 확대해보세요"}</p></div>}
             </div>
@@ -339,7 +379,11 @@ export default function DesignStudio() {
           <form onSubmit={generate} className={`studio-composer${prompt.trim() ? " has-prompt" : ""}`} data-ui>
             {design.image && <div className="studio-attached-file"><Image src={design.image} alt="첨부 이미지" width={27} height={27} unoptimized/><span>{filename || "로고 이미지"}</span><button type="button" disabled={busy} aria-label="첨부 이미지 삭제" onClick={removeLogo}><X size={13}/></button></div>}
             <label className="sr-only" htmlFor="prompt">원하는 옷을 설명해주세요</label>
-            <textarea ref={promptInput} id="prompt" rows={1} maxLength={300} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder={hasGarment ? "바꾸고 싶은 부분을 말해주세요" : "원하는 디자인을 말해주세요"} disabled={busy}/>
+            <textarea ref={promptInput} id="prompt" rows={1} maxLength={300} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder={hasGarment ? "바꾸고 싶은 부분을 말해주세요" : "원하는 디자인을 말해주세요"} disabled={busy} onKeyDown={event => {
+              if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+              event.preventDefault();
+              if (!event.repeat && !busy && prompt.trim()) event.currentTarget.form?.requestSubmit();
+            }}/>
             <div className="studio-composer-bottom"><button type="button" className="studio-attach" onClick={() => fileInput.current?.click()} disabled={busy}><Plus size={16}/>{uploading ? "이미지 준비 중" : "로고 · 이미지"}</button><span className="studio-prompt-count">{prompt.length}/300</span>{processing ? <button type="button" className="studio-submit is-cancel" aria-label="생성 취소" title="생성 취소" onClick={cancelGeneration}><span/></button> : <button type="submit" className="studio-submit" aria-label="AI 시안 만들기" title="AI 시안 만들기" disabled={busy || !prompt.trim()}>{uploading ? <LoaderCircle size={17} className="animate-spin"/> : <ArrowUp size={18}/>}</button>}</div>
           </form>
           <div className="studio-dock-caption">{messages.length > 0 && <details className="studio-conversation"><summary>대화 내역 <ChevronDown size={12}/></summary><div ref={conversation} role="log" aria-label="AI 디자인 대화">{messages.map(item => <p key={item.id}><strong>{item.role === "user" ? "나" : "한땀"}</strong>{item.text}</p>)}<button type="button" className="studio-secondary" onClick={newDesign} disabled={busy}>새 디자인 시작</button></div></details>}</div>

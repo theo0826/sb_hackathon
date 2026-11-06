@@ -43,6 +43,13 @@ assert(home.includes(`${base}/vendor/gsap-3.12.2.min.js`), "Onboarding should lo
 for (const asset of ["sweat_turn.mp4", "p_front.svg", "p_back.svg", "p_rib.svg", "p_sl1.svg", "p_sl2.svg"]) {
   assert((await fs.stat(path.join(root, "onboarding/img", asset))).size > 0, `Onboarding asset must be published: ${asset}`);
 }
+const { DESIGN_EXAMPLES } = await loadTS("lib/design-examples.ts");
+for (const { id } of DESIGN_EXAMPLES) {
+  for (const extension of ["json", "bin.gz"]) {
+    const asset = `${id}.${extension}`;
+    assert((await fs.stat(path.join(root, "design-examples", asset))).size > 0, `Design example asset must be published: ${asset}`);
+  }
+}
 for (const route of ["main", "design"]) {
   const html = await fs.readFile(path.join(root, route, "index.html"), "utf8");
   assert(html.includes("handdam-studio"), `Studio should be available: ${route}`);

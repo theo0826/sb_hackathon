@@ -4,7 +4,7 @@ import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type 
 import Image from "next/image";
 // 삭제금지: 팀 ClothSim 엔진·재단 도안 편집기를 같은 장면으로 사용합니다.
 import ClothSim, { type ClothLogo, type ClothSimDesignerHandle, type Progress, type Scene } from "../ClothSim";
-import { getClothData, useClothData } from "../ClothSim/clothdata/store";
+import { getClothData, subscribeClothData, updateClothData, useClothData } from "../ClothSim/clothdata/store";
 import { readyClothCapture } from "@/lib/cloth-capture";
 import ClothCapturePreview from "./ClothCapturePreview";
 import GarmentOutline from "./GarmentOutline";
@@ -35,8 +35,9 @@ export default function ClothSimulationPreview({ controllerRef, savedPreview = n
   const simulator = useRef<ClothSimDesignerHandle>(null);
   const request = useRef(0);
   const running = useRef(false);
-  const textRef = useRef(getClothData().text);
-  const [initialScene] = useState(() => getClothScene(getClothData().text));
+  const [initialData] = useState(getClothData);
+  const textRef = useRef(initialData.text);
+  const [initialScene] = useState(() => getClothScene(initialData.text));
   const [hasScene, setHasScene] = useState(!!initialScene);
   const [clothRepresentText, setClothRepresentText] = useState(() => getClothData().text);
   const [ready, setReady] = useState(false);
@@ -47,6 +48,14 @@ export default function ClothSimulationPreview({ controllerRef, savedPreview = n
   useEffect(() => () => { request.current++; }, []);
   useEffect(() => { onEditableChange?.(hasScene && ready && !generating); }, [hasScene, ready, generating, onEditableChange]);
   useEffect(() => { if (initialScene) onSceneChange?.(initialScene); }, [initialScene, onSceneChange]);
+  useEffect(() => {
+    if (!initialScene || !readyClothCapture(initialData)) return;
+    const { text, category, tokens, price } = initialData;
+    // Captures from a restored scene contain the new images but no original request or spec.
+    return subscribeClothData(capture => {
+      if (!capture.text && readyClothCapture(capture)) updateClothData({ text, category, tokens, price });
+    });
+  }, [initialData, initialScene]);
 
   async function generate(text: string) {
     if (running.current || !text.trim() || !simulator.current) return false;
@@ -78,7 +87,8 @@ export default function ClothSimulationPreview({ controllerRef, savedPreview = n
   return <>
     <div className="wf-stage studio-generated-stage" data-preview-mode={view} aria-busy={!!status && !captureReady && !error}>
       {(!hasScene || !ready || (generating && !refining)) && <div className={`studio-empty-preview${generating ? " is-generating" : ""}`}>
-        {hasScene && !ready && !generating && !error ? <div className="studio-generation-placeholder" role="status"><GarmentOutline shimmer/><strong>저장한 3D 모델을 불러오고 있어요…</strong></div> : captureReady ? <><ClothCapturePreview capture={data}/><p>저장한 앞·뒷면이에요. 로고를 다시 편집하려면 같은 설명으로 의상을 생성해주세요.</p></>
+        {captureReady ? <><ClothCapturePreview capture={data}/><p>저장한 앞·뒷면이에요.</p></>
+          : hasScene && !ready && !generating && !error ? <div className="studio-generation-placeholder" role="status"><GarmentOutline shimmer/><strong>저장한 3D 모델을 불러오고 있어요…</strong></div>
           : generating ? <div className="studio-generation-placeholder"><GarmentOutline shimmer/><strong>디자인 만드는 중…</strong><p>보통 10초 정도 걸려요</p></div>
           : savedPreview ? <Image className="studio-saved-preview" src={savedPreview} alt="저장한 디자인" width={1024} height={1024} unoptimized />
           : emptyContent || <><strong>{view === "pattern" ? "로고를 놓을 도안을 준비해요" : "우리 모임의 옷을 만들어보세요"}</strong><p>아래에 옷 설명을 입력하고 만들기 버튼을 눌러주세요.</p></>}
@@ -92,7 +102,10 @@ export default function ClothSimulationPreview({ controllerRef, savedPreview = n
           onScene={scene => { setClothScene(scene, textRef.current); setHasScene(true); onSceneChange?.(scene); }}
           onProgress={progress => setStatus(stages[progress.stage])}
           onReady={() => { setHasScene(true); setReady(true); setError(""); setStatus("앞·뒷면 이미지를 준비하고 있어요."); }}
-          onError={() => { setReady(false); setHasScene(false); setStatus(""); onFailure?.(); setError("의상 미리보기를 만들지 못했어요. 연결과 브라우저의 그래픽 가속 설정을 확인한 뒤 다시 시도해주세요."); }}
+          onError={() => {
+            setReady(false); setHasScene(false); setStatus(""); onFailure?.();
+            if (!readyClothCapture(getClothData())) setError("의상 미리보기를 만들지 못했어요. 연결과 브라우저의 그래픽 가속 설정을 확인한 뒤 다시 시도해주세요.");
+          }}
           style={{ width: "100%", height: "100%" }}/>
       </div>
       {generating && refining && <div className="studio-refining-overlay" role="status"><span/>수정 중…</div>}
