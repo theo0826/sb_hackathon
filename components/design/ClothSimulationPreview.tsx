@@ -56,9 +56,12 @@ export default function ClothSimulationPreview({ controllerRef, savedPreview = n
   useEffect(() => {
     if (!showExampleModel || !initialScene || ready) return;
     let active = true;
+    const { gpu } = navigator as Navigator & {
+      gpu?: { requestAdapter(options: { powerPreference: "high-performance" }): Promise<unknown> };
+    };
     // The saved scene's WebGPU setup can fail before ClothSim reports readiness.
     void (async () => {
-      if (!await navigator.gpu?.requestAdapter({ powerPreference: "high-performance" }) && active) {
+      if (!await gpu?.requestAdapter({ powerPreference: "high-performance" }) && active) {
         setError(exampleGraphicsError);
       }
     })().catch(() => { if (active) setError(exampleGraphicsError); });
