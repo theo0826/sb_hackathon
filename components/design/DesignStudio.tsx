@@ -9,7 +9,7 @@ import SupplierAsset from "@/components/supplier/SupplierAsset";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from "react";
 import { ArrowRight, ArrowUp, Check, ChevronDown, ImagePlus, LoaderCircle, Move, Plus, X } from "lucide-react";
 import { isDesign, type Design } from "@/lib/design";
-import { DESIGN_EXAMPLES, getExampleDesign, getExampleScene, type DesignExample } from "@/lib/design-examples";
+import { DESIGN_EXAMPLES, getExampleDesign, type DesignExample } from "@/lib/design-examples";
 import { useDesignSession } from "@/lib/design-session";
 import { getLibraryItem, saveLibraryItem } from "@/lib/library";
 import { getClothScene, restoreClothScene, savedClothDesign, setClothScene, snapshotClothDesign } from "@/lib/cloth-scene-session";
@@ -56,6 +56,7 @@ export default function DesignStudio() {
   const mobile = useSyncExternalStore(subscribeMobile, getMobile, () => false);
   const clothData = useClothData();
   const captureReady = readyClothCapture(clothData);
+  const activeExample = captureReady ? DESIGN_EXAMPLES.find(example => example.prompt === clothData.text) : undefined;
   const requestActive = useRef(false);
   const waitingForCapture = useRef(false);
   const generationId = useRef(0);
@@ -87,13 +88,14 @@ export default function DesignStudio() {
       const cached = await restoreClothScene(clothData.text);
       const item = !cached && restoredDesignId ? await getLibraryItem(restoredDesignId) : null;
       const saved = savedClothDesign(item?.cloth);
-      const scene = cached || (saved?.data.text === clothData.text ? saved.scene : undefined);
+      const savedScene = saved?.data.text === clothData.text ? saved.scene : undefined;
+      const scene = cached || savedScene || (activeExample && (await getExampleDesign(activeExample)).cloth.scene);
       if (!active || !scene) return;
       setClothScene(scene, clothData.text);
       setPreviewVersion(current => current + 1);
-    })().catch(() => { /* Keep the stored preview visible if scene restoration is unavailable. */ });
+    })().catch(() => { if (active && activeExample) setError("예시 3D 모델을 다시 열지 못했어요. 페이지를 새로고침해주세요."); });
     return () => { active = false; };
-  }, [restoredDesignId, clothData.text]);
+  }, [activeExample, restoredDesignId, clothData.text]);
 
   useEffect(() => {
     if (!message) return;
@@ -270,15 +272,15 @@ export default function DesignStudio() {
     setMessage("");
     setError("");
 
-    let saved: Awaited<ReturnType<typeof getExampleDesign>>;
     try {
-      saved = await getExampleDesign(example);
+      const saved = await getExampleDesign(example);
       if (id !== generationId.current) return;
       updateDetails({ confirmed: false });
       setCurrentScene(null);
       setCanEdit(false);
       setGuideDismissed(false);
       loadDesign({ ...saved, order });
+      setPreviewVersion(current => current + 1);
     } catch {
       if (id === generationId.current) setError("예시 디자인을 열지 못했어요. 다시 눌러주세요.");
       return;
@@ -287,15 +289,6 @@ export default function DesignStudio() {
         requestActive.current = false;
         setLoadingExample(false);
       }
-    }
-
-    try {
-      const scene = await getExampleScene(example, saved.meta);
-      if (id !== generationId.current) return;
-      setClothScene(scene, example.prompt);
-      setPreviewVersion(current => current + 1);
-    } catch {
-      if (id === generationId.current) setError("3D 미리보기를 열지 못했어요. 앞·뒷면 이미지는 확인할 수 있어요.");
     }
   }
   function sample(text: string) {
@@ -352,7 +345,7 @@ export default function DesignStudio() {
               onPointerMoveCapture={event => { const start = orbitStart.current; if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 5) { setGuideDismissed(true); orbitStart.current = null; } }}
               onPointerUpCapture={() => { orbitStart.current = null; }} onPointerCancelCapture={() => { orbitStart.current = null; }}
               onWheelCapture={() => { if (canEdit && !editorOpen) setGuideDismissed(true); }}>
-              <ClothSimulation key={previewVersion} controllerRef={simulation} savedPreview={restoredPreview} logo={clothLogo} view={editorOpen ? "pattern" : "3d"} patternFocus={editorOpen && mobile ? patternFocus : "all"} generating={processing} refining={refining} onFailure={() => { waitingForCapture.current = false; setAwaitingCapture(false); }} onEditableChange={setCanEdit} onSceneChange={setCurrentScene}
+              <ClothSimulation key={previewVersion} controllerRef={simulation} savedPreview={restoredPreview} showExampleModel={loadingExample || !!activeExample} exampleLoadError={activeExample ? error : ""} logo={clothLogo} view={editorOpen ? "pattern" : "3d"} patternFocus={editorOpen && mobile ? patternFocus : "all"} generating={processing} refining={refining} onFailure={() => { waitingForCapture.current = false; setAwaitingCapture(false); }} onEditableChange={setCanEdit} onSceneChange={setCurrentScene}
                 emptyContent={<div className="studio-welcome"><h1>어떤 옷을 <span>만들고 싶으세요?</span></h1><p>자유롭게 설명하거나, 예시로 시작해 보세요</p><div className="studio-examples">{DESIGN_EXAMPLES.map(example => <button type="button" key={example.id} disabled={busy} onClick={() => openExample(example)}><span>{example.prompt}</span></button>)}</div></div>}
                 onLogoChange={moveLogo}/>
               {canEdit && !editorOpen && !processing && !guideDismissed && <div className="studio-orbit-guide"><span/><p>{mobile ? "드래그로 돌리고, 두 손가락으로 확대해보세요" : "드래그로 돌리고, 스크롤로 확대해보세요"}</p></div>}

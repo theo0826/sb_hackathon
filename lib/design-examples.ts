@@ -25,7 +25,12 @@ async function fetchExampleFile(example: DesignExample, extension: "json" | "bin
 }
 
 async function loadExampleDesign(example: DesignExample) {
-  const asset: ExampleAsset = await (await fetchExampleFile(example, "json")).json();
+  const [asset, bin]: [ExampleAsset, ArrayBuffer] = await Promise.all([
+    fetchExampleFile(example, "json").then(response => response.json()),
+    fetchExampleBin(example),
+  ]);
+  const scene = { meta: asset.meta, bin };
+  if (!isClothScene(scene)) throw new Error("예시 3D 파일을 확인해주세요.");
   const data: ClothData = {
     completed: 1,
     front: asset.front,
@@ -48,27 +53,24 @@ async function loadExampleDesign(example: DesignExample) {
     logoPlacement: asset.logo ?? undefined,
   };
   if (!readyClothCapture(data) || !isDesign(design)) throw new Error("예시 디자인 파일을 확인해주세요.");
-  return { design, prompt: example.prompt, filename: `${asset.title}.png`, cloth: { data }, meta: asset.meta };
+  return { design, prompt: example.prompt, filename: `${asset.title}.png`, cloth: { data, scene } };
 }
 
-const previews = new Map<DesignExample["id"], ReturnType<typeof loadExampleDesign>>();
+const examples = new Map<DesignExample["id"], ReturnType<typeof loadExampleDesign>>();
 
 export function getExampleDesign(example: DesignExample) {
-  const cached = previews.get(example.id);
+  const cached = examples.get(example.id);
   if (cached) return cached;
   const loading = loadExampleDesign(example).catch(error => {
-    previews.delete(example.id);
+    examples.delete(example.id);
     throw error;
   });
-  previews.set(example.id, loading);
+  examples.set(example.id, loading);
   return loading;
 }
 
-export async function getExampleScene(example: DesignExample, meta: Scene["meta"]) {
+async function fetchExampleBin(example: DesignExample) {
   const response = await fetchExampleFile(example, "bin.gz");
   if (!response.body) throw new Error("예시 3D 파일을 불러오지 못했어요.");
-  const bin = await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
-  const scene = { meta, bin };
-  if (!isClothScene(scene)) throw new Error("예시 3D 파일을 확인해주세요.");
-  return scene;
+  return new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
 }
