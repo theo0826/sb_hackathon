@@ -9,7 +9,7 @@ import SupplierAsset from "@/components/supplier/SupplierAsset";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from "react";
 import { ArrowRight, ArrowUp, Check, ChevronDown, ImagePlus, LoaderCircle, Move, Plus, X } from "lucide-react";
 import { isDesign, type Design } from "@/lib/design";
-import { DESIGN_EXAMPLES } from "@/lib/design-examples";
+import { DESIGN_EXAMPLES, getExampleDesign, type DesignExample } from "@/lib/design-examples";
 import { discardUnsavedExampleOnEntry, useDesignSession } from "@/lib/design-session";
 import { getLibraryItem, saveLibraryItem } from "@/lib/library";
 import { getClothScene, restoreClothScene, savedClothDesign, setClothScene, snapshotClothDesign } from "@/lib/cloth-scene-session";
@@ -34,9 +34,10 @@ const subscribeMobile = (listener: () => void) => { const media = window.matchMe
 const getMobile = () => window.matchMedia(mobileQuery).matches;
 
 export default function DesignStudio() {
-  const { design, setDesign, prompt, setPrompt, filename, setFilename, messages, setMessages, resetSession, setHasResult, order, setOrder, restoredDesignId, restoredPreview, detachSavedDesign, rememberSavedDesign } = useDesignSession();
+  const { design, setDesign, prompt, setPrompt, filename, setFilename, messages, setMessages, resetSession, setHasResult, order, setOrder, restoredDesignId, restoredPreview, detachSavedDesign, rememberSavedDesign, loadDesign } = useDesignSession();
   const { update: updateDetails } = useOrderDetails();
   const [generating, setGenerating] = useState(false);
+  const [loadingExample, setLoadingExample] = useState(false);
   const [awaitingCapture, setAwaitingCapture] = useState(false);
   const [refining, setRefining] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -55,6 +56,7 @@ export default function DesignStudio() {
   const mobile = useSyncExternalStore(subscribeMobile, getMobile, () => false);
   const clothData = useClothData();
   const captureReady = readyClothCapture(clothData);
+  const activeExample = captureReady ? DESIGN_EXAMPLES.find(example => example.prompt === clothData.text) : undefined;
   const requestActive = useRef(false);
   const waitingForCapture = useRef(false);
   const generationId = useRef(0);
@@ -77,11 +79,15 @@ export default function DesignStudio() {
 
   useLayoutEffect(() => {
     discardUnsavedExampleOnEntry([
-      ...DESIGN_EXAMPLES,
+      ...DESIGN_EXAMPLES.map(example => example.prompt),
       "네이비 반팔티, 한땀대 STATISTICS 엠블럼",
       "검정 후드티, 한땀대 CREW 엠블럼",
       "크림색 긴팔티, 한땀대 캠퍼스 엠블럼",
     ]);
+  }, []);
+
+  useEffect(() => {
+    for (const example of DESIGN_EXAMPLES) void getExampleDesign(example).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -91,13 +97,14 @@ export default function DesignStudio() {
       const cached = await restoreClothScene(clothData.text);
       const item = !cached && restoredDesignId ? await getLibraryItem(restoredDesignId) : null;
       const saved = savedClothDesign(item?.cloth);
-      const scene = cached || (saved?.data.text === clothData.text ? saved.scene : undefined);
+      const savedScene = saved?.data.text === clothData.text ? saved.scene : undefined;
+      const scene = cached || savedScene || (activeExample && (await getExampleDesign(activeExample)).cloth.scene);
       if (!active || !scene) return;
       setClothScene(scene, clothData.text);
       setPreviewVersion(current => current + 1);
-    })().catch(() => { /* Keep the stored preview visible if scene restoration is unavailable. */ });
+    })().catch(() => { if (active && activeExample) setError("예시 3D 모델을 다시 열지 못했어요. 페이지를 새로고침해주세요."); });
     return () => { active = false; };
-  }, [restoredDesignId, clothData.text]);
+  }, [activeExample, restoredDesignId, clothData.text]);
 
   useEffect(() => {
     if (!message) return;
@@ -262,7 +269,34 @@ export default function DesignStudio() {
   }
 
   const processing = generating || awaitingCapture;
-  const busy = processing || uploading || saving;
+  const busy = processing || uploading || saving || loadingExample;
+  async function openExample(example: DesignExample) {
+    if (busy || requestActive.current) return;
+    const id = ++generationId.current;
+    requestActive.current = true;
+    setLoadingExample(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const saved = await getExampleDesign(example);
+      if (id !== generationId.current) return;
+      updateDetails({ confirmed: false });
+      setCurrentScene(null);
+      setCanEdit(false);
+      setGuideDismissed(false);
+      loadDesign({ ...saved, order });
+      setPreviewVersion(current => current + 1);
+    } catch {
+      if (id === generationId.current) setError("예시 디자인을 열지 못했어요. 다시 눌러주세요.");
+      return;
+    } finally {
+      if (id === generationId.current) {
+        requestActive.current = false;
+        setLoadingExample(false);
+      }
+    }
+  }
   function sample(text: string) {
     setPrompt(text);
     setError(""); setMessage("");
@@ -318,8 +352,8 @@ export default function DesignStudio() {
               onPointerMoveCapture={event => { const start = orbitStart.current; if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 5) { setGuideDismissed(true); orbitStart.current = null; } }}
               onPointerUpCapture={() => { orbitStart.current = null; }} onPointerCancelCapture={() => { orbitStart.current = null; }}
               onWheelCapture={() => { if (canEdit && !editorOpen) setGuideDismissed(true); }}>
-              <ClothSimulation key={previewVersion} controllerRef={simulation} savedPreview={restoredPreview} logo={clothLogo} view={editorOpen ? "pattern" : "3d"} patternFocus={editorOpen && mobile ? patternFocus : "all"} generating={processing} refining={refining} onFailure={() => { waitingForCapture.current = false; setAwaitingCapture(false); }} onEditableChange={setCanEdit} onSceneChange={setCurrentScene}
-                emptyContent={<div className="studio-welcome"><h1>어떤 옷을 <span>만들고 싶으세요?</span></h1><p>자유롭게 설명하거나, 예시로 시작해 보세요</p><div className="studio-examples">{DESIGN_EXAMPLES.map(text => <button type="button" key={text} disabled={busy} onClick={() => sample(text)}><span>{text}</span></button>)}</div></div>}
+              <ClothSimulation key={previewVersion} controllerRef={simulation} savedPreview={restoredPreview} showExampleModel={loadingExample || !!activeExample} exampleLoadError={activeExample ? error : ""} logo={clothLogo} view={editorOpen ? "pattern" : "3d"} patternFocus={editorOpen && mobile ? patternFocus : "all"} generating={processing} refining={refining} onFailure={() => { waitingForCapture.current = false; setAwaitingCapture(false); }} onEditableChange={setCanEdit} onSceneChange={setCurrentScene}
+                emptyContent={<div className="studio-welcome"><h1>어떤 옷을 <span>만들고 싶으세요?</span></h1><p>자유롭게 설명하거나, 예시로 시작해 보세요</p><div className="studio-examples">{DESIGN_EXAMPLES.map(example => <button type="button" key={example.id} disabled={busy} onClick={() => openExample(example)}><span>{example.prompt}</span></button>)}</div></div>}
                 onLogoChange={moveLogo}/>
               {canEdit && !editorOpen && !processing && !guideDismissed && <div className="studio-orbit-guide"><span/><p>{mobile ? "드래그로 돌리고, 두 손가락으로 확대해보세요" : "드래그로 돌리고, 스크롤로 확대해보세요"}</p></div>}
             </div>
