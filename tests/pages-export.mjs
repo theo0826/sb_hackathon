@@ -38,14 +38,20 @@ for (const route of ["", "main", "design"]) {
   }
 }
 assert(home.includes("handdam-onboarding"), "Home should open the onboarding screen");
+assert(home.includes("단체복 만들어보기"), "Home should include the November onboarding CTA");
 assert(home.includes(`href="${base}/main/"`), "Start should open the repository-prefixed main route");
 assert(home.includes(`${base}/vendor/gsap-3.12.2.min.js`), "Onboarding should load local GSAP");
-for (const asset of ["sweat_turn.mp4", "p_front.svg", "p_back.svg", "p_rib.svg", "p_sl1.svg", "p_sl2.svg"]) {
+const filmAssets = [
+  "sweat_turn.mp4", "table.jpg", "door_empty.webp", "cut_open_empty.webp", "cut_open_full.webp", "cut_closed.webp",
+  ...Array.from({ length: 16 }, (_, index) => [`dp${index}.webp`, `rp${index}.webp`]).flat(),
+];
+for (const asset of filmAssets) {
+  assert(home.includes(`${base}/onboarding/img/${asset}`), `Onboarding should use the published asset: ${asset}`);
   assert((await fs.stat(path.join(root, "onboarding/img", asset))).size > 0, `Onboarding asset must be published: ${asset}`);
 }
 const { DESIGN_EXAMPLES } = await loadTS("lib/design-examples.ts");
 for (const { id } of DESIGN_EXAMPLES) {
-  for (const extension of ["json", "bin.gz"]) {
+  for (const extension of ["jpg", "json", "bin.gz"]) {
     const asset = `${id}.${extension}`;
     assert((await fs.stat(path.join(root, "design-examples", asset))).size > 0, `Design example asset must be published: ${asset}`);
   }

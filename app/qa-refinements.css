@@ -31,11 +31,11 @@
 .order-review .order-radio-group > label:has(input:checked) { border-color:#041e41; }
 @media (min-width:701px) {
   .order-review .flow-steps { gap:9px; }
-  .order-review .flow-steps li { gap:4px; font-size:14px; line-height:20px; }
+  .order-review .flow-steps li { gap:4px; font-size:0.875rem; line-height:1.25rem; }
   .order-review .flow-steps li:not(:last-child)::after { flex:none; width:12px; margin-left:5px; text-align:center; }
-  .order-review-title h1,.supplier-title h1 { font-size:26px; }
-  .order-review-title p,.supplier-title > p { font-size:14px; }
-  .supplier-steps { font-size:14px; }
+  .order-review-title h1,.supplier-title h1 { font-size:1.625rem; }
+  .order-review-title p,.supplier-title > p { font-size:0.875rem; }
+  .supplier-steps { font-size:0.875rem; }
   .handdam-studio[data-first-loading=true] .studio-empty-preview.is-generating { justify-content:center; padding:0 16px 60px; }
   .handdam-studio[data-first-loading=true] .studio-generation-placeholder { transform:none; }
   .handdam-studio[data-first-loading=true] .studio-generation-placeholder > svg { width:250px; height:258px; max-height:40svh; margin-bottom:20px; }

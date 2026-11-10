@@ -353,7 +353,16 @@ export default function DesignStudio() {
               onPointerUpCapture={() => { orbitStart.current = null; }} onPointerCancelCapture={() => { orbitStart.current = null; }}
               onWheelCapture={() => { if (canEdit && !editorOpen) setGuideDismissed(true); }}>
               <ClothSimulation key={previewVersion} controllerRef={simulation} savedPreview={restoredPreview} showExampleModel={loadingExample || !!activeExample} exampleLoadError={activeExample ? error : ""} logo={clothLogo} view={editorOpen ? "pattern" : "3d"} patternFocus={editorOpen && mobile ? patternFocus : "all"} generating={processing} refining={refining} onFailure={() => { waitingForCapture.current = false; setAwaitingCapture(false); }} onEditableChange={setCanEdit} onSceneChange={setCurrentScene}
-                emptyContent={<div className="studio-welcome"><h1>어떤 옷을 <span>만들고 싶으세요?</span></h1><p>자유롭게 설명하거나, 예시로 시작해 보세요</p><div className="studio-examples">{DESIGN_EXAMPLES.map(example => <button type="button" key={example.id} disabled={busy} onClick={() => openExample(example)}><span>{example.prompt}</span></button>)}</div></div>}
+                emptyContent={<div className="studio-welcome">
+                  <h1>어떤 옷을 <span>만들고 싶으세요?</span></h1>
+                  <p>예시를 누르면 바로 3D로 만들어져요</p>
+                  <div className="studio-examples">
+                    {DESIGN_EXAMPLES.map(example => <button type="button" key={example.id} disabled={busy} onClick={() => openExample(example)}>
+                      <Image src={publicPath(`/design-examples/${example.id}.jpg`)} alt="" width={1074} height={810} unoptimized/>
+                      <span>{example.prompt.replace(", ", ",\n")}</span>
+                    </button>)}
+                  </div>
+                </div>}
                 onLogoChange={moveLogo}/>
               {canEdit && !editorOpen && !processing && !guideDismissed && <div className="studio-orbit-guide"><span/><p>{mobile ? "드래그로 돌리고, 두 손가락으로 확대해보세요" : "드래그로 돌리고, 스크롤로 확대해보세요"}</p></div>}
             </div>
