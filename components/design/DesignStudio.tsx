@@ -6,10 +6,11 @@ import Image from "next/image";
 import Link from "next/link";
 import BrandLogo from "@/components/layout/BrandLogo";
 import SupplierAsset from "@/components/supplier/SupplierAsset";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from "react";
 import { ArrowRight, ArrowUp, Check, ChevronDown, ImagePlus, LoaderCircle, Move, Plus, X } from "lucide-react";
 import { isDesign, type Design } from "@/lib/design";
-import { useDesignSession } from "@/lib/design-session";
+import { DESIGN_EXAMPLES } from "@/lib/design-examples";
+import { discardUnsavedExampleOnEntry, useDesignSession } from "@/lib/design-session";
 import { getLibraryItem, saveLibraryItem } from "@/lib/library";
 import { getClothScene, restoreClothScene, savedClothDesign, setClothScene, snapshotClothDesign } from "@/lib/cloth-scene-session";
 import { generateAIDesign } from "@/lib/ai-client";
@@ -18,7 +19,7 @@ import { estimate, won } from "@/lib/order-workflow";
 import { SUPPLIERS } from "@/lib/suppliers";
 import { GARMENT_PRICING, pricingGarment } from "@/lib/garment-pricing";
 import { resetOrderDetails, useOrderDetails } from "@/lib/order-workflow-client";
-import { clearClothData, subscribeClothData, updateClothData, useClothData } from "@/components/ClothSim/clothdata/store";
+import { subscribeClothData, updateClothData, useClothData } from "@/components/ClothSim/clothdata/store";
 import { readyClothCapture } from "@/lib/cloth-capture";
 import type { ClothSimulationControls } from "./ClothSimulationPreview";
 import ClothPatternEditor from "../ClothSim/pattern/PatternEditor.js";
@@ -27,11 +28,6 @@ import { publicPath } from "@/lib/deployment";
 import { CLOTH_PATTERN_THEME } from "@/lib/cloth-pattern-theme";
 
 const ClothSimulation = dynamic(() => import("./ClothSimulationPreview"), { ssr: false });
-const EXAMPLES = [
-  "네이비 반팔 등판에 학과명 'STATISTICS' 크게",
-  "검정 후드티 가슴에 흰색 영문 'CREW' 크게",
-  "바람막이, 뒷면에 'SEONGBUK' 아치형으로",
-];
 const REFINEMENTS = ["글씨 흰색으로", "뒷면에 문구 추가", "후드로 바꿔줘"];
 const mobileQuery = "(max-width: 700px)";
 const subscribeMobile = (listener: () => void) => { const media = window.matchMedia(mobileQuery); media.addEventListener("change", listener); return () => media.removeEventListener("change", listener); };
@@ -74,10 +70,19 @@ export default function DesignStudio() {
   const patch = (value: Partial<Design>) => {
     const logoChanged = ("image" in value && value.image !== design.image)
       || ("logoPlacement" in value && JSON.stringify(value.logoPlacement) !== JSON.stringify(design.logoPlacement));
-    if (logoChanged && getClothScene(clothData.text)) updateClothData({ completed: 0 });
+    if (logoChanged && (currentScene || getClothScene(clothData.text))) updateClothData({ completed: 0 });
     setDesign((current) => ({ ...current, ...value })); setMessage(""); updateDetails({ confirmed: false });
   };
   const lastPrompt = clothData.text || [...messages].reverse().find((item) => item.role === "user")?.text || prompt;
+
+  useLayoutEffect(() => {
+    discardUnsavedExampleOnEntry([
+      ...DESIGN_EXAMPLES,
+      "네이비 반팔티, 한땀대 STATISTICS 엠블럼",
+      "검정 후드티, 한땀대 CREW 엠블럼",
+      "크림색 긴팔티, 한땀대 캠퍼스 엠블럼",
+    ]);
+  }, []);
 
   useEffect(() => {
     if (!clothData.text || getClothScene(clothData.text)) return;
@@ -232,8 +237,7 @@ export default function DesignStudio() {
     if (saveActive.current || generating || awaitingCapture || uploading || !captureReady) return;
     saveActive.current = true; setSaving(true); setError(""); setMessage("");
     try {
-      const scene = getClothScene(clothData.text);
-      if (!scene) throw new Error("이 저장본에는 3D 장면이 없어요. 디자인을 다시 생성한 뒤 저장해주세요.");
+      const scene = currentScene || getClothScene(clothData.text);
       const preview = clothData.front;
       const saved = await saveLibraryItem({
         kind: "design",
@@ -251,8 +255,9 @@ export default function DesignStudio() {
     finally { saveActive.current = false; setSaving(false); }
   }
   function newDesign() {
-    if (!generating && !uploading && !saving) {
-      clearClothData(); resetSession(); resetOrderDetails(); setPreviewVersion(current => current + 1); setEditorOpen(false); setQuoteOpen(false); setCanEdit(false); setCurrentScene(null); setGuideDismissed(false); setAwaitingCapture(false); setRefining(false); setMessage(""); setError("");
+    if (!requestActive.current && !generating && !uploading && !saving) {
+      generationId.current++;
+      resetSession(); resetOrderDetails(); setPreviewVersion(current => current + 1); setEditorOpen(false); setQuoteOpen(false); setCanEdit(false); setCurrentScene(null); setGuideDismissed(false); setAwaitingCapture(false); setRefining(false); setMessage(""); setError("");
     }
   }
 
@@ -293,6 +298,7 @@ export default function DesignStudio() {
     <header className="handdam-header" inert={modalOpen}>
       <BrandLogo/>
       <div className="studio-header-actions">
+        {hasGarment && <button type="button" className="studio-header-button" onClick={newDesign} disabled={busy}>새 디자인</button>}
         <button type="button" className="studio-header-button" onClick={save} disabled={busy || !captureReady}>{saving ? <LoaderCircle size={17} className="animate-spin"/> : <SupplierAsset name="cb3ac.svg"/>}<span className="studio-save-desktop">{saving ? "저장 중" : "저장하기"}</span><span className="studio-save-mobile">{saving ? "저장 중" : "저장"}</span></button>
         <AccountMenu/>
       </div>
@@ -313,7 +319,7 @@ export default function DesignStudio() {
               onPointerUpCapture={() => { orbitStart.current = null; }} onPointerCancelCapture={() => { orbitStart.current = null; }}
               onWheelCapture={() => { if (canEdit && !editorOpen) setGuideDismissed(true); }}>
               <ClothSimulation key={previewVersion} controllerRef={simulation} savedPreview={restoredPreview} logo={clothLogo} view={editorOpen ? "pattern" : "3d"} patternFocus={editorOpen && mobile ? patternFocus : "all"} generating={processing} refining={refining} onFailure={() => { waitingForCapture.current = false; setAwaitingCapture(false); }} onEditableChange={setCanEdit} onSceneChange={setCurrentScene}
-                emptyContent={<div className="studio-welcome"><h1>어떤 옷을 <span>만들고 싶으세요?</span></h1><p>자유롭게 설명하거나, 예시로 시작해 보세요</p><div className="studio-examples">{EXAMPLES.map(text => <button type="button" key={text} disabled={busy} onClick={() => sample(text)}><span>{text}</span></button>)}</div></div>}
+                emptyContent={<div className="studio-welcome"><h1>어떤 옷을 <span>만들고 싶으세요?</span></h1><p>자유롭게 설명하거나, 예시로 시작해 보세요</p><div className="studio-examples">{DESIGN_EXAMPLES.map(text => <button type="button" key={text} disabled={busy} onClick={() => sample(text)}><span>{text}</span></button>)}</div></div>}
                 onLogoChange={moveLogo}/>
               {canEdit && !editorOpen && !processing && !guideDismissed && <div className="studio-orbit-guide"><span/><p>{mobile ? "드래그로 돌리고, 두 손가락으로 확대해보세요" : "드래그로 돌리고, 스크롤로 확대해보세요"}</p></div>}
             </div>
@@ -339,7 +345,11 @@ export default function DesignStudio() {
           <form onSubmit={generate} className={`studio-composer${prompt.trim() ? " has-prompt" : ""}`} data-ui>
             {design.image && <div className="studio-attached-file"><Image src={design.image} alt="첨부 이미지" width={27} height={27} unoptimized/><span>{filename || "로고 이미지"}</span><button type="button" disabled={busy} aria-label="첨부 이미지 삭제" onClick={removeLogo}><X size={13}/></button></div>}
             <label className="sr-only" htmlFor="prompt">원하는 옷을 설명해주세요</label>
-            <textarea ref={promptInput} id="prompt" rows={1} maxLength={300} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder={hasGarment ? "바꾸고 싶은 부분을 말해주세요" : "원하는 디자인을 말해주세요"} disabled={busy}/>
+            <textarea ref={promptInput} id="prompt" rows={1} maxLength={300} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder={hasGarment ? "바꾸고 싶은 부분을 말해주세요" : "원하는 디자인을 말해주세요"} disabled={busy} onKeyDown={event => {
+              if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+              event.preventDefault();
+              if (!event.repeat && !busy && prompt.trim()) event.currentTarget.form?.requestSubmit();
+            }}/>
             <div className="studio-composer-bottom"><button type="button" className="studio-attach" onClick={() => fileInput.current?.click()} disabled={busy}><Plus size={16}/>{uploading ? "이미지 준비 중" : "로고 · 이미지"}</button><span className="studio-prompt-count">{prompt.length}/300</span>{processing ? <button type="button" className="studio-submit is-cancel" aria-label="생성 취소" title="생성 취소" onClick={cancelGeneration}><span/></button> : <button type="submit" className="studio-submit" aria-label="AI 시안 만들기" title="AI 시안 만들기" disabled={busy || !prompt.trim()}>{uploading ? <LoaderCircle size={17} className="animate-spin"/> : <ArrowUp size={18}/>}</button>}</div>
           </form>
           <div className="studio-dock-caption">{messages.length > 0 && <details className="studio-conversation"><summary>대화 내역 <ChevronDown size={12}/></summary><div ref={conversation} role="log" aria-label="AI 디자인 대화">{messages.map(item => <p key={item.id}><strong>{item.role === "user" ? "나" : "한땀"}</strong>{item.text}</p>)}<button type="button" className="studio-secondary" onClick={newDesign} disabled={busy}>새 디자인 시작</button></div></details>}</div>

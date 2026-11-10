@@ -24,8 +24,11 @@ export function supplierOfferIssues(design: Design, order: OrderDraft, supplier:
   }
   return issues;
 }
+export function demoOffers(order: OrderDraft): SupplierOffer[] {
+  return BIDDING_SUPPLIERS.map(supplier => ({ supplier, price: estimate(supplier, order) }));
+}
 export function matchingOffers(design: Design, order: OrderDraft, today = todayKST()): SupplierOffer[] {
-  return BIDDING_SUPPLIERS.map(supplier => ({ supplier, price: estimate(supplier, order) })).filter(({ supplier }) =>
+  return demoOffers(order).filter(({ supplier }) =>
     supplierOfferIssues(design, order, supplier, today).length === 0);
 }
 export function recommendedOffer(offers: SupplierOffer[]) {

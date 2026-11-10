@@ -1,6 +1,6 @@
 import { isDesign } from "./design";
-import { isOrderDetails, reviewIssues, type DemoOrder, type OrderInput } from "./order-workflow";
-import { emailTemplate, isOrderDraft, orderRows, totalQuantity, validateDesignForSupplier, validateOrder, type QuoteRecord } from "./quote";
+import { isOrderDetails, type DemoOrder, type OrderInput } from "./order-workflow";
+import { emailTemplate, isOrderDraft, orderRows, totalQuantity, type QuoteRecord } from "./quote";
 import { getSupplier } from "./suppliers";
 import { isClothCapture, type ClothCapture } from "./cloth-capture";
 
@@ -14,11 +14,8 @@ export function deliveryOrder(input: OrderInput, requestKey: string, confirmed: 
     || typeof input.filename !== "string" || input.filename.length > 255 || !Number.isFinite(Date.parse(createdAt))) throw new Error("저장할 주문 정보를 확인해주세요.");
   const supplier = getSupplier(input.supplierId);
   if (!supplier) throw new Error("업체를 먼저 선택해주세요.");
-  const issues = [...reviewIssues(input.order, input.details), ...Object.values(validateOrder(input.order, supplier))];
-  const designIssue = validateDesignForSupplier(input.design, supplier);
-  if (designIssue) issues.push(designIssue);
-  if (!confirmed) issues.push("도안과 주문 조건을 확인한 뒤 체크해주세요.");
-  if (issues.length) throw new Error([...new Set(issues)].join(" "));
+  if (!input.details.confirmed) throw new Error("주문서를 먼저 확인해주세요.");
+  if (!confirmed) throw new Error("도안과 주문 조건을 확인한 뒤 체크해주세요.");
   const email = emailTemplate(supplier, input.design, input.order, input.filename);
   const quote: QuoteRecord = {
     id: `quote_${requestKey}`, mode: "mock", status: "prepared", createdAt,

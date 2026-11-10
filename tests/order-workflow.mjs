@@ -111,9 +111,16 @@ assert(!flow.sameOrderInput(savedOrder, { ...savedOrder, details:{ ...validDetai
 assert.throws(() => deliveryOrder(savedOrder, requestKey, false), /체크/);
 assert.throws(() => deliveryOrder(savedOrder, 'invalid', true), /주문 정보/);
 assert.throws(() => deliveryOrder({ ...savedOrder, supplierId:'missing' }, requestKey, true), /업체/);
-assert.throws(() => deliveryOrder({ ...savedOrder, order:{ ...validOrder, group:'' } }, requestKey, true), /단체 이름/);
-assert.throws(() => deliveryOrder({ ...savedOrder, order:{ ...validOrder, sizes:{ S:1,M:0,L:0,XL:0 } } }, requestKey, true), /최소 주문/);
-assert.throws(() => deliveryOrder({ ...savedOrder, details:{ ...validDetails, delivery:'shipping',address:'' } }, requestKey, true), /주소/);
+assert.throws(() => deliveryOrder({ ...savedOrder, details:{ ...validDetails, confirmed:false } }, requestKey, true), /주문서/);
+const demoInput = {
+  ...savedOrder,
+  order:{ ...validOrder, group:'', contactEmail:'demo', desiredDeliveryDate:'', method:'자수', sizes:{ S:0,M:0,L:0,XL:0 } },
+  details:{ ...validDetails, delivery:'shipping', address:'', useRoster:true, roster:[] },
+};
+const demoDelivery = deliveryOrder(demoInput, requestKey, true);
+assert(flow.isDemoOrder(demoDelivery));
+assert.deepEqual(demoDelivery.order, demoInput.order);
+assert.deepEqual(demoDelivery.details, demoInput.details);
 delivery.design.text = '변경한 복사본';
 delivery.order.group = '변경한 단체';
 assert.equal(JSON.stringify(savedOrder), inputSnapshot, 'Stored delivery must be an independent snapshot');
